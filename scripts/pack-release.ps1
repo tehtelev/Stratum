@@ -22,8 +22,11 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $infoFile = Join-Path $repoRoot 'sources/VintagestoryLib/Vintagestory/Server/StratumInfo.cs'
 $infoText = Get-Content $infoFile -Raw
-$version  = [regex]::Match($infoText, 'Version\s*=\s*"([^"]+)"').Groups[1].Value
-if (-not $version) { throw "Could not read Stratum version from $infoFile" }
+$baseVer = [regex]::Match($infoText, 'BaseGameVersion\s*=\s*"([^"]+)"').Groups[1].Value
+$rev     = [regex]::Match($infoText, 'StratumRevision\s*=\s*"([^"]+)"').Groups[1].Value
+$pre     = [regex]::Match($infoText, 'PreRelease\s*=\s*"([^"]*)"').Groups[1].Value
+if (-not $baseVer -or -not $rev) { throw "Could not parse version pieces from $infoFile" }
+$version = if ($pre) { "$baseVer-stratum.$rev-$pre" } else { "$baseVer-stratum.$rev" }
 
 $keepFiles = @(
     'StratumServer.exe',
