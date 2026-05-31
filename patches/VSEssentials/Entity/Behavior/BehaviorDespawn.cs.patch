@@ -1,0 +1,67 @@
+diff --git a/VSEssentials/Entity/Behavior/BehaviorDespawn.cs b/VSEssentials/Entity/Behavior/BehaviorDespawn.cs
+index 9ee9c19..31d28c2 100644
+--- a/VSEssentials/Entity/Behavior/BehaviorDespawn.cs
++++ b/VSEssentials/Entity/Behavior/BehaviorDespawn.cs
+@@ -103,12 +103,14 @@ namespace Vintagestory.GameContent
+             {
+                 despawnMode = EnumDespawnMode.AfterSecondsOrAfterDays;
+                 entity.WatchedAttributes.SetDouble("despawnTotalDays", entity.World.Calendar.TotalDays + obj.AsFloat(14));
+             }
+ 
+-            // Reduce chance of many entities running the light check at the same time
+-            accumOffset += (float)((entity.EntityId / 200.0) % 1);
++            // Reduce chance of many entities running the light check at the same time.
++            // Stratum: widen the stagger window from 1s to ~5s, since at 100-350 player
++            // counts the per-entity 1s jitter wasn't enough to prevent multi-second bursts.
++            accumOffset += (float)((entity.EntityId / 73.0) % 5);
+ 
+             deathTimeLocal = DeathTime;
+         }
+ 
+ 
+@@ -118,10 +120,28 @@ namespace Vintagestory.GameContent
+ 
+             deltaTime = (float)System.Math.Min(deltaTime, 0.2);
+ 
+             if ((accumSeconds += deltaTime) > accumOffset)
+             {
++                // Stratum: global per-tick budget. If too many despawn checks have already run
++                // in this server tick, defer slightly so the burst spreads across ticks.
++                // BlockAccessor.GetLightLevel can be expensive on cold chunks and large mob
++                // spawns can push hundreds of entities past accumOffset on the same tick.
++                long nowMs = System.Environment.TickCount64;
++                if (nowMs != stratumLastBudgetTickMs)
++                {
++                    stratumLastBudgetTickMs = nowMs;
++                    stratumChecksThisTick = 0;
++                }
++                if (stratumChecksThisTick >= StratumMaxChecksPerTick)
++                {
++                    // Try again on the very next tick (next OnGameTick crosses accumOffset again).
++                    accumSeconds = accumOffset - 0.05f;
++                    return;
++                }
++                stratumChecksThisTick++;
++
+                 if (despawnMode == EnumDespawnMode.AfterSecondsOrAfterDaysIgnorePlayer)
+                 {
+                     if (entity.World.Calendar.TotalDays > entity.WatchedAttributes.GetDouble("despawnTotalDays"))
+                     {
+                         entity.Die(EnumDespawnReason.Expire, null);
+@@ -177,10 +197,16 @@ namespace Vintagestory.GameContent
+             return level >= belowLightLevel;
+         }
+ 
+         public override string PropertyName() => "timeddespawn";
+ 
++        // Stratum: shared across all despawn behaviors on the same side. Caps the number of
++        // despawn check evaluations that may run in the same server tick.
++        private static long stratumLastBudgetTickMs;
++        private static int stratumChecksThisTick;
++        private const int StratumMaxChecksPerTick = 16;
++
+         public override void GetInfoText(StringBuilder infotext)
+         {
+             if (belowLightLevel >= 0 && !LightLevelOk() && entity.Alive)
+             {
+                 infotext.AppendLine(Lang.Get("Deprived of light, might die soon"));
