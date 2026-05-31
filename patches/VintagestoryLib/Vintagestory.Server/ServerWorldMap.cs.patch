@@ -1,15 +1,7 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerWorldMap.cs b/VintagestoryLib/Vintagestory.Server/ServerWorldMap.cs
-index 95784e8..134b6b7 100644
+index 95784e8..57cde14 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerWorldMap.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerWorldMap.cs
-@@ -1,6 +1,6 @@
--using System;
-+Γê⌐ΓòùΓöÉusing System;
- using System.Collections.Generic;
- using System.IO;
- using System.Linq;
- using SkiaSharp;
- using Vintagestory.API.Common;
 @@ -427,11 +427,11 @@ public sealed class ServerWorldMap : WorldMap, IChunkProvider, ILandClaimAPI
  		//IL_0027: Expected O, but got Unknown
  		//IL_0098: Unknown result type (might be due to invalid IL or missing references)

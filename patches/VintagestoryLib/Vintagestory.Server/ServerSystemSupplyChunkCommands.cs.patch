@@ -1,15 +1,7 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemSupplyChunkCommands.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemSupplyChunkCommands.cs
-index f9611ee..208d5de 100644
+index f9611ee..e84b49c 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemSupplyChunkCommands.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemSupplyChunkCommands.cs
-@@ -1,6 +1,6 @@
--using System;
-+Γê⌐ΓòùΓöÉusing System;
- using System.Collections.Generic;
- using System.IO;
- using System.Linq;
- using System.Text;
- using ProtoBuf;
 @@ -429,11 +429,11 @@ internal class ServerSystemSupplyChunkCommands : ServerSystem
  					val.SetPixel(item.chunkX, item.chunkZ, new SKColor((byte)20, (byte)20, (byte)20, byte.MaxValue));
  					continue;

@@ -1,5 +1,5 @@
 diff --git a/VSEssentials/Entity/AI/BehaviorTaskAI.cs b/VSEssentials/Entity/AI/BehaviorTaskAI.cs
-index 4373f19..d63066f 100644
+index 7ed1606..630aa2a 100644
 --- a/VSEssentials/Entity/AI/BehaviorTaskAI.cs
 +++ b/VSEssentials/Entity/AI/BehaviorTaskAI.cs
 @@ -113,22 +113,62 @@ public class EntityBehaviorTaskAI(Entity entity) : EntityBehavior(entity)

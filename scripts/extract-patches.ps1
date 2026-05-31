@@ -75,10 +75,27 @@ try {
         [System.IO.File]::WriteAllBytes($Dst, [System.Text.Encoding]::UTF8.GetBytes($text))
     }
 
+    function Write-NormalizedCopy {
+        param([string]$Src, [string]$Dst)
+        # VS saves .cs as UTF-8-with-BOM by default!! ilspycmd output is BOM-less LF.
+        # Normalize both sides to BOM-less LF before diffing so the BOM never fkn adds
+        # in a patch as a + / - byte on the first line
+        $text = [System.IO.File]::ReadAllText($Src) -replace "`r`n", "`n"
+        [System.IO.File]::WriteAllBytes($Dst, [System.Text.Encoding]::UTF8.GetBytes($text))
+    }
+
     function Get-DiffLines {
         param([string]$BaseFile, [string]$WorkFile)
-        $out = & git --no-pager -c core.safecrlf=false diff --no-color --no-index -U5 -- $BaseFile $WorkFile 2>$null
-        return $out
+        $tmpBase = [System.IO.Path]::GetTempFileName()
+        $tmpWork = [System.IO.Path]::GetTempFileName()
+        try {
+            Write-NormalizedCopy -Src $BaseFile -Dst $tmpBase
+            Write-NormalizedCopy -Src $WorkFile -Dst $tmpWork
+            $out = & git --no-pager -c core.safecrlf=false diff --no-color --no-index -U5 -- $tmpBase $tmpWork 2>$null
+            return $out
+        } finally {
+            Remove-Item -Force -ErrorAction SilentlyContinue $tmpBase, $tmpWork
+        }
     }
 
     function Format-PatchHeaders {
