@@ -1,0 +1,132 @@
+diff --git a/VSEssentials/Systems/EntityPartitioning.cs b/VSEssentials/Systems/EntityPartitioning.cs
+index a0aa3b8..a837da4 100644
+--- a/VSEssentials/Systems/EntityPartitioning.cs
++++ b/VSEssentials/Systems/EntityPartitioning.cs
+@@ -16,10 +16,15 @@ namespace Vintagestory.GameContent
+     public class EntityPartitionChunk
+     {
+         public List<Entity>[] Entities;
+         public List<Entity>[] InanimateEntities;
+ 
++        // Stratum: marks the tick generation in which this chunk was last populated.
++        // Used to (a) detect whether to add to the per-tick active list, (b) garbage-collect
++        // long-empty chunks. Zero == never populated.
++        internal int StratumGeneration;
++
+         public EntityPartitionChunk()
+         {
+             Entities = new List<Entity>[EntityPartitioning.partitionsLength * EntityPartitioning.partitionsLength];
+         }
+ 
+@@ -132,11 +137,36 @@ namespace Vintagestory.GameContent
+             long chunkMapSizeX = api.World.BlockAccessor.MapSizeX / chunkSize;
+             long chunkMapSizeZ = api.World.BlockAccessor.MapSizeZ / chunkSize;
+             double largestTouchDistance = 0;
+ 
+             var Partitions = this.Partitions;
+-            Partitions.Clear();
++
++            // Stratum: clear last tick's populated chunks in-place (preserves List<Entity>
++            // capacity, avoids the per-tick churn of clearing the dictionary and reallocating
++            // EntityPartitionChunk + List<Entity> instances for every populated cell).
++            var activeChunks = stratumActiveChunks;
++            for (int i = 0; i < activeChunks.Count; i++)
++            {
++                var c = activeChunks[i];
++                var ents = c.Entities;
++                for (int g = 0; g < ents.Length; g++)
++                {
++                    var list = ents[g];
++                    if (list != null && list.Count > 0) list.Clear();
++                }
++                var inan = c.InanimateEntities;
++                if (inan != null)
++                {
++                    for (int g = 0; g < inan.Length; g++)
++                    {
++                        var list = inan[g];
++                        if (list != null && list.Count > 0) list.Clear();
++                    }
++                }
++            }
++            activeChunks.Clear();
++            int generation = ++stratumGeneration;
+ 
+             foreach (var entity in entities)
+             {
+                 if (entity.IsCreature)
+                 {
+@@ -150,20 +180,67 @@ namespace Vintagestory.GameContent
+                 int gridIndex = (z / gridSizeInBlocks) % partitionsLength * partitionsLength + (x / gridSizeInBlocks) % partitionsLength;
+                 if (gridIndex < 0) continue;    // entities could be outside the map edge
+ 
+                 long nowInChunkIndex3d = MapUtil.Index3dL(x / chunkSize, (int)pos.InternalY / chunkSize, z / chunkSize, chunkMapSizeX, chunkMapSizeZ);
+ 
+-            if (!Partitions.TryGetValue(nowInChunkIndex3d, out EntityPartitionChunk partition))
+-            {
+-                Partitions[nowInChunkIndex3d] = partition = new EntityPartitionChunk();
++                if (!Partitions.TryGetValue(nowInChunkIndex3d, out EntityPartitionChunk partition))
++                {
++                    Partitions[nowInChunkIndex3d] = partition = new EntityPartitionChunk();
++                }
++
++                if (partition.StratumGeneration != generation)
++                {
++                    partition.StratumGeneration = generation;
++                    activeChunks.Add(partition);
++                }
++
++                var list = partition.Add(entity, gridIndex);
++                if (entity is EntityPlayer ep) ep.entityListForPartitioning = list;
+             }
+ 
+-            var list = partition.Add(entity, gridIndex);
+-            if (entity is EntityPlayer ep) ep.entityListForPartitioning = list;
++            this.LargestTouchDistance = largestTouchDistance > StratumLargestTouchDistanceCap
++                ? StratumLargestTouchDistanceCap
++                : largestTouchDistance;   // Only write to the field when we finished the operation, there could be 10k entities
++
++            // Stratum: occasionally drop chunks that haven't been used in many ticks so the
++            // dictionary doesn't grow unbounded after large crowds disperse.
++            StratumMaybeTrimPartitions(generation);
+         }
+ 
+-            this.LargestTouchDistance = largestTouchDistance;   // Only write to the field when we finished the operation, there could be 10k entities
++        // Stratum: clamp LargestTouchDistance so that a single oversized mod entity does not
++        // inflate the search radius for every small creature performing partition walks.
++        // Common vanilla creature touchDistance is below 2 blocks; setting this to 6 keeps
++        // headroom for typical "big" creatures without letting a 30-block mod boss balloon
++        // every chicken's per-tick repulse walk. Set to double.MaxValue to disable.
++        public static double StratumLargestTouchDistanceCap = 6.0;
++
++        // Stratum: per-tick generation counter and the list of chunks populated this tick.
++        private int stratumGeneration;
++        private readonly List<EntityPartitionChunk> stratumActiveChunks = new List<EntityPartitionChunk>(64);
++        private int stratumTicksSinceTrim;
++        private const int StratumTrimIntervalTicks = 300;       // ~9.6 seconds at 32ms cadence
++        private const int StratumTrimChunkCountThreshold = 512; // only trim when dict is big enough to matter
++        private const int StratumTrimUnusedGenerations = 16;    // a chunk must be cold for this many rebuilds before eviction
++
++        private void StratumMaybeTrimPartitions(int currentGeneration)
++        {
++            if (++stratumTicksSinceTrim < StratumTrimIntervalTicks) return;
++            stratumTicksSinceTrim = 0;
++            if (Partitions.Count < StratumTrimChunkCountThreshold) return;
++
++            List<long> toRemove = null;
++            foreach (var kv in Partitions)
++            {
++                if (currentGeneration - kv.Value.StratumGeneration > StratumTrimUnusedGenerations)
++                {
++                    (toRemove ??= new List<long>()).Add(kv.Key);
++                }
++            }
++            if (toRemove != null)
++            {
++                for (int i = 0; i < toRemove.Count; i++) Partitions.Remove(toRemove[i]);
++            }
+         }
+ 
+ 
+         public void RePartitionPlayer(EntityPlayer entity)
+         {
