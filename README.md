@@ -5,8 +5,25 @@
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Discord](https://img.shields.io/badge/chat-on%20discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/pd24fawhsD)
 [![Stars](https://img.shields.io/github/stars/trevorftp/Stratum?logo=github&style=flat)](https://github.com/trevorftp/Stratum/stargazers)
+[![Support on Ko-fi](https://img.shields.io/badge/Support_on_Ko--fi-ff5f5f?logo=ko-fi&logoColor=white)](https://ko-fi.com/imtsubaki)
 
 Stratum is a high-performance, server-side fork of [Vintage Story](https://www.vintagestory.at).
+
+## Sponsors
+
+Big thanks to everyone supporting Stratum.
+
+### Supporters
+
+<p align="center">
+	<a href="https://ko-fi.com/imtsubaki">
+		<img src="https://storage.ko-fi.com/cdn/useruploads/2e1bd9ac-27b3-4473-90c5-85715da416d3_c9a1e3e3-4f81-40b0-93b3-9ffd57da54b7.png" width="96" height="96" alt="Ko-fi supporter avatar" style="border-radius: 12px;" />
+	</a>
+	<br />
+	<strong>Algernon</strong>
+	<br />
+	<sub>☕ Thanks for helping keep Stratum moving.</sub>
+</p>
 
 ## Install
 
