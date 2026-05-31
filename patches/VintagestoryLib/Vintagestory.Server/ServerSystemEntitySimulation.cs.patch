@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
-index 750557a..e946005 100644
+index 750557a..142e48d 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 @@ -1,8 +1,11 @@
@@ -144,7 +144,17 @@ index 750557a..e946005 100644
  	private void EventManager_OnGameWorldBeingSaved()
  	{
  		if (server.RunPhase != EnumServerRunPhase.Shutdown)
-@@ -97,46 +185,79 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -88,55 +176,142 @@ public class ServerSystemEntitySimulation : ServerSystem
+ 	}
+ 
+ 	public override void OnPlayerDisconnect(ServerPlayer player)
+ 	{
+ 		physicsManager.ForceClientUpdateTick(player.client);
++		stratumSelectionState.Remove(player.client.Id);
+ 	}
+ 
+ 	private void OnPlayerLeaveChunk(ClientStatistics clientStats)
+ 	{
  		physicsManager.ForceClientUpdateTick(clientStats.client);
  	}
  
@@ -153,6 +163,7 @@ index 750557a..e946005 100644
 +		long stratumSelectionTimingStart = StratumRuntime.Timings.GetTimestamp();
 +		int stratumSelectionTraces = 0;
 +		int stratumLookedAtBlocks = 0;
++		int stratumSelectionTickIndex = ++stratumSelectionTickCounter;
  		foreach (ConnectedClient value in server.Clients.Values)
  		{
  			ConnectedClient client = value;
@@ -166,30 +177,65 @@ index 750557a..e946005 100644
 +				ServerPlayer player = client.Player;
 +				EntityPlayer entityPlayer = player.Entity;
 +				UpdateStratumPreviousBlockSelection(entityPlayer);
-+				stratumSelectionClient = client;
-+				stratumSelectionPlayerEntity = entityPlayer;
-+				try
++
++				// Stratum: throttle the per-client raytrace. At 350 players the per-tick
++				// fanout of RayTraceForSelection dominated entity.selection. Skip the trace
++				// when the player has not moved or rotated meaningfully AND we re-traced
++				// recently; OnBeingLookedAt still fires every tick on the cached selection.
++				if (!stratumSelectionState.TryGetValue(client.Id, out StratumSelectionState selState))
  				{
 -					bool firstTick = player.Entity.PreviousBlockSelection == null || player.Entity.BlockSelection.Position != player.Entity.PreviousBlockSelection;
 -					server.BlockAccessor.GetBlock(player.Entity.BlockSelection.Position).OnBeingLookedAt(player, player.Entity.BlockSelection, firstTick);
-+					server.RayTraceForSelection(player, ref entityPlayer.BlockSelection, ref entityPlayer.EntitySelection, stratumSelectionBlockFilter, stratumSelectionEntityFilter);
++					selState = new StratumSelectionState
++					{
++						LastTraceTickIndex = stratumSelectionTickIndex - StratumSelectionMaxSkipTicks - 1
++					};
++					stratumSelectionState[client.Id] = selState;
  				}
 -			}
 -			bool bFilter(BlockPos pos, Block block)
 -			{
 -				if (block != null && block.RenderPass == EnumChunkRenderPass.Meta)
-+				finally
++
++				EntityPos serverPos = entityPlayer.ServerPos;
++				double dx = serverPos.X - selState.LastX;
++				double dy = serverPos.Y - selState.LastY;
++				double dz = serverPos.Z - selState.LastZ;
++				float dyaw = System.MathF.Abs(serverPos.Yaw - selState.LastYaw);
++				float dpitch = System.MathF.Abs(serverPos.Pitch - selState.LastPitch);
++				bool moved = (dx * dx + dy * dy + dz * dz) > StratumSelectionPosThresholdSq;
++				bool turned = dyaw > StratumSelectionRotThreshold || dpitch > StratumSelectionRotThreshold;
++				bool ticksElapsed = (stratumSelectionTickIndex - selState.LastTraceTickIndex) >= StratumSelectionMaxSkipTicks;
++				bool shouldTrace = moved || turned || ticksElapsed;
++
++				if (shouldTrace)
  				{
 -					return client.WorldData.RenderMetaBlocks;
-+					stratumSelectionClient = null;
-+					stratumSelectionPlayerEntity = null;
++					selState.LastTraceTickIndex = stratumSelectionTickIndex;
++					selState.LastX = serverPos.X;
++					selState.LastY = serverPos.Y;
++					selState.LastZ = serverPos.Z;
++					selState.LastYaw = serverPos.Yaw;
++					selState.LastPitch = serverPos.Pitch;
++					stratumSelectionClient = client;
++					stratumSelectionPlayerEntity = entityPlayer;
++					try
++					{
++						server.RayTraceForSelection(player, ref entityPlayer.BlockSelection, ref entityPlayer.EntitySelection, stratumSelectionBlockFilter, stratumSelectionEntityFilter);
++					}
++					finally
++					{
++						stratumSelectionClient = null;
++						stratumSelectionPlayerEntity = null;
++					}
++					stratumSelectionTraces++;
  				}
 -				return true;
 -			}
 -			bool eFilter(Entity e)
 -			{
 -				if (e.IsInteractable)
-+				stratumSelectionTraces++;
++
 +				if (entityPlayer.BlockSelection != null)
  				{
 -					return e.EntityId != player.Entity.EntityId;
@@ -206,6 +252,23 @@ index 750557a..e946005 100644
  		SendPlayerEntityDeaths();
  	}
  
++	// Stratum: per-client raytrace throttle state.
++	private sealed class StratumSelectionState
++	{
++		public int LastTraceTickIndex;
++		public double LastX;
++		public double LastY;
++		public double LastZ;
++		public float LastYaw;
++		public float LastPitch;
++	}
++
++	private readonly Dictionary<int, StratumSelectionState> stratumSelectionState = new Dictionary<int, StratumSelectionState>();
++	private int stratumSelectionTickCounter;
++	private const int StratumSelectionMaxSkipTicks = 3;             // re-trace at least every 3 server ticks
++	private const double StratumSelectionPosThresholdSq = 0.0025;   // 5cm
++	private const float StratumSelectionRotThreshold = 0.015f;      // ~0.86 degrees
++
 +	private static void UpdateStratumPreviousBlockSelection(EntityPlayer entityPlayer)
 +	{
 +		BlockPos currentPosition = entityPlayer.BlockSelection?.Position;
@@ -243,7 +306,7 @@ index 750557a..e946005 100644
  		SendEntityDespawns();
  		int count = server.DelayedSpawnQueue.Count;
  		if (count <= 0)
-@@ -185,19 +306,145 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -185,19 +360,145 @@ public class ServerSystemEntitySimulation : ServerSystem
  		}
  	}
  
@@ -392,7 +455,7 @@ index 750557a..e946005 100644
  				{
  					if (value is EntityPlayer entityPlayer)
  					{
-@@ -209,12 +456,17 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -209,12 +510,17 @@ public class ServerSystemEntitySimulation : ServerSystem
  						ServerMain.Logger.Warning("Exception while ticking entity {0} ({1}) at {2}: ", value.GetName(), value.Properties?.Class, value.Pos);
  						ServerMain.Logger.Error(e);
  					}
@@ -410,7 +473,7 @@ index 750557a..e946005 100644
  		}
  		ServerMain.FrameProfiler.Enter("despawning");
  		foreach (KeyValuePair<Entity, EntityDespawnData> item in list)
-@@ -222,27 +474,553 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -222,27 +528,553 @@ public class ServerSystemEntitySimulation : ServerSystem
  			server.DespawnEntity(item.Key, item.Value);
  			ServerMain.FrameProfiler.Mark("despawned-", item.Key.Code.Path);
  		}
@@ -446,7 +509,7 @@ index 750557a..e946005 100644
 +	//
 +	// WARNING: this dispatches Entity.OnGameTick concurrently across worker threads, partitioned
 +	// by world region (RegionSizeChunks). Many vanilla and modded entity behaviors are NOT
-+	// thread-safe ╬ô├ç├╢ they may read/write the world's BlockAccessor, spawn or despawn entities,
++	// thread-safe they may read/write the world's BlockAccessor, spawn or despawn entities,
 +	// or touch shared mod state. Using this is opt-in and experimental. Validate with your
 +	// mod set under load before enabling in production.
 +	//
@@ -968,7 +1031,7 @@ index 750557a..e946005 100644
  		ItemStack itemStack = client.Player.InventoryManager?.ActiveHotbarSlot?.Itemstack;
  		float num = itemStack?.Collectible.GetAttackRange(itemStack) ?? GlobalConstants.DefaultAttackRange;
  		double x = pos.X + client.Entityplayer.LocalEyePos.X;
-@@ -390,11 +1168,20 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -390,11 +1222,20 @@ public class ServerSystemEntitySimulation : ServerSystem
  	{
  		if (deathMessagesCache == null)
  		{
@@ -990,7 +1053,7 @@ index 750557a..e946005 100644
  			return;
  		}
  		int num = server.SaveGameData?.WorldConfiguration.GetString("playerlives", "-1").ToInt(-1) ?? (-1);
-@@ -428,10 +1215,11 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -428,10 +1269,11 @@ public class ServerSystemEntitySimulation : ServerSystem
  			else
  			{
  				ServerMain.Logger.Audit(Lang.Get("{0} died. Death message: {1}", item.PlayerName, text));
