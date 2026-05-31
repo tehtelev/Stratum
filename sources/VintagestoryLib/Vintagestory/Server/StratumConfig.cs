@@ -15,6 +15,8 @@ internal class StratumConfig
 
 	public StratumPacketLimitsConfig PacketLimits { get; set; } = new StratumPacketLimitsConfig();
 
+	public StratumPacketBackPressureConfig PacketBackPressure { get; set; } = new StratumPacketBackPressureConfig();
+
 	public StratumBlockBreakGuardsConfig BlockBreakGuards { get; set; } = new StratumBlockBreakGuardsConfig();
 
 	public StratumClientModPolicyConfig ClientModPolicy { get; set; } = new StratumClientModPolicyConfig();
@@ -45,6 +47,7 @@ internal class StratumConfig
 		Diagnostics ??= new StratumDiagnosticsConfig();
 		Hardening ??= new StratumHardeningConfig();
 		PacketLimits ??= new StratumPacketLimitsConfig();
+		PacketBackPressure ??= new StratumPacketBackPressureConfig();
 		BlockBreakGuards ??= new StratumBlockBreakGuardsConfig();
 		ClientModPolicy ??= new StratumClientModPolicyConfig();
 		Performance ??= new StratumPerformanceConfig();
@@ -59,6 +62,7 @@ internal class StratumConfig
 		Network ??= new Nimbus.NimbusBackendConfig();
 		Network.EnsurePopulated();
 		PacketLimits.EnsureSane();
+		PacketBackPressure.EnsureSane();
 		BlockBreakGuards.EnsureSane();
 		ClientModPolicy.EnsurePopulated();
 		Performance.EnsurePopulated();
@@ -429,6 +433,32 @@ internal class StratumPacketLimitsConfig
 		if (string.IsNullOrWhiteSpace(KickMessage))
 		{
 			KickMessage = "Disconnected by Stratum packet protection";
+		}
+	}
+}
+
+internal class StratumPacketBackPressureConfig
+{
+	public bool Enabled { get; set; } = true;
+
+	public int MaxMillisecondsPerTick { get; set; } = 25;
+
+	public int MaxPacketsPerClientPerTick { get; set; } = 32;
+
+	public int MaxQueueDepthPerClient { get; set; } = 2000;
+
+	public bool KickOnQueueOverflow { get; set; } = true;
+
+	public string KickMessage { get; set; } = "Disconnected by Stratum packet back-pressure";
+
+	public void EnsureSane()
+	{
+		MaxMillisecondsPerTick = Math.Max(1, MaxMillisecondsPerTick);
+		MaxPacketsPerClientPerTick = Math.Max(1, MaxPacketsPerClientPerTick);
+		MaxQueueDepthPerClient = Math.Max(MaxPacketsPerClientPerTick * 4, MaxQueueDepthPerClient);
+		if (string.IsNullOrWhiteSpace(KickMessage))
+		{
+			KickMessage = "Disconnected by Stratum packet back-pressure";
 		}
 	}
 }

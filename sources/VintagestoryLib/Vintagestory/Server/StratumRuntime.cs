@@ -16,6 +16,8 @@ internal static class StratumRuntime
 
 	public static StratumPacketLimiter PacketLimiter { get; } = new StratumPacketLimiter();
 
+	public static StratumPacketBackPressure PacketBackPressure { get; } = new StratumPacketBackPressure();
+
 	public static StratumBlockBreakGuard BlockBreakGuard { get; } = new StratumBlockBreakGuard();
 
 	public static StratumPerformanceStats PerformanceStats { get; } = new StratumPerformanceStats();
