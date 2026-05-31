@@ -1,8 +1,8 @@
 diff --git a/VSEssentials/Entity/AI/AiTaskManager.cs b/VSEssentials/Entity/AI/AiTaskManager.cs
-index 86955cb..38ffa6b 100644
+index 86955cb..c8c8c7c 100644
 --- a/VSEssentials/Entity/AI/AiTaskManager.cs
 +++ b/VSEssentials/Entity/AI/AiTaskManager.cs
-@@ -76,10 +76,20 @@ public static class AiTaskRegistry
+@@ -76,10 +76,21 @@ public static class AiTaskRegistry
  
  public class AiRuntimeConfig : ModSystem
  {
@@ -10,20 +10,21 @@ index 86955cb..38ffa6b 100644
      public static bool RunAiActivities = true;
 +    public static float TaskScanIntervalSeconds = BaseTaskScanIntervalSeconds;
 +
++    // Stratum: scan interval governs how often StartNewTasks runs. Vanilla is effectively every
++    // tick. Larger intervals delay the next task starting after the previous one finishes, which
++    // shows up as animals standing still or sliding mid-walk because the wander/idle task that
++    // would drive the next animation hasn't been picked yet. Keep the interval modest.
 +    private const float BaseTaskScanIntervalSeconds = 0.2f;
-+    private const float HighPlayerTaskScanIntervalSeconds = 0.5f;
-+    private const float OverloadedTaskScanIntervalSeconds = 1.0f;
-+    // Stratum: thresholds tightened. Original 100/180 left a 110-player Stratum server in the
-+    // "high" band (0.5s scan) while CPU was already overcommitted. 75/110 puts a typical
-+    // medium server into the slower scan cadence before tick budget is fully spent.
-+    private const int HighPlayerThreshold = 75;
-+    private const int OverloadedPlayerThreshold = 110;
++    private const float HighPlayerTaskScanIntervalSeconds = 0.3f;
++    private const float OverloadedTaskScanIntervalSeconds = 0.4f;
++    private const int HighPlayerThreshold = 150;
++    private const int OverloadedPlayerThreshold = 250;
  
      public override bool ShouldLoad(EnumAppSide forSide) => forSide == EnumAppSide.Server;
  
      public override void StartServerSide(ICoreServerAPI api)
      {
-@@ -90,10 +100,16 @@ public class AiRuntimeConfig : ModSystem
+@@ -90,10 +101,16 @@ public class AiRuntimeConfig : ModSystem
      private ICoreServerAPI? serverApi;
      private void onTick250ms(float obj)
      {
@@ -40,7 +41,7 @@ index 86955cb..38ffa6b 100644
  
  
  public sealed class AiTaskManager(Entity entity)
-@@ -129,18 +145,61 @@ public sealed class AiTaskManager(Entity entity)
+@@ -129,18 +146,61 @@ public sealed class AiTaskManager(Entity entity)
              wasRunAiTasks = false;
              return;
          }
@@ -107,7 +108,7 @@ index 86955cb..38ffa6b 100644
      }
  
      public void AddTask(IAiTask task)
-@@ -442,10 +501,30 @@ public sealed class AiTaskManager(Entity entity)
+@@ -442,10 +502,30 @@ public sealed class AiTaskManager(Entity entity)
  
      private readonly Entity entity = entity;
      private readonly List<IAiTask> tasks = [];

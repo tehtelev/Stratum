@@ -33,15 +33,15 @@
   },
   "BlockBreakGuards": {
     "Enabled": true,
-    "RequireServerSelection": true,
+    "RequireServerSelection": false,
     "DropViolations": true,
     "LogViolations": false,
-    "KickViolations": true,
-    "KickAfterViolations": 3,
-    "ViolationWindowSeconds": 10,
-    "RequiredProgressRatio": 0.8,
-    "GraceSeconds": 0.25,
-    "MinimumTrackedBreakSeconds": 0.15,
+    "KickViolations": false,
+    "KickAfterViolations": 12,
+    "ViolationWindowSeconds": 20,
+    "RequiredProgressRatio": 0.5,
+    "GraceSeconds": 0.5,
+    "MinimumTrackedBreakSeconds": 0.5,
     "KickMessage": "Disconnected by Stratum block break protection"
   },
   "ClientModPolicy": {

@@ -1,5 +1,5 @@
 diff --git a/VSEssentials/Entity/Behavior/BehaviorRepulseAgents.cs b/VSEssentials/Entity/Behavior/BehaviorRepulseAgents.cs
-index a571d72..21dc684 100644
+index a571d72..39fa665 100644
 --- a/VSEssentials/Entity/Behavior/BehaviorRepulseAgents.cs
 +++ b/VSEssentials/Entity/Behavior/BehaviorRepulseAgents.cs
 @@ -1,12 +1,15 @@
@@ -18,7 +18,7 @@ index a571d72..21dc684 100644
  
  namespace Vintagestory.GameContent
  {
-@@ -191,10 +194,17 @@ namespace Vintagestory.GameContent
+@@ -191,10 +194,25 @@ namespace Vintagestory.GameContent
  
          public double ownPosRepulseX, ownPosRepulseY, ownPosRepulseZ;
          public float mySize;
@@ -31,15 +31,43 @@ index a571d72..21dc684 100644
 +        public static int StratumMaxCollisionsPerEntity = 12;
 +        private int stratumPushCount;
 +
++        // Stratum: distance gate. Non-player creatures with no player within this radius
++        // skip the partition walk entirely. Players are never gated. 0 disables the gate.
++        public static float StratumDistanceGateBlocks = 24f;
++        // Beyond the inner radius but inside the gate radius, only run every N ticks,
++        // staggered per-entity by EntityId. 1 disables the far-band throttle.
++        public static float StratumNearBandBlocks = 12f;
++        public static int StratumFarBandSkipTicks = 4;
++
          public override void UpdateColSelBoxes()
          {
              touchdist = entity.touchDistance;
          }
  
-@@ -217,21 +227,22 @@ namespace Vintagestory.GameContent
+@@ -215,23 +233,42 @@ namespace Vintagestory.GameContent
+             if (entity.State == EnumEntityState.Inactive || !entity.IsInteractable || !movable) return;
+             EntityAgent eagent = entity as EntityAgent;
              if (eagent?.MountedOn != null) return;
              if (entity.World.ElapsedMilliseconds < 2000) return;
  
++            // Stratum: distance gate. Skip the partition walk on the server for non-player
++            // creatures with no player nearby. Players are never gated (NearestPlayerDistance
++            // is 0 for them) so player-on-player push is unaffected. Client path runs as before.
++            if (cworld == null && entity is not EntityPlayer)
++            {
++                float gate = StratumDistanceGateBlocks;
++                if (gate > 0f)
++                {
++                    float nearest = entity.NearestPlayerDistance;
++                    if (nearest > gate) return;
++                    if (StratumFarBandSkipTicks > 1 && nearest > StratumNearBandBlocks)
++                    {
++                        long tickIndex = entity.World.ElapsedMilliseconds / 33L;
++                        if (((tickIndex + entity.EntityId) % StratumFarBandSkipTicks) != 0L) return;
++                    }
++                }
++            }
++
              var pushVector = this.pushVector;
              pushVector.Set(0, 0, 0);
 +            stratumPushCount = 0;
@@ -60,7 +88,7 @@ index a571d72..21dc684 100644
              if (pushVector.X == 0 && pushVector.Z == 0 && pushVector.Y == 0) return;
  
              pushVector.X = GameMath.Clamp(pushVector.X, -3, 3) / 30;
-@@ -282,21 +293,61 @@ namespace Vintagestory.GameContent
+@@ -282,21 +319,73 @@ namespace Vintagestory.GameContent
  
              if (ourEntity.OnGround) pushDiff *= 3;
  
@@ -92,10 +120,10 @@ index a571d72..21dc684 100644
 +    public class StratumRepulseRuntimeConfig : ModSystem
 +    {
 +        public override bool ShouldLoad(EnumAppSide forSide) => forSide == EnumAppSide.Server;
++
++        public override double ExecuteOrder() => 0.05;
  
 -        private bool IsInRangePartition(Entity e, double posX, double posY, double posZ, double radiusSq)
-+        public override double ExecuteOrder() => 0.05;
-+
 +        public override void StartServerSide(ICoreServerAPI api)
          {
 -            return true;
@@ -112,8 +140,20 @@ index a571d72..21dc684 100644
 +                    bool enabled = (bool)(ec.GetType().GetProperty("Enabled")?.GetValue(ec) ?? true);
 +                    int cap = (int)(ec.GetType().GetProperty("MaxCollisionsPerEntity")?.GetValue(ec) ?? 12);
 +                    EntityBehaviorRepulseAgents.StratumMaxCollisionsPerEntity = enabled ? Math.Max(0, cap) : 0;
-+                    api.Logger.Notification("Stratum: repulse-agents collision cap = {0} (enabled={1}).",
-+                        EntityBehaviorRepulseAgents.StratumMaxCollisionsPerEntity, enabled);
++
++                    float gate = (float)(ec.GetType().GetProperty("DistanceGateBlocks")?.GetValue(ec) ?? 24f);
++                    float near = (float)(ec.GetType().GetProperty("NearBandBlocks")?.GetValue(ec) ?? 12f);
++                    int skip = (int)(ec.GetType().GetProperty("FarBandSkipTicks")?.GetValue(ec) ?? 4);
++                    EntityBehaviorRepulseAgents.StratumDistanceGateBlocks = enabled ? Math.Max(0f, gate) : 0f;
++                    EntityBehaviorRepulseAgents.StratumNearBandBlocks = Math.Max(0f, Math.Min(gate, near));
++                    EntityBehaviorRepulseAgents.StratumFarBandSkipTicks = Math.Max(1, skip);
++
++                    api.Logger.Notification("Stratum: repulse-agents cap={0} gate={1}bk near={2}bk skip={3} (enabled={4}).",
++                        EntityBehaviorRepulseAgents.StratumMaxCollisionsPerEntity,
++                        EntityBehaviorRepulseAgents.StratumDistanceGateBlocks,
++                        EntityBehaviorRepulseAgents.StratumNearBandBlocks,
++                        EntityBehaviorRepulseAgents.StratumFarBandSkipTicks,
++                        enabled);
 +                }
 +            }
 +            catch (Exception e)
