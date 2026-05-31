@@ -51,6 +51,24 @@ internal static class Program
 				Console.Error.WriteLine("Pass --stratum-skip-bootstrap to launch anyway if the assets are already in place.");
 				return 1;
 			}
+
+			if (EmbeddedOverlay.HasEmbeddedOverlay())
+			{
+				try
+				{
+					string stamp = $"{StratumInfo.BaseGameVersion}-stratum.{StratumInfo.StratumRevision}";
+					int written = EmbeddedOverlay.Apply(AppContext.BaseDirectory, refresh ? stamp + ":refresh:" + Guid.NewGuid().ToString("N") : stamp);
+					if (written > 0)
+					{
+						Console.WriteLine($"Stratum: applied overlay ({written} file(s))");
+					}
+				}
+				catch (Exception exception)
+				{
+					Console.Error.WriteLine($"Stratum: overlay apply failed: {exception.Message}");
+					return 1;
+				}
+			}
 		}
 
 		return LaunchServer(serverArgs);

@@ -44,23 +44,11 @@ jobs:
           "rev=$($Matches.rev)"                       | Out-File -Append $env:GITHUB_OUTPUT
           "pre=$($Matches.pre)"                       | Out-File -Append $env:GITHUB_OUTPUT
 
-      - name: Publish StratumServer
+      - name: Build and pack release
+        shell: pwsh
         env:
           STRATUM_VER: ${{ steps.ver.outputs.version }}
-          STRATUM_FILE_VER: ${{ steps.ver.outputs.base }}.${{ steps.ver.outputs.rev }}
-        run: |
-          for rid in linux-x64 win-x64; do
-            dotnet publish StratumServer/StratumServer.csproj \
-              -c Release -r $rid --self-contained false \
-              -o publish/$rid \
-              -p:Version=$STRATUM_VER \
-              -p:InformationalVersion=$STRATUM_VER \
-              -p:FileVersion=$STRATUM_FILE_VER
-          done
-
-      - name: Stage release payload
-        shell: pwsh
-        run: ./scripts/pack-release.ps1 -PublishRoot publish -OutDir release-out
+        run: ./scripts/pack-release.ps1 -Rids linux-x64,win-x64 -OutDir release-out
 
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2

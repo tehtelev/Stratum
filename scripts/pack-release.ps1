@@ -1,101 +1,80 @@
 <#
 .SYNOPSIS
-Packages Stratum release archives from `dotnet publish` output.
+Builds and packages Stratum launcher zips.
 
-Only Stratum-built artifacts go in the zip:
-  StratumServer.exe / .dll / .runtimeconfig.json
-  VintagestoryServer.dll, VintagestoryLib.dll, VintagestoryAPI.dll, cairo-sharp.dll
-  Mods/VSEssentials.dll, Mods/VSSurvivalMod.dll
+Produces a tiny zip per RID containing only:
+  StratumServer.exe (single-file, framework-dependent, with all patched
+  Stratum DLLs embedded as resources)
+  StratumServer.runtimeconfig.json
+  LICENSE, README.md
 
-Vanilla assets (assets/, Lib/, base mods, native runtimes) are NOT included.
-They are downloaded from cdn.vintagestory.at on first launch by StratumServer.
+The launcher downloads the matching vanilla server zip from cdn.vintagestory.at
+on first run, then unpacks the embedded Stratum overlay on top.
 #>
 
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][string]$PublishRoot,
-    [Parameter(Mandatory)][string]$OutDir
+    [Parameter(Mandatory)][string[]]$Rids,
+    [Parameter(Mandatory)][string]$OutDir,
+    [string]$Configuration = 'Release'
 )
 
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$infoFile = Join-Path $repoRoot 'sources/VintagestoryLib/Vintagestory/Server/StratumInfo.cs'
-$infoText = Get-Content $infoFile -Raw
-$baseVer = [regex]::Match($infoText, 'BaseGameVersion\s*=\s*"([^"]+)"').Groups[1].Value
-$rev     = [regex]::Match($infoText, 'StratumRevision\s*=\s*"([^"]+)"').Groups[1].Value
-$pre     = [regex]::Match($infoText, 'PreRelease\s*=\s*"([^"]*)"').Groups[1].Value
-if (-not $baseVer -or -not $rev) { throw "Could not parse version pieces from $infoFile" }
-$version = if ($pre) { "$baseVer-stratum.$rev-$pre" } else { "$baseVer-stratum.$rev" }
+Push-Location $repoRoot
+try {
+    $infoFile = Join-Path $repoRoot 'sources/VintagestoryLib/Vintagestory/Server/StratumInfo.cs'
+    $infoText = Get-Content $infoFile -Raw
+    $baseVer = [regex]::Match($infoText, 'BaseGameVersion\s*=\s*"([^"]+)"').Groups[1].Value
+    $rev     = [regex]::Match($infoText, 'StratumRevision\s*=\s*"([^"]+)"').Groups[1].Value
+    $pre     = [regex]::Match($infoText, 'PreRelease\s*=\s*"([^"]*)"').Groups[1].Value
+    if (-not $baseVer -or -not $rev) { throw "Could not parse version pieces from $infoFile" }
+    $version = if ($pre) { "$baseVer-stratum.$rev-$pre" } else { "$baseVer-stratum.$rev" }
 
-$keepFiles = @(
-    'StratumServer.exe',
-    'StratumServer.dll',
-    'StratumServer.runtimeconfig.json',
-    'StratumServer.deps.json',
-    'VintagestoryServer.exe',
-    'VintagestoryServer.dll',
-    'VintagestoryServer.runtimeconfig.json',
-    'VintagestoryLib.dll',
-    'VintagestoryAPI.dll',
-    'cairo-sharp.dll',
-    'Nimbus.Shared.dll'
-)
-$keepMods = @(
-    'VSEssentials.dll',
-    'VSSurvivalMod.dll'
-)
+    # Full solution build first. StratumServer's EmbeddedResource items point at
+    # the sibling bin outputs, so they must exist before the publish step.
+    Write-Host "Building solution (Configuration=$Configuration, Version=$version)"
+    & dotnet build VintageStory.slnx -c $Configuration -p:Version=$version -p:InformationalVersion=$version -nologo
+    if ($LASTEXITCODE -ne 0) { throw "Solution build failed" }
 
-New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+    New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
-Get-ChildItem -Directory $PublishRoot | ForEach-Object {
-    $rid = $_.Name
-    $stage = Join-Path $OutDir "stage-$rid"
-    if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
-    New-Item -ItemType Directory -Force -Path $stage | Out-Null
+    foreach ($rid in $Rids) {
+        Write-Host "Publishing StratumServer for $rid"
+        $publishDir = Join-Path $repoRoot "StratumServer/bin/$Configuration/publish-$rid"
+        if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
 
-    # Ship matching .pdb for every .dll we ship. The vanilla bootstrap drops vanilla
-    # PDBs next to our patched DLLs, and LoggerBase's static cctor NREs on the PDB
-    # signature mismatch (frame.GetFileName() returns null). Our PDB wins because
-    # the bootstrap only overlays missing files.
-    foreach ($name in $keepFiles) {
-        $src = Join-Path $_.FullName $name
-        if (Test-Path $src) { Copy-Item $src $stage }
-        if ([IO.Path]::GetExtension($name) -eq '.dll') {
-            $pdb = [IO.Path]::ChangeExtension((Join-Path $_.FullName $name), '.pdb')
-            if (Test-Path $pdb) { Copy-Item $pdb $stage }
-        }
+        & dotnet publish StratumServer/StratumServer.csproj `
+            -c $Configuration `
+            -r $rid `
+            -p:SelfContained=false `
+            -p:PublishSingleFile=true `
+            -p:EmbedPatchedDlls=true `
+            -p:Version=$version `
+            -p:InformationalVersion=$version `
+            -o $publishDir `
+            -nologo
+        if ($LASTEXITCODE -ne 0) { throw "Publish failed for $rid" }
+
+        $stage = Join-Path $OutDir "stage-$rid"
+        if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+        New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+        $exeName = if ($rid -like 'win-*') { 'StratumServer.exe' } else { 'StratumServer' }
+        Copy-Item (Join-Path $publishDir $exeName) $stage
+        $runtimeCfg = Join-Path $publishDir 'StratumServer.runtimeconfig.json'
+        if (Test-Path $runtimeCfg) { Copy-Item $runtimeCfg $stage }
+        Copy-Item (Join-Path $repoRoot 'LICENSE')  $stage
+        Copy-Item (Join-Path $repoRoot 'README.md') $stage
+
+        $zipName = "stratum-$version-$rid.zip"
+        $zipPath = Join-Path $OutDir $zipName
+        if (Test-Path $zipPath) { Remove-Item $zipPath }
+        Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zipPath
+        Write-Host "Wrote $zipPath"
     }
-
-    $modsDst = Join-Path $stage 'Mods'
-    New-Item -ItemType Directory -Force -Path $modsDst | Out-Null
-    foreach ($name in $keepMods) {
-        $candidates = @(
-            (Join-Path $_.FullName "Mods/$name"),
-            (Join-Path $_.FullName $name)
-        )
-        $src = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if ($src) {
-            Copy-Item $src $modsDst
-            $pdb = [IO.Path]::ChangeExtension($src, '.pdb')
-            if (Test-Path $pdb) { Copy-Item $pdb $modsDst }
-        }
-    }
-
-    # Seed stratum.json so the server has config to read on first launch.
-    $dataDst = Join-Path $stage 'Data'
-    New-Item -ItemType Directory -Force -Path $dataDst | Out-Null
-    $seed = Join-Path $repoRoot 'StratumServer/stratum.default.json'
-    if (Test-Path $seed) {
-        Copy-Item $seed (Join-Path $dataDst 'stratum.json')
-    }
-
-    Copy-Item (Join-Path $repoRoot 'LICENSE')  $stage
-    Copy-Item (Join-Path $repoRoot 'README.md') $stage
-
-    $zipName = "stratum-$version-$rid.zip"
-    $zipPath = Join-Path $OutDir $zipName
-    if (Test-Path $zipPath) { Remove-Item $zipPath }
-    Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zipPath
-    Write-Host "Wrote $zipPath"
+}
+finally {
+    Pop-Location
 }
