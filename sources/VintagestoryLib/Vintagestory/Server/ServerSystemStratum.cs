@@ -93,6 +93,15 @@ internal class ServerSystemStratum : ServerSystem
 	{
 		StratumPlayerPrivacy.Initialize(server);
 		StratumMetricsPublisher.Start();
+		// World.Config is synced to clients on join. Stamp a flag + version so any mod (server
+		// or client) can detect Stratum without referencing internal types or registering a
+		// network channel: api.World.Config.GetAsBool("stratum") / GetAsString("stratumVersion").
+		if (server?.World?.Config != null)
+		{
+			server.World.Config.SetBool(StratumInfo.Id, true);
+			server.World.Config.SetString(StratumInfo.Id + "Version", StratumInfo.Version);
+			server.World.Config.SetString(StratumInfo.Id + "BaseGameVersion", StratumInfo.BaseGameVersion);
+		}
 		StratumRuntime.LogInfo("runtime ready. Use /stratum health, /stratum status, and /stratum timings start.");
 	}
 
