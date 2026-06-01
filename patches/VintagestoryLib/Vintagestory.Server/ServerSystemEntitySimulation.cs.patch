@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
-index 750557a..142e48d 100644
+index 750557a..1cb12a5 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 @@ -1,8 +1,11 @@
@@ -144,7 +144,18 @@ index 750557a..142e48d 100644
  	private void EventManager_OnGameWorldBeingSaved()
  	{
  		if (server.RunPhase != EnumServerRunPhase.Shutdown)
-@@ -88,55 +176,142 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -77,66 +165,152 @@ public class ServerSystemEntitySimulation : ServerSystem
+ 	}
+ 
+ 	public override void OnBeginModsAndConfigReady()
+ 	{
+ 		server.EventManager.OnPlayerRespawn += OnPlayerRespawn;
+-		new ShapeTesselatorManager(server).LoadEntityShapes(server.EntityTypes, server.api);
+ 	}
+ 
+ 	public override void OnPlayerJoin(ServerPlayer player)
+ 	{
+ 		physicsManager.ForceClientUpdateTick(player.client);
  	}
  
  	public override void OnPlayerDisconnect(ServerPlayer player)
@@ -306,7 +317,7 @@ index 750557a..142e48d 100644
  		SendEntityDespawns();
  		int count = server.DelayedSpawnQueue.Count;
  		if (count <= 0)
-@@ -185,19 +360,145 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -185,19 +359,145 @@ public class ServerSystemEntitySimulation : ServerSystem
  		}
  	}
  
@@ -455,7 +466,7 @@ index 750557a..142e48d 100644
  				{
  					if (value is EntityPlayer entityPlayer)
  					{
-@@ -209,12 +510,17 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -209,12 +509,17 @@ public class ServerSystemEntitySimulation : ServerSystem
  						ServerMain.Logger.Warning("Exception while ticking entity {0} ({1}) at {2}: ", value.GetName(), value.Properties?.Class, value.Pos);
  						ServerMain.Logger.Error(e);
  					}
@@ -473,7 +484,7 @@ index 750557a..142e48d 100644
  		}
  		ServerMain.FrameProfiler.Enter("despawning");
  		foreach (KeyValuePair<Entity, EntityDespawnData> item in list)
-@@ -222,27 +528,553 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -222,27 +527,553 @@ public class ServerSystemEntitySimulation : ServerSystem
  			server.DespawnEntity(item.Key, item.Value);
  			ServerMain.FrameProfiler.Mark("despawned-", item.Key.Code.Path);
  		}
@@ -1031,7 +1042,7 @@ index 750557a..142e48d 100644
  		ItemStack itemStack = client.Player.InventoryManager?.ActiveHotbarSlot?.Itemstack;
  		float num = itemStack?.Collectible.GetAttackRange(itemStack) ?? GlobalConstants.DefaultAttackRange;
  		double x = pos.X + client.Entityplayer.LocalEyePos.X;
-@@ -390,11 +1222,20 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -390,11 +1221,20 @@ public class ServerSystemEntitySimulation : ServerSystem
  	{
  		if (deathMessagesCache == null)
  		{
@@ -1053,7 +1064,7 @@ index 750557a..142e48d 100644
  			return;
  		}
  		int num = server.SaveGameData?.WorldConfiguration.GetString("playerlives", "-1").ToInt(-1) ?? (-1);
-@@ -428,10 +1269,11 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -428,10 +1268,11 @@ public class ServerSystemEntitySimulation : ServerSystem
  			else
  			{
  				ServerMain.Logger.Audit(Lang.Get("{0} died. Death message: {1}", item.PlayerName, text));

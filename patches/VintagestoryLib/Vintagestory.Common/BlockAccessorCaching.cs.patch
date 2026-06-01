@@ -1,0 +1,28 @@
+diff --git a/VintagestoryLib/Vintagestory.Common/BlockAccessorCaching.cs b/VintagestoryLib/Vintagestory.Common/BlockAccessorCaching.cs
+index a32674a..2609ae2 100644
+--- a/VintagestoryLib/Vintagestory.Common/BlockAccessorCaching.cs
++++ b/VintagestoryLib/Vintagestory.Common/BlockAccessorCaching.cs
+@@ -1,8 +1,7 @@
+ using Vintagestory.API.Common;
+ using Vintagestory.API.MathTools;
+-using Vintagestory.Client.NoObf;
+ using Vintagestory.Common.Database;
+ 
+ namespace Vintagestory.Common;
+ 
+ public class BlockAccessorCaching : BlockAccessorRelaxed, ICachingBlockAccessor, IBlockAccessor
+@@ -20,14 +19,10 @@ public class BlockAccessorCaching : BlockAccessorRelaxed, ICachingBlockAccessor,
+ 	public bool LastChunkLoaded { get; private set; }
+ 
+ 	public BlockAccessorCaching(WorldMap worldmap, IWorldAccessor worldAccessor, bool synchronize, bool relight)
+ 		: base(worldmap, worldAccessor, synchronize, relight)
+ 	{
+-		if (worldAccessor.Api is ClientCoreAPI clientCoreAPI)
+-		{
+-			clientCoreAPI.eventapi.LeftWorld += Dispose;
+-		}
+ 	}
+ 
+ 	public override int GetBlockId(int posX, int posY, int posZ, int layer)
+ 	{
+ 		if ((posX | posY | posZ) < 0 || posX >= worldmap.MapSizeX || posZ >= worldmap.MapSizeZ)

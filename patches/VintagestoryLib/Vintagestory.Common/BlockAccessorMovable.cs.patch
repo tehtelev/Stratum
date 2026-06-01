@@ -1,0 +1,67 @@
+diff --git a/VintagestoryLib/Vintagestory.Common/BlockAccessorMovable.cs b/VintagestoryLib/Vintagestory.Common/BlockAccessorMovable.cs
+index b4002b4..1b6ad48 100644
+--- a/VintagestoryLib/Vintagestory.Common/BlockAccessorMovable.cs
++++ b/VintagestoryLib/Vintagestory.Common/BlockAccessorMovable.cs
+@@ -4,11 +4,10 @@ using Vintagestory.API.Common;
+ using Vintagestory.API.Common.Entities;
+ using Vintagestory.API.Config;
+ using Vintagestory.API.Datastructures;
+ using Vintagestory.API.MathTools;
+ using Vintagestory.API.Server;
+-using Vintagestory.Client.NoObf;
+ using Vintagestory.Common.Database;
+ using Vintagestory.Server;
+ 
+ namespace Vintagestory.Common;
+ 
+@@ -77,18 +76,10 @@ public class BlockAccessorMovable : BlockAccessorBase, IMiniDimension, IBlockAcc
+ 			foreach (KeyValuePair<long, IWorldChunk> chunk in chunks)
+ 			{
+ 				((ServerChunk)chunk.Value).ClearAll(serverWorldAccessor);
+ 			}
+ 		}
+-		else
+-		{
+-			ChunkRenderer chunkRenderer = ((ClientMain)parent.worldAccessor).chunkRenderer;
+-			foreach (KeyValuePair<long, IWorldChunk> chunk2 in chunks)
+-			{
+-				((ClientChunk)chunk2.Value).RemoveDataPoolLocations(chunkRenderer);
+-			}
+-		}
+ 		dirtychunks.Clear();
+ 		if (CenterOfMass == null)
+ 		{
+ 			CenterOfMass = new Vec3d(0.0, 0.0, 0.0);
+ 		}
+@@ -166,11 +157,11 @@ public class BlockAccessorMovable : BlockAccessorBase, IMiniDimension, IBlockAcc
+ 				serverMain.loadedChunksLock.ReleaseWriteLock();
+ 			}
+ 		}
+ 		else
+ 		{
+-			worldChunk = ClientChunk.CreateNew(((ClientWorldMap)worldmap).chunkDataPool);
++			throw new NotSupportedException("Client-side movable chunks are not available in this server-focused build.");
+ 		}
+ 		chunks[key] = worldChunk;
+ 		return worldChunk;
+ 	}
+ 
+@@ -329,18 +320,10 @@ public class BlockAccessorMovable : BlockAccessorBase, IMiniDimension, IBlockAcc
+ 	}
+ 
+ 	public virtual FastVec3d GetRenderOffset(float dt)
+ 	{
+ 		FastVec3d fastVec3d = new FastVec3d(-(subDimensionId % 4096) * 16384, 0.0, -(subDimensionId / 4096) * 16384).Add(-8192.0);
+-		if (TrackSelection)
+-		{
+-			BlockSelection blockSelection = ((ClientMain)parent.worldAccessor).BlockSelection;
+-			if (blockSelection != null && blockSelection.Position != null)
+-			{
+-				return fastVec3d.Add(blockSelection.Position).Add(blockSelection.Face.Normali);
+-			}
+-		}
+ 		return fastVec3d.Add(selectionTrackingOriginalPos.X, selectionTrackingOriginalPos.InternalY, selectionTrackingOriginalPos.Z);
+ 	}
+ 
+ 	public virtual void SetRenderOffsetY(int offset)
+ 	{

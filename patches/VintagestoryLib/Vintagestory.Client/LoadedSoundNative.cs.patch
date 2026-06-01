@@ -1,0 +1,43 @@
+diff --git a/VintagestoryLib/Vintagestory.Client/LoadedSoundNative.cs b/VintagestoryLib/Vintagestory.Client/LoadedSoundNative.cs
+index e74280e..08b2540 100644
+--- a/VintagestoryLib/Vintagestory.Client/LoadedSoundNative.cs
++++ b/VintagestoryLib/Vintagestory.Client/LoadedSoundNative.cs
+@@ -293,11 +293,11 @@ public class LoadedSoundNative : ILoadedSound, IDisposable
+ 				AL.Source(sourceId, (ALSourcei)4147, 2);
+ 			}
+ 			if (soundParams.Position != null)
+ 			{
+ 				Vector3 val = default(Vector3);
+-				((Vector3)(ref val))._002Ector(soundParams.Position.X, soundParams.Position.Y, soundParams.Position.Z);
++				val = new Vector3(soundParams.Position.X, soundParams.Position.Y, soundParams.Position.Z);
+ 				AL.Source(sourceId, (ALSource3f)4100, ref val);
+ 			}
+ 			AL.Source(sourceId, (ALSourceb)514, soundParams.RelativePosition);
+ 			AL.Source(sourceId, (ALSourceb)4103, soundParams.ShouldLoop);
+ 			if (playbackPosition > 0f)
+@@ -433,11 +433,11 @@ public class LoadedSoundNative : ILoadedSound, IDisposable
+ 		if (sourceId != 0)
+ 		{
+ 			if (!disposed)
+ 			{
+ 				Vector3 val = default(Vector3);
+-				((Vector3)(ref val))._002Ector(x, y, z);
++				val = new Vector3(x, y, z);
+ 				AL.Source(sourceId, (ALSource3f)4100, ref val);
+ 			}
+ 			testError("setposition x/y/z");
+ 		}
+ 	}
+@@ -461,11 +461,11 @@ public class LoadedSoundNative : ILoadedSound, IDisposable
+ 		if (sourceId != 0)
+ 		{
+ 			if (!disposed)
+ 			{
+ 				Vector3 val = default(Vector3);
+-				((Vector3)(ref val))._002Ector(position.X, position.Y, position.Z);
++				val = new Vector3(position.X, position.Y, position.Z);
+ 				AL.Source(sourceId, (ALSource3f)4100, ref val);
+ 			}
+ 			testError("setposition vec3");
+ 		}
+ 	}

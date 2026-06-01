@@ -1,0 +1,29 @@
+diff --git a/VintagestoryLib/Vintagestory.Common/CreativeTab.cs b/VintagestoryLib/Vintagestory.Common/CreativeTab.cs
+index a9cbc83..ba41590 100644
+--- a/VintagestoryLib/Vintagestory.Common/CreativeTab.cs
++++ b/VintagestoryLib/Vintagestory.Common/CreativeTab.cs
+@@ -1,9 +1,8 @@
+ using System.Collections.Generic;
+ using Vintagestory.API.Common;
+ using Vintagestory.API.Util;
+-using Vintagestory.Client.NoObf;
+ 
+ namespace Vintagestory.Common;
+ 
+ public class CreativeTab
+ {
+@@ -27,14 +26,10 @@ public class CreativeTab
+ 	{
+ 		Dictionary<int, string> dictionary = new Dictionary<int, string>();
+ 		Dictionary<int, string> dictionary2 = new Dictionary<int, string>();
+ 		for (int i = 0; i < Inventory.Count; i++)
+ 		{
+-			if (((ClientCoreAPI)world.Api).disposed)
+-			{
+-				break;
+-			}
+ 			ItemSlot itemSlot = Inventory[i];
+ 			ItemStack itemstack = itemSlot.Itemstack;
+ 			if (itemstack != null)
+ 			{
+ 				string name = itemstack.GetName();

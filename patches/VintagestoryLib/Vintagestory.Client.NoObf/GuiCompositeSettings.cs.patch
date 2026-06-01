@@ -1,0 +1,38 @@
+diff --git a/VintagestoryLib/Vintagestory.Client.NoObf/GuiCompositeSettings.cs b/VintagestoryLib/Vintagestory.Client.NoObf/GuiCompositeSettings.cs
+index 71c6ad4..4d08f84 100644
+--- a/VintagestoryLib/Vintagestory.Client.NoObf/GuiCompositeSettings.cs
++++ b/VintagestoryLib/Vintagestory.Client.NoObf/GuiCompositeSettings.cs
+@@ -222,25 +222,25 @@ public class GuiCompositeSettings : GuiComposite
+ 		//IL_013c: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0167: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_016c: Unknown result type (might be due to invalid IL or missing references)
+ 		CairoFont cairoFont = CairoFont.ButtonText();
+ 		TextExtents textExtents = cairoFont.GetTextExtents(Lang.Get("setting-graphics-header"));
+-		double width = ((TextExtents)(ref textExtents)).Width / (double)ClientSettings.GUIScale + 15.0;
++		double width = textExtents.Width / (double)ClientSettings.GUIScale + 15.0;
+ 		textExtents = cairoFont.GetTextExtents(Lang.Get("setting-mouse-header"));
+-		double width2 = ((TextExtents)(ref textExtents)).Width / (double)ClientSettings.GUIScale + 15.0;
++		double width2 = textExtents.Width / (double)ClientSettings.GUIScale + 15.0;
+ 		textExtents = cairoFont.GetTextExtents(Lang.Get("setting-controls-header"));
+-		double width3 = ((TextExtents)(ref textExtents)).Width / (double)ClientSettings.GUIScale + 15.0;
++		double width3 = textExtents.Width / (double)ClientSettings.GUIScale + 15.0;
+ 		textExtents = cairoFont.GetTextExtents(Lang.Get("setting-accessibility-header"));
+-		double width4 = ((TextExtents)(ref textExtents)).Width / (double)ClientSettings.GUIScale + 15.0;
++		double width4 = textExtents.Width / (double)ClientSettings.GUIScale + 15.0;
+ 		textExtents = cairoFont.GetTextExtents(Lang.Get("setting-sound-header"));
+-		double width5 = ((TextExtents)(ref textExtents)).Width / (double)ClientSettings.GUIScale + 15.0;
++		double width5 = textExtents.Width / (double)ClientSettings.GUIScale + 15.0;
+ 		textExtents = cairoFont.GetTextExtents(Lang.Get("setting-interface-header"));
+-		double width6 = ((TextExtents)(ref textExtents)).Width / (double)ClientSettings.GUIScale + 15.0;
++		double width6 = textExtents.Width / (double)ClientSettings.GUIScale + 15.0;
+ 		textExtents = cairoFont.GetTextExtents(Lang.Get("setting-dev-header"));
+-		double width7 = ((TextExtents)(ref textExtents)).Width / (double)ClientSettings.GUIScale + 15.0;
++		double width7 = textExtents.Width / (double)ClientSettings.GUIScale + 15.0;
+ 		textExtents = cairoFont.GetTextExtents(Lang.Get("general-back"));
+-		double width8 = ((TextExtents)(ref textExtents)).Width / (double)ClientSettings.GUIScale + 15.0;
++		double width8 = textExtents.Width / (double)ClientSettings.GUIScale + 15.0;
+ 		gButtonBounds.WithFixedWidth(width);
+ 		mButtonBounds.WithFixedWidth(width2).FixedRightOf(gButtonBounds, 15.0);
+ 		cButtonBounds.WithFixedWidth(width3).FixedRightOf(mButtonBounds, 15.0);
+ 		aButtonBounds.WithFixedWidth(width4).FixedRightOf(cButtonBounds, 15.0);
+ 		sButtonBounds.WithFixedWidth(width5).FixedRightOf(aButtonBounds, 15.0);

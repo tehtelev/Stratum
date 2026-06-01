@@ -8,6 +8,7 @@
 
 # Distribution staging
 /dist/
+/release-full/
 build.log
 build_output.txt
 
@@ -50,9 +51,13 @@ build_output.txt
 
 # Editor / OS
 .idea/
+.vscode/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Local-only docs scratch
+/wiki/
 
 # Local secrets / per-machine config
 *.local.json

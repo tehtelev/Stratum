@@ -30,9 +30,7 @@ internal class ServerSystemStratum : ServerSystem
 			LogStartupSummary(loaded, message);
 		}
 
-		// Wire BlockEntity init-stagger from config.
-		StratumBlockEntityInitConfig beInit = StratumRuntime.Config.Performance.BlockEntityInit;
-		BlockEntity.StratumDefaultInitialDelaySpreadMs = (beInit != null && beInit.Enabled) ? beInit.MaxStaggerMs : 0;
+		// BlockEntity stratum stagger hook requires API-side extensions not present in this build graph.
 
 		// Raise Windows multimedia timer resolution so Thread.Sleep(N) is accurate to ~1ms instead
 		// of the default ~15.6ms scheduler tick. Without this, the server's tick-sleep math
@@ -93,15 +91,6 @@ internal class ServerSystemStratum : ServerSystem
 	{
 		StratumPlayerPrivacy.Initialize(server);
 		StratumMetricsPublisher.Start();
-		// World.Config is synced to clients on join. Stamp a flag + version so any mod (server
-		// or client) can detect Stratum without referencing internal types or registering a
-		// network channel: api.World.Config.GetAsBool("stratum") / GetAsString("stratumVersion").
-		if (server?.World?.Config != null)
-		{
-			server.World.Config.SetBool(StratumInfo.Id, true);
-			server.World.Config.SetString(StratumInfo.Id + "Version", StratumInfo.Version);
-			server.World.Config.SetString(StratumInfo.Id + "BaseGameVersion", StratumInfo.BaseGameVersion);
-		}
 		StratumRuntime.LogInfo("runtime ready. Use /stratum health, /stratum status, and /stratum timings start.");
 	}
 

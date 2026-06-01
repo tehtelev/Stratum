@@ -24,7 +24,13 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
-    $infoFile = Join-Path $repoRoot 'sources/VintagestoryLib/Vintagestory/Server/StratumInfo.cs'
+    $infoFile = @(
+        (Join-Path $repoRoot 'sources/VintagestoryLib/Vintagestory.Server/StratumInfo.cs'),
+        (Join-Path $repoRoot 'sources/VintagestoryLib/Vintagestory/Server/StratumInfo.cs'),
+        (Join-Path $repoRoot 'baseline/VintagestoryLib/Vintagestory.Server/StratumInfo.cs'),
+        (Join-Path $repoRoot 'baseline/VintagestoryLib/Vintagestory/Server/StratumInfo.cs')
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $infoFile) { throw 'Could not locate StratumInfo.cs for version parsing.' }
     $infoText = Get-Content $infoFile -Raw
     $baseVer = [regex]::Match($infoText, 'BaseGameVersion\s*=\s*"([^"]+)"').Groups[1].Value
     $rev     = [regex]::Match($infoText, 'StratumRevision\s*=\s*"([^"]+)"').Groups[1].Value

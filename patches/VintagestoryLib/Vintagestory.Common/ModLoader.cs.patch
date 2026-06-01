@@ -1,0 +1,17 @@
+diff --git a/VintagestoryLib/Vintagestory.Common/ModLoader.cs b/VintagestoryLib/Vintagestory.Common/ModLoader.cs
+index 101dbeb..5151fc1 100644
+--- a/VintagestoryLib/Vintagestory.Common/ModLoader.cs
++++ b/VintagestoryLib/Vintagestory.Common/ModLoader.cs
+@@ -213,11 +213,11 @@ public class ModLoader : IModLoader
+ 				if (mod.Enabled)
+ 				{
+ 					mod.LoadAssembly(compilationContext, loader);
+ 					if (mod.Status == ModStatus.Errored && mod.Error == ModError.ChangedVersion && api is ICoreServerAPI coreServerAPI && !coreServerAPI.Server.IsDedicated)
+ 					{
+-						throw new RestartGameException(Lang.Get("modwarning-assemblyloaded", mod.Info.ModID));
++						throw new InvalidOperationException(Lang.Get("modwarning-assemblyloaded", mod.Info.ModID));
+ 					}
+ 				}
+ 			}
+ 		}
+ 		logger.VerboseDebug("{0} assemblies loaded", mods.Count);

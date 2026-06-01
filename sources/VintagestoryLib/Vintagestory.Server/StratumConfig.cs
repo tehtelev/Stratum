@@ -503,7 +503,7 @@ internal class StratumBlockBreakGuardsConfig
 
 internal class StratumClientModPolicyConfig
 {
-	public bool Enabled { get; set; } = true;
+	public bool Enabled { get; set; } = false;
 
 	public bool StrictWhitelist { get; set; } = true;
 

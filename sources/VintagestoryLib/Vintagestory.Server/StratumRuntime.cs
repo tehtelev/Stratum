@@ -85,6 +85,7 @@ internal static class StratumRuntime
 		}
 
 		SortedSet<string> whitelist = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+		AddAlwaysAllowedCoreMods(whitelist);
 		if (policy.IncludeServerUniversalMods && serverUniversalMods != null)
 		{
 			for (int index = 0; index < serverUniversalMods.Count; index++)
@@ -99,6 +100,14 @@ internal static class StratumRuntime
 		string[] result = new string[whitelist.Count];
 		whitelist.CopyTo(result);
 		return result;
+	}
+
+	private static void AddAlwaysAllowedCoreMods(SortedSet<string> whitelist)
+	{
+		foreach (string modId in new[] { "game", "creative", "survival" })
+		{
+			whitelist.Add(modId);
+		}
 	}
 
 	private static void AddModWhitelistEntries(SortedSet<string> whitelist, IEnumerable<string> entries)

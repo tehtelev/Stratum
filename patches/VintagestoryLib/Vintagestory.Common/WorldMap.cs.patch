@@ -1,0 +1,48 @@
+diff --git a/VintagestoryLib/Vintagestory.Common/WorldMap.cs b/VintagestoryLib/Vintagestory.Common/WorldMap.cs
+index c5cd426..1e70893 100644
+--- a/VintagestoryLib/Vintagestory.Common/WorldMap.cs
++++ b/VintagestoryLib/Vintagestory.Common/WorldMap.cs
+@@ -4,11 +4,10 @@ using Vintagestory.API.Common;
+ using Vintagestory.API.Common.Entities;
+ using Vintagestory.API.Config;
+ using Vintagestory.API.MathTools;
+ using Vintagestory.API.Server;
+ using Vintagestory.API.Util;
+-using Vintagestory.Client.NoObf;
+ using Vintagestory.Common.Database;
+ using Vintagestory.Server;
+ 
+ namespace Vintagestory.Common;
+ 
+@@ -190,11 +189,11 @@ public abstract class WorldMap
+ 			{
+ 				((IServerPlayer)player).SendIngameError(text, null, text2);
+ 			}
+ 			else
+ 			{
+-				((ClientMain)World).api.TriggerIngameError(this, text, Lang.Get("ingameerror-" + text, claimant));
++				Logger.Warning(Lang.Get("ingameerror-" + text, claimant));
+ 			}
+ 			player?.InventoryManager.ActiveHotbarSlot?.MarkDirty();
+ 			World.BlockAccessor.MarkBlockEntityDirty(pos);
+ 			World.BlockAccessor.MarkBlockDirty(pos);
+ 		}
+@@ -218,15 +217,15 @@ public abstract class WorldMap
+ 
+ 	public EnumWorldAccessResponse TestBlockAccess(IPlayer player, BlockSelection blockSel, EnumBlockAccessFlags accessType, out string? claimant)
+ 	{
+ 		LandClaim claim;
+ 		EnumWorldAccessResponse response = testBlockAccessInternal(player, blockSel, accessType, out claimant, out claim);
+-		if (World.Side == EnumAppSide.Client)
++		if (World.Api.Event is ServerEventAPI serverEventApi)
+ 		{
+-			return ((ClientEventAPI)World.Api.Event).TriggerTestBlockAccess(player, blockSel, accessType, ref claimant, claim, response);
++			return serverEventApi.TriggerTestBlockAccess(player, blockSel, accessType, ref claimant, claim, response);
+ 		}
+-		return ((ServerEventAPI)World.Api.Event).TriggerTestBlockAccess(player, blockSel, accessType, ref claimant, claim, response);
++		return response;
+ 	}
+ 
+ 	private EnumWorldAccessResponse testBlockAccessInternal(IPlayer player, BlockSelection blockSel, EnumBlockAccessFlags accessType, out string? claimant, out LandClaim? claim)
+ 	{
+ 		claim = null;

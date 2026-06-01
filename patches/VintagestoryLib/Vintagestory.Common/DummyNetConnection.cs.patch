@@ -1,0 +1,30 @@
+diff --git a/VintagestoryLib/Vintagestory.Common/DummyNetConnection.cs b/VintagestoryLib/Vintagestory.Common/DummyNetConnection.cs
+index 63f6a21..19d5b39 100644
+--- a/VintagestoryLib/Vintagestory.Common/DummyNetConnection.cs
++++ b/VintagestoryLib/Vintagestory.Common/DummyNetConnection.cs
+@@ -1,9 +1,8 @@
+ using System.Net;
+ using System.Threading;
+ using Vintagestory.API.Common;
+-using Vintagestory.Client.NoObf;
+ 
+ namespace Vintagestory.Common;
+ 
+ public class DummyNetConnection : NetConnection
+ {
+@@ -66,13 +65,13 @@ public class DummyNetConnection : NetConnection
+ 	{
+ 	}
+ 
+ 	internal static bool SendServerAssetsPacketDirectly(Packet_Server packet)
+ 	{
+-		return ClientSystemStartup.ReceiveAssetsPacketDirectly(packet);
++		return false;
+ 	}
+ 
+ 	internal static bool SendServerPacketDirectly(Packet_Server packet)
+ 	{
+-		return ClientSystemStartup.ReceiveServerPacketDirectly(packet);
++		return false;
+ 	}
+ }

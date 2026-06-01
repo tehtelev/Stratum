@@ -45,14 +45,14 @@
     "KickMessage": "Disconnected by Stratum block break protection"
   },
   "ClientModPolicy": {
-    "Enabled": true,
+    "Enabled": false,
     "StrictWhitelist": true,
     "IncludeServerUniversalMods": true,
     "AllowModIds": [],
     "LogPolicyOnStartup": true
   },
   "CrowdSpawn": {
-    "Enabled": true,
+    "Enabled": false,
     "MinimumNearbyPlayers": 24,
     "DetectionRadiusBlocks": 48,
     "SpreadRadiusBlocks": 64,
@@ -91,7 +91,7 @@
       "MinimumMovementSpeed": 0.05
     },
     "Pregen": {
-      "Enabled": true,
+      "Enabled": false,
       "MaxColumnsPerSecond": 32,
       "MaxScansPerSecond": 4096,
       "MaxPendingColumnQueue": 256,
@@ -211,11 +211,11 @@
         "Privilege": "stratum.tpahere"
       },
       "AllowTpaHere": true,
-      "TimeoutSeconds": 60,
-      "CooldownSeconds": 15,
+      "TimeoutSeconds": 30,
+      "CooldownSeconds": 10,
       "WarmupSeconds": 5,
       "TeleportCooldownSeconds": 30,
-      "CancelMoveDistanceBlocks": 0.35,
+      "CancelMoveDistanceBlocks": 0.5,
       "CancelOnMove": true,
       "CancelOnDamage": true,
       "BypassWarmupForStaff": true

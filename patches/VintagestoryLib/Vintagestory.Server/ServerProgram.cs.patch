@@ -1,8 +1,20 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerProgram.cs b/VintagestoryLib/Vintagestory.Server/ServerProgram.cs
-index b3219a5..f29fb59 100644
+index b3219a5..9cbd88d 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerProgram.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerProgram.cs
-@@ -74,11 +74,11 @@ public class ServerProgram
+@@ -4,11 +4,10 @@ using System.Runtime.InteropServices;
+ using CommandLine;
+ using VSPlatform;
+ using Vintagestory.API.Common;
+ using Vintagestory.API.Config;
+ using Vintagestory.API.Server;
+-using Vintagestory.ClientNative;
+ using Vintagestory.Common;
+ using Vintagestory.Common.Convert;
+ 
+ namespace Vintagestory.Server;
+ 
+@@ -74,22 +73,21 @@ public class ServerProgram
  			GamePaths.CustomLogPath = progArgs.LogPath;
  		}
  		if (progArgs.PrintVersion)
@@ -15,3 +27,15 @@ index b3219a5..f29fb59 100644
  		{
  			Console.WriteLine();
  			Console.Write(progArgs.GetUsage(val));
+ 		}
+ 		else
+ 		{
+ 			GamePaths.EnsurePathsExist();
+-			CrashReporter.EnableGlobalExceptionHandling(blnIsConsole: true);
+-			new CrashReporter(EnumAppSide.Server).Start(Main);
++			Main();
+ 		}
+ 	}
+ 
+ 	private void Main()
+ 	{

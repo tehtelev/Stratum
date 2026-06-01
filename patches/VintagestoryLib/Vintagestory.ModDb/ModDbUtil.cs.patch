@@ -1,0 +1,45 @@
+diff --git a/VintagestoryLib/Vintagestory.ModDb/ModDbUtil.cs b/VintagestoryLib/Vintagestory.ModDb/ModDbUtil.cs
+index 24f0e4e..491f58d 100644
+--- a/VintagestoryLib/Vintagestory.ModDb/ModDbUtil.cs
++++ b/VintagestoryLib/Vintagestory.ModDb/ModDbUtil.cs
+@@ -12,11 +12,10 @@ using System.Threading.Tasks;
+ using Newtonsoft.Json;
+ using Vintagestory.API.Common;
+ using Vintagestory.API.Config;
+ using Vintagestory.API.Server;
+ using Vintagestory.API.Util;
+-using Vintagestory.Client.NoObf;
+ using Vintagestory.Common;
+ 
+ namespace Vintagestory.ModDb;
+ 
+ public class ModDbUtil
+@@ -180,11 +179,12 @@ public class ModDbUtil
+ 				string[] array = modId.Split('@', 2);
+ 				string text = array[0];
+ 				string text2 = ((array.Length > 1) ? array[1] : null);
+ 				foreach (KeyValuePair<string, ModInstallInformation> datum in result.Data)
+ 				{
+-					var (identifier, modInstallInformation2) = (KeyValuePair<string, ModInstallInformation>)(ref datum);
++					string identifier = datum.Key;
++					ModInstallInformation modInstallInformation2 = datum.Value;
+ 					if (modInstallInformation2.ErrorCode != 0)
+ 					{
+ 						onProgressUpdate(identifier + ": " + modInstallInformation2.FormatErrorCode());
+ 					}
+ 					else if (!string.IsNullOrEmpty(modInstallInformation2.RetractionReason))
+@@ -378,14 +378,10 @@ public class ModDbUtil
+ 			{
+ 				if (mod.Enabled)
+ 				{
+ 					return (ModEnableOutcome.AlreadyEnabled, installedVersion: mod.Info.Version);
+ 				}
+-				List<string> disabledMods = ClientSettings.DisabledMods;
+-				disabledMods.Remove(mod.Info.ModID + "@" + mod.Info.Version);
+-				ClientSettings.DisabledMods = disabledMods;
+-				ClientSettings.Inst.Save(force: true);
+ 				return (ModEnableOutcome.NewlyEnabled, installedVersion: mod.Info.Version);
+ 			}
+ 			if (GameVersion.IsNewerVersionThan(mod.Info.Version, desiredVersion))
+ 			{
+ 				return (ModEnableOutcome.InstalledIsNewer, installedVersion: mod.Info.Version);

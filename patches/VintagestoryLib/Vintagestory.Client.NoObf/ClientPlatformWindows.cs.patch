@@ -1,0 +1,199 @@
+diff --git a/VintagestoryLib/Vintagestory.Client.NoObf/ClientPlatformWindows.cs b/VintagestoryLib/Vintagestory.Client.NoObf/ClientPlatformWindows.cs
+index 4f8ca6d..1dcaf54 100644
+--- a/VintagestoryLib/Vintagestory.Client.NoObf/ClientPlatformWindows.cs
++++ b/VintagestoryLib/Vintagestory.Client.NoObf/ClientPlatformWindows.cs
+@@ -362,11 +362,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 			//IL_006a: Unknown result type (might be due to invalid IL or missing references)
+ 			CursorState val = (CursorState)(value ? 2 : 0);
+ 			if (val != ((NativeWindow)window).CursorState && !RuntimeEnv.IsWaylandSession)
+ 			{
+ 				Vector2 val2 = default(Vector2);
+-				((Vector2)(ref val2))._002Ector((float)((NativeWindow)window).ClientSize.X / 2f, (float)((NativeWindow)window).ClientSize.Y / 2f);
++				val2 = new Vector2((float)((NativeWindow)window).ClientSize.X / 2f, (float)((NativeWindow)window).ClientSize.Y / 2f);
+ 				SetMousePosition(val2.X, val2.Y);
+ 				((NativeWindow)window).MousePosition = val2;
+ 			}
+ 			((NativeWindow)window).CursorState = val;
+ 		}
+@@ -721,11 +721,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		}
+ 	}
+ 
+ 	private void Window_FileDrop(FileDropEventArgs e)
+ 	{
+-		fileDropEventHandler?.Invoke(((FileDropEventArgs)(ref e)).FileNames[0]);
++		fileDropEventHandler?.Invoke(e.FileNames[0]);
+ 	}
+ 
+ 	private void OnWindowResize(ResizeEventArgs e)
+ 	{
+ 		doResize = Environment.TickCount + 40;
+@@ -3452,14 +3452,14 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 			for (int i = 0; i < val.Height; i++)
+ 			{
+ 				for (int j = 0; j < val.Width; j++)
+ 				{
+ 					SKColor pixel = val.GetPixel(j, i);
+-					array[num] = ((SKColor)(ref pixel)).Red;
+-					array[num + 1] = ((SKColor)(ref pixel)).Green;
+-					array[num + 2] = ((SKColor)(ref pixel)).Blue;
+-					array[num + 3] = ((SKColor)(ref pixel)).Alpha;
++					array[num] = pixel.Red;
++					array[num + 1] = pixel.Green;
++					array[num + 2] = pixel.Blue;
++					array[num + 3] = pixel.Alpha;
+ 					num += 4;
+ 				}
+ 			}
+ 			preLoadedCursors[cursorCoode] = new MouseCursor(hotx, hoty, val.Width, val.Height, array);
+ 			((SKNativeObject)val).Dispose();
+@@ -3549,11 +3549,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 
+ 	private void Mouse_Move(MouseMoveEventArgs e)
+ 	{
+ 		if (!ignoreNormalMouseMoveEvent)
+ 		{
+-			SetMousePosition(((MouseMoveEventArgs)(ref e)).X, ((MouseMoveEventArgs)(ref e)).Y);
++			SetMousePosition(e.X, e.Y);
+ 		}
+ 	}
+ 
+ 	private void SetMousePosition(float x, float y)
+ 	{
+@@ -3563,21 +3563,21 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		{
+ 			mouseY += ClientSettings.WeirdMacOSMouseYOffset;
+ 		}
+ 	}
+ 
+-	private void Mouse_WheelChanged(MouseWheelEventArgs e)
++	private void Mouse_WheelChanged(OpenTK.Windowing.Common.MouseWheelEventArgs e)
+ 	{
+ 		foreach (MouseEventHandler mouseEventHandler in mouseEventHandlers)
+ 		{
+-			float num = ((MouseWheelEventArgs)(ref e)).OffsetY * ClientSettings.MouseWheelSensivity;
++			float num = e.OffsetY * ClientSettings.MouseWheelSensivity;
+ 			if (RuntimeEnv.OS == OS.Mac)
+ 			{
+ 				num = GameMath.Clamp(num, -1f, 1f);
+ 			}
+ 			prevWheelValue += num;
+-			MouseWheelEventArgs e2 = new MouseWheelEventArgs
++			Vintagestory.API.Client.MouseWheelEventArgs e2 = new Vintagestory.API.Client.MouseWheelEventArgs
+ 			{
+ 				delta = (int)num,
+ 				deltaPrecise = (int)num,
+ 				value = (int)prevWheelValue,
+ 				valuePrecise = prevWheelValue
+@@ -3589,93 +3589,93 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 	private void Mouse_ButtonDown(MouseButtonEventArgs e)
+ 	{
+ 		//IL_0002: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0033: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_003d: Expected I4, but got Unknown
+-		EnumMouseButton button = MouseButtonConverter.ToEnumMouseButton(((MouseButtonEventArgs)(ref e)).Button);
++		EnumMouseButton button = MouseButtonConverter.ToEnumMouseButton(e.Button);
+ 		foreach (MouseEventHandler mouseEventHandler in mouseEventHandlers)
+ 		{
+-			MouseEvent e2 = new MouseEvent((int)mouseX, (int)mouseY, button, (int)((MouseButtonEventArgs)(ref e)).Modifiers);
++			MouseEvent e2 = new MouseEvent((int)mouseX, (int)mouseY, button, (int)e.Modifiers);
+ 			mouseEventHandler.OnMouseDown(e2);
+ 		}
+ 	}
+ 
+ 	private void Mouse_ButtonUp(MouseButtonEventArgs e)
+ 	{
+ 		//IL_0002: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0033: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_003d: Expected I4, but got Unknown
+-		EnumMouseButton button = MouseButtonConverter.ToEnumMouseButton(((MouseButtonEventArgs)(ref e)).Button);
++		EnumMouseButton button = MouseButtonConverter.ToEnumMouseButton(e.Button);
+ 		foreach (MouseEventHandler mouseEventHandler in mouseEventHandlers)
+ 		{
+-			MouseEvent e2 = new MouseEvent((int)mouseX, (int)mouseY, button, (int)((MouseButtonEventArgs)(ref e)).Modifiers);
++			MouseEvent e2 = new MouseEvent((int)mouseX, (int)mouseY, button, (int)e.Modifiers);
+ 			mouseEventHandler.OnMouseUp(e2);
+ 		}
+ 	}
+ 
+ 	private void game_KeyPress(TextInputEventArgs e)
+ 	{
+ 		foreach (KeyEventHandler keyEventHandler in keyEventHandlers)
+ 		{
+ 			keyEventHandler.OnKeyPress(new KeyEvent
+ 			{
+-				KeyCode = ((TextInputEventArgs)(ref e)).Unicode,
+-				KeyChar = (char)((TextInputEventArgs)(ref e)).Unicode
++				KeyCode = e.Unicode,
++				KeyChar = (char)e.Unicode
+ 			});
+ 		}
+ 	}
+ 
+ 	private void game_KeyDown(KeyboardKeyEventArgs e)
+ 	{
+ 		//IL_0002: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0008: Invalid comparison between Unknown and I4
+ 		//IL_0012: Unknown result type (might be due to invalid IL or missing references)
+-		if ((int)((KeyboardKeyEventArgs)(ref e)).Key == -1)
++		if ((int)e.Key == -1)
+ 		{
+ 			return;
+ 		}
+-		int keyCode = KeyConverter.NewKeysToGlKeys[((KeyboardKeyEventArgs)(ref e)).Key];
++		int keyCode = KeyConverter.NewKeysToGlKeys[e.Key];
+ 		foreach (KeyEventHandler keyEventHandler in keyEventHandlers)
+ 		{
+ 			KeyEvent keyEvent = new KeyEvent
+ 			{
+ 				KeyCode = keyCode
+ 			};
+ 			if (EllapsedMs - lastKeyUpMs <= 200)
+ 			{
+ 				keyEvent.KeyCode2 = lastKeyUpKey;
+ 			}
+-			keyEvent.CommandPressed = ((KeyboardKeyEventArgs)(ref e)).Command;
+-			keyEvent.CtrlPressed = ((KeyboardKeyEventArgs)(ref e)).Control;
+-			keyEvent.ShiftPressed = ((KeyboardKeyEventArgs)(ref e)).Shift;
+-			keyEvent.AltPressed = ((KeyboardKeyEventArgs)(ref e)).Alt;
++			keyEvent.CommandPressed = e.Command;
++			keyEvent.CtrlPressed = e.Control;
++			keyEvent.ShiftPressed = e.Shift;
++			keyEvent.AltPressed = e.Alt;
+ 			keyEventHandler.OnKeyDown(keyEvent);
+ 		}
+ 	}
+ 
+ 	private void game_KeyUp(KeyboardKeyEventArgs e)
+ 	{
+ 		//IL_0002: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0008: Invalid comparison between Unknown and I4
+ 		//IL_0012: Unknown result type (might be due to invalid IL or missing references)
+-		if ((int)((KeyboardKeyEventArgs)(ref e)).Key == -1)
++		if ((int)e.Key == -1)
+ 		{
+ 			return;
+ 		}
+-		int keyCode = KeyConverter.NewKeysToGlKeys[((KeyboardKeyEventArgs)(ref e)).Key];
++		int keyCode = KeyConverter.NewKeysToGlKeys[e.Key];
+ 		lastKeyUpMs = EllapsedMs;
+ 		lastKeyUpKey = keyCode;
+ 		foreach (KeyEventHandler keyEventHandler in keyEventHandlers)
+ 		{
+ 			KeyEvent keyEvent = new KeyEvent
+ 			{
+ 				KeyCode = keyCode
+ 			};
+-			keyEvent.CommandPressed = ((KeyboardKeyEventArgs)(ref e)).Command;
+-			keyEvent.CtrlPressed = ((KeyboardKeyEventArgs)(ref e)).Control;
+-			keyEvent.ShiftPressed = ((KeyboardKeyEventArgs)(ref e)).Shift;
+-			keyEvent.AltPressed = ((KeyboardKeyEventArgs)(ref e)).Alt;
++			keyEvent.CommandPressed = e.Command;
++			keyEvent.CtrlPressed = e.Control;
++			keyEvent.ShiftPressed = e.Shift;
++			keyEvent.AltPressed = e.Alt;
+ 			keyEventHandler.OnKeyUp(keyEvent);
+ 		}
+ 	}
+ 
+ 	public override MouseEvent CreateMouseEvent(EnumMouseButton button)

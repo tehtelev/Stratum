@@ -1,0 +1,27 @@
+diff --git a/VintagestoryLib/Vintagestory.Common/VSWebClient.cs b/VintagestoryLib/Vintagestory.Common/VSWebClient.cs
+index a6a4c3b..d4c92f6 100644
+--- a/VintagestoryLib/Vintagestory.Common/VSWebClient.cs
++++ b/VintagestoryLib/Vintagestory.Common/VSWebClient.cs
+@@ -1,21 +1,20 @@
+ using System;
+ using System.IO;
+ using System.Net.Http;
+ using System.Threading;
+ using System.Threading.Tasks;
+-using Vintagestory.Client.NoObf;
+ 
+ namespace Vintagestory.Common;
+ 
+ public class VSWebClient : HttpClient
+ {
+ 	public delegate void PostCompleteHandler(CompletedArgs args);
+ 
+ 	public static readonly VSWebClient Inst = new VSWebClient
+ 	{
+-		Timeout = TimeSpan.FromSeconds(ClientSettings.WebRequestTimeout)
++		Timeout = TimeSpan.FromSeconds(30.0)
+ 	};
+ 
+ 	public void PostAsync(Uri uri, FormUrlEncodedContent? postData, PostCompleteHandler onFinished)
+ 	{
+ 		PostAsyncSafe(uri, postData).ContinueWith(delegate(Task<CompletedArgs> t)

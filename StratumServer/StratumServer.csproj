@@ -10,9 +10,21 @@
     <EmbedPatchedDlls Condition="'$(EmbedPatchedDlls)' == ''">false</EmbedPatchedDlls>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- Prefer active decompile layout, then fall back to baseline mirrors. -->
+    <StratumInfoPath Condition="Exists('..\VintagestoryLib\Vintagestory.Server\StratumInfo.cs')">..\VintagestoryLib\Vintagestory.Server\StratumInfo.cs</StratumInfoPath>
+    <StratumInfoPath Condition="'$(StratumInfoPath)' == '' and Exists('..\VintagestoryLib\Vintagestory\Server\StratumInfo.cs')">..\VintagestoryLib\Vintagestory\Server\StratumInfo.cs</StratumInfoPath>
+    <StratumInfoPath Condition="'$(StratumInfoPath)' == '' and Exists('..\baseline\VintagestoryLib\Vintagestory.Server\StratumInfo.cs')">..\baseline\VintagestoryLib\Vintagestory.Server\StratumInfo.cs</StratumInfoPath>
+    <StratumInfoPath Condition="'$(StratumInfoPath)' == '' and Exists('..\baseline\VintagestoryLib\Vintagestory\Server\StratumInfo.cs')">..\baseline\VintagestoryLib\Vintagestory\Server\StratumInfo.cs</StratumInfoPath>
+  </PropertyGroup>
+
   <ItemGroup>
-    <Compile Include="..\VintagestoryLib\Vintagestory\Server\StratumInfo.cs" Link="StratumInfo.cs" />
+    <Compile Include="$(StratumInfoPath)" Link="StratumInfo.cs" Condition="'$(StratumInfoPath)' != ''" />
   </ItemGroup>
+
+  <Target Name="ValidateStratumInfoPath" BeforeTargets="CoreCompile">
+    <Error Condition="'$(StratumInfoPath)' == ''" Text="StratumInfo.cs not found. Expected one of: ..\VintagestoryLib\Vintagestory.Server\StratumInfo.cs, ..\VintagestoryLib\Vintagestory\Server\StratumInfo.cs, ..\baseline\VintagestoryLib\Vintagestory.Server\StratumInfo.cs, ..\baseline\VintagestoryLib\Vintagestory\Server\StratumInfo.cs" />
+  </Target>
 
   <!--
     Embedded patched DLLs. Enable by passing -p:EmbedPatchedDlls=true at publish time.
