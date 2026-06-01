@@ -8,6 +8,11 @@
       "ref": "caebe5cd00289f5deb7d9584ba8415f062225dc4"
     },
     {
+      "name": "VSCreativeMod",
+      "url": "https://github.com/anegostudios/vscreativemod.git",
+      "ref": "1c649719734ac5c049ce947a945847b2a07e9f59"
+    },
+    {
       "name": "VSEssentials",
       "url": "https://github.com/anegostudios/vsessentialsmod.git",
       "ref": "3319dff9e22b2f57c301a915fe5aa67e1ca349d2"

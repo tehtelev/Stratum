@@ -35,11 +35,14 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
-    # Closed-source DLLs and the project folder each one is decompiled into.
+    # Closed-source DLLs, the project folder each one is decompiled into, and the
+    # working-tree path the project compiles from. Vanilla projects whose patches
+    # apply with --directory=baseline live under baseline/; standalone wrappers
+    # like Cairo land at the repo root so the solution can reference them directly.
     $libMap = [ordered]@{
-        'VintagestoryLib.dll'    = 'VintagestoryLib'
-        'VintagestoryServer.dll' = 'VintagestoryServer'
-        'cairo-sharp.dll'        = 'Cairo'
+        'VintagestoryLib.dll'    = @{ Project = 'VintagestoryLib';    Work = 'baseline/VintagestoryLib' }
+        'VintagestoryServer.dll' = @{ Project = 'VintagestoryServer'; Work = 'baseline/VintagestoryServer' }
+        'cairo-sharp.dll'        = @{ Project = 'Cairo';              Work = 'Cairo' }
     }
 
     $vanillaDir  = Join-Path $repoRoot '.vanilla'
@@ -79,7 +82,8 @@ try {
     }
 
     foreach ($dll in $libMap.Keys) {
-        $proj = $libMap[$dll]
+        $proj = $libMap[$dll].Project
+        $workRel = $libMap[$dll].Work
         $dllPath = Get-ChildItem -Path $vanillaDir -Recurse -Filter $dll | Select-Object -First 1
         if (-not $dllPath) { Write-Warning "Skipping $dll, not found in zip"; continue }
 
@@ -90,7 +94,7 @@ try {
             ilspycmd $dllPath.FullName --project -o $out | Out-Null
         }
 
-        $work = Join-Path $repoRoot "baseline/$proj"
+        $work = Join-Path $repoRoot $workRel
         if (Test-Path $work) { Remove-Item -Recurse -Force $work }
         Copy-Item -Recurse -Force $out $work
     }
