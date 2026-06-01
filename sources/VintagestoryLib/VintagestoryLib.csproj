@@ -1,0 +1,104 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>VintagestoryLib</AssemblyName>
+    <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup>
+    <LangVersion>14.0</LangVersion>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemGroup>
+    <Compile Remove="GuiScreen.cs" />
+    <Compile Remove="GuiScreenMainRight.cs" />
+    <Compile Remove="Vintagestory\ClientLogger.cs" />
+    <Compile Remove="Vintagestory.Client\**\*.cs" />
+    <Compile Remove="Vintagestory.Client.Gui\**\*.cs" />
+    <Compile Remove="Vintagestory.Client.MaxObf\**\*.cs" />
+    <Compile Remove="Vintagestory.Client.Network\**\*.cs" />
+    <Compile Remove="Vintagestory.Client.NoObf\**\*.cs" />
+    <Compile Remove="Vintagestory.Client.Util\**\*.cs" />
+    <Compile Remove="Vintagestory.ClientNative\**\*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Vintagestory.Client.NoObf\INetworkConnection.cs" />
+    <Compile Include="Vintagestory.Client.NoObf\MonitorObject.cs" />
+    <Compile Include="Vintagestory.Client.NoObf\VintageStorySocket.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\VintagestoryApi\VintagestoryAPI.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="cairo-sharp">
+      <HintPath>..\..\.vanilla\Lib\cairo-sharp.dll</HintPath>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>..\..\.vanilla\Lib\protobuf-net.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\..\.vanilla\Lib\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="CommandLine">
+      <HintPath>..\..\.vanilla\Lib\CommandLine.dll</HintPath>
+    </Reference>
+    <Reference Include="SkiaSharp">
+      <HintPath>..\..\.vanilla\Lib\SkiaSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Open.Nat">
+      <HintPath>..\..\.vanilla\Lib\Open.Nat.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Nat">
+      <HintPath>..\..\.vanilla\Lib\Mono.Nat.dll</HintPath>
+    </Reference>
+    <Reference Include="Mono.Cecil">
+      <HintPath>..\..\.vanilla\Lib\Mono.Cecil.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis">
+      <HintPath>..\..\.vanilla\Lib\Microsoft.CodeAnalysis.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CodeAnalysis.CSharp">
+      <HintPath>..\..\.vanilla\Lib\Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib">
+      <HintPath>..\..\.vanilla\Lib\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Data.Sqlite">
+      <HintPath>..\..\.vanilla\Lib\Microsoft.Data.Sqlite.dll</HintPath>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>..\..\.vanilla\Lib\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.Windowing.Desktop">
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Windowing.Desktop.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.Audio.OpenAL">
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Audio.OpenAL.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.Mathematics">
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Mathematics.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.Windowing.Common">
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Windowing.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.Windowing.GraphicsLibraryFramework">
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Windowing.GraphicsLibraryFramework.dll</HintPath>
+    </Reference>
+    <Reference Include="DnsClient">
+      <HintPath>..\..\.vanilla\Lib\DnsClient.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.Graphics">
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Graphics.dll</HintPath>
+    </Reference>
+    <Reference Include="csvorbis">
+      <HintPath>..\..\.vanilla\Lib\csvorbis.dll</HintPath>
+    </Reference>
+    <Reference Include="csogg">
+      <HintPath>..\..\.vanilla\Lib\csogg.dll</HintPath>
+    </Reference>
+    <Reference Include="xplatforminterface">
+      <HintPath>..\..\.vanilla\Lib\xplatforminterface.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

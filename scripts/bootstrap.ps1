@@ -92,6 +92,16 @@ try {
             ilspycmd $dllPath.FullName --project -o $out | Out-Null
         }
 
+        # ilspycmd writes <LangVersion>15.0</LangVersion>, which the .NET 10 SDK
+        # rejects with CS1617. Normalize to a value the current Roslyn accepts.
+        Get-ChildItem -Path $out -Filter '*.csproj' -File | ForEach-Object {
+            $csprojText = [IO.File]::ReadAllText($_.FullName)
+            $patched = $csprojText -replace '<LangVersion>15\.0</LangVersion>', '<LangVersion>latest</LangVersion>'
+            if ($patched -ne $csprojText) {
+                [IO.File]::WriteAllText($_.FullName, $patched)
+            }
+        }
+
         $work = Join-Path $repoRoot $workRel
         if (Test-Path $work) { Remove-Item -Recurse -Force $work }
         Copy-Item -Recurse -Force $out $work
