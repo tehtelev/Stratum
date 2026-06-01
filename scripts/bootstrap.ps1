@@ -35,14 +35,12 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
-    # Closed-source DLLs, the project folder each one is decompiled into, and the
-    # working-tree path the project compiles from. Vanilla projects whose patches
-    # apply with --directory=baseline live under baseline/; standalone wrappers
-    # like Cairo land at the repo root so the solution can reference them directly.
+    # Closed-source DLLs decompiled from the official server zip. Cairo used to
+    # live here too, but its source is now mirrored on GitHub (anegostudios/Cairo)
+    # and cloned via forks.json instead.
     $libMap = [ordered]@{
         'VintagestoryLib.dll'    = @{ Project = 'VintagestoryLib';    Work = 'baseline/VintagestoryLib' }
         'VintagestoryServer.dll' = @{ Project = 'VintagestoryServer'; Work = 'baseline/VintagestoryServer' }
-        'cairo-sharp.dll'        = @{ Project = 'Cairo';              Work = 'Cairo' }
     }
 
     $vanillaDir  = Join-Path $repoRoot '.vanilla'
@@ -118,6 +116,20 @@ try {
                 git -C $base checkout --quiet $ref
                 # Drop the upstream .git so this is just a baseline snapshot.
                 Remove-Item -Recurse -Force (Join-Path $base '.git')
+
+                # Normalize text files to LF. extract-patches.ps1 diffs against
+                # LF-normalized content, so the patches in patches/ assume LF; some
+                # upstream repos ship .gitattributes that force CRLF on checkout
+                # (or Windows autocrlf does), which makes `git apply` reject hunks.
+                Get-ChildItem -Path $base -Recurse -File -Include '*.cs','*.csproj','*.json','*.xml','*.props','*.targets' -ErrorAction SilentlyContinue | ForEach-Object {
+                    $bytes = [IO.File]::ReadAllBytes($_.FullName)
+                    $hasCR = $false
+                    foreach ($byte in $bytes) { if ($byte -eq 13) { $hasCR = $true; break } }
+                    if ($hasCR) {
+                        $text = [Text.Encoding]::UTF8.GetString($bytes) -replace "`r`n", "`n"
+                        [IO.File]::WriteAllBytes($_.FullName, [Text.Encoding]::UTF8.GetBytes($text))
+                    }
+                }
             }
 
             $work = Join-Path $repoRoot $name
