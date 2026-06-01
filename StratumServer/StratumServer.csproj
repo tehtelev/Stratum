@@ -32,15 +32,15 @@
     Logical names are read back at runtime by EmbeddedOverlay.
   -->
   <ItemGroup Condition="'$(EmbedPatchedDlls)' == 'true'">
-    <EmbeddedResource Include="..\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\VintagestoryLib.dll"           LogicalName="Stratum.Overlay.VintagestoryLib.dll" />
-    <EmbeddedResource Include="..\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\Nimbus.Shared.dll"            LogicalName="Stratum.Overlay.Nimbus.Shared.dll" />
+    <EmbeddedResource Include="..\baseline\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\VintagestoryLib.dll"  LogicalName="Stratum.Overlay.VintagestoryLib.dll" />
+    <EmbeddedResource Include="..\baseline\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\Nimbus.Shared.dll"   LogicalName="Stratum.Overlay.Nimbus.Shared.dll" Condition="Exists('..\baseline\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\Nimbus.Shared.dll')" />
     <EmbeddedResource Include="..\bin\$(Configuration)\$(TargetFramework)\VintagestoryAPI.dll"                          LogicalName="Stratum.Overlay.VintagestoryAPI.dll" />
     <EmbeddedResource Include="..\bin\$(Configuration)\$(TargetFramework)\cairo-sharp.dll"                              LogicalName="Stratum.Overlay.cairo-sharp.dll" />
     <EmbeddedResource Include="..\bin\$(Configuration)\$(TargetFramework)\VSEssentials.dll"                             LogicalName="Stratum.OverlayMods.VSEssentials.dll" />
     <EmbeddedResource Include="..\bin\$(Configuration)\$(TargetFramework)\VSSurvivalMod.dll"                            LogicalName="Stratum.OverlayMods.VSSurvivalMod.dll" />
 
-    <EmbeddedResource Include="..\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\VintagestoryLib.pdb"          LogicalName="Stratum.Overlay.VintagestoryLib.pdb" Condition="Exists('..\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\VintagestoryLib.pdb')" />
-    <EmbeddedResource Include="..\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\Nimbus.Shared.pdb"           LogicalName="Stratum.Overlay.Nimbus.Shared.pdb" Condition="Exists('..\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\Nimbus.Shared.pdb')" />
+    <EmbeddedResource Include="..\baseline\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\VintagestoryLib.pdb" LogicalName="Stratum.Overlay.VintagestoryLib.pdb" Condition="Exists('..\baseline\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\VintagestoryLib.pdb')" />
+    <EmbeddedResource Include="..\baseline\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\Nimbus.Shared.pdb"  LogicalName="Stratum.Overlay.Nimbus.Shared.pdb" Condition="Exists('..\baseline\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)\Nimbus.Shared.pdb')" />
     <EmbeddedResource Include="..\bin\$(Configuration)\$(TargetFramework)\VintagestoryAPI.pdb"                          LogicalName="Stratum.Overlay.VintagestoryAPI.pdb" Condition="Exists('..\bin\$(Configuration)\$(TargetFramework)\VintagestoryAPI.pdb')" />
     <EmbeddedResource Include="..\bin\$(Configuration)\$(TargetFramework)\cairo-sharp.pdb"                              LogicalName="Stratum.Overlay.cairo-sharp.pdb" Condition="Exists('..\bin\$(Configuration)\$(TargetFramework)\cairo-sharp.pdb')" />
     <EmbeddedResource Include="..\bin\$(Configuration)\$(TargetFramework)\VSEssentials.pdb"                             LogicalName="Stratum.OverlayMods.VSEssentials.pdb" Condition="Exists('..\bin\$(Configuration)\$(TargetFramework)\VSEssentials.pdb')" />
