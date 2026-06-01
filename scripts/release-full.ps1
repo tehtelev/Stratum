@@ -167,16 +167,24 @@ try {
         Copy-Item $_.FullName $stageDir -Force
     }
 
-    # Overlay mod outputs
-    foreach ($modName in @('VSCreativeMod', 'VSEssentials', 'VSSurvivalMod', 'StratumUI', 'VsNpc')) {
+    # Overlay mod outputs (fork mods only; optional private mods are staged
+    # opportunistically if their build outputs happen to be present)
+    foreach ($modName in @('VSCreativeMod', 'VSEssentials', 'VSSurvivalMod')) {
         Get-ChildItem -Path $binRoot -File -Filter "$modName.*" -ErrorAction SilentlyContinue | ForEach-Object {
             Copy-Item $_.FullName $modsDir -Force
         }
     }
+    foreach ($optionalMod in @('StratumUI', 'VsNpc')) {
+        Get-ChildItem -Path $binRoot -File -Filter "$optionalMod.*" -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item $_.FullName $modsDir -Force
+        }
+    }
 
-    # Nimbus shared lib if built
-    Get-ChildItem -Path $nimbusOut -File -Filter 'Nimbus.Shared.*' -ErrorAction SilentlyContinue | ForEach-Object {
-        Copy-Item $_.FullName $stageDir -Force
+    # Nimbus is an optional integration; only overlay if its build output exists
+    if (Test-Path $nimbusOut) {
+        Get-ChildItem -Path $nimbusOut -File -Filter 'Nimbus.Shared.*' -ErrorAction SilentlyContinue | ForEach-Object {
+            Copy-Item $_.FullName $stageDir -Force
+        }
     }
 
     # The full stage should boot through StratumServer, not vanilla server executables.
