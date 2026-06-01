@@ -1,26 +1,29 @@
 diff --git a/VintagestoryLib/Vintagestory.Server.Network/ServerNetManager.cs b/VintagestoryLib/Vintagestory.Server.Network/ServerNetManager.cs
-index f33469f..a869bfe 100644
+index f33469f..a429d57 100644
 --- a/VintagestoryLib/Vintagestory.Server.Network/ServerNetManager.cs
 +++ b/VintagestoryLib/Vintagestory.Server.Network/ServerNetManager.cs
-@@ -2,10 +2,11 @@ using System;
+@@ -2,10 +2,13 @@ using System;
  using System.Net;
  using System.Net.Sockets;
  using System.Threading;
  using System.Threading.Tasks;
  using Vintagestory.API.Common;
++#if STRATUM_NIMBUS
 +using Vintagestory.Server.Nimbus;
++#endif
  
  namespace Vintagestory.Server.Network;
  
  public class ServerNetManager : IDisposable
  {
-@@ -70,10 +71,49 @@ public class ServerNetManager : IDisposable
+@@ -70,10 +73,51 @@ public class ServerNetManager : IDisposable
  					socket.Disconnect(reuseSocket: false);
  					continue;
  				}
  				socket.ReceiveBufferSize = 4096;
  				TcpNetConnection tcpNetConnection = new TcpNetConnection(socket);
 +
++#if STRATUM_NIMBUS
 +				// PROXY protocol v2: when this peer is a configured trusted proxy, consume the
 +				// header before any game bytes so we can re-stamp the connection with the real
 +				// client IP for bans/logs. Untrusted peers are never inspected.
@@ -58,6 +61,7 @@ index f33469f..a869bfe 100644
 +						}
 +					}
 +				}
++#endif
 +
  				tcpNetConnection.ReceivedMessage += NewConnReceivedMessage;
  				tcpNetConnection.Disconnected += NewConnDisconnected;

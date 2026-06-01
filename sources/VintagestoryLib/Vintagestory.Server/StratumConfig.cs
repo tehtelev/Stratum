@@ -39,8 +39,10 @@ internal class StratumConfig
 
 	public StratumNametagsConfig Nametags { get; set; } = new StratumNametagsConfig();
 
+#if STRATUM_NIMBUS
 	/// <summary>Optional Nimbus network integration. Default disabled — Stratum runs standalone.</summary>
 	public Nimbus.NimbusBackendConfig Network { get; set; } = new Nimbus.NimbusBackendConfig();
+#endif
 
 	public void EnsurePopulated()
 	{
@@ -59,8 +61,10 @@ internal class StratumConfig
 		LoginProtection ??= new StratumLoginProtectionConfig();
 		PlayerPrivacy ??= new StratumPlayerPrivacyConfig();
 		Nametags ??= new StratumNametagsConfig();
+#if STRATUM_NIMBUS
 		Network ??= new Nimbus.NimbusBackendConfig();
 		Network.EnsurePopulated();
+#endif
 		PacketLimits.EnsureSane();
 		PacketBackPressure.EnsureSane();
 		BlockBreakGuards.EnsureSane();

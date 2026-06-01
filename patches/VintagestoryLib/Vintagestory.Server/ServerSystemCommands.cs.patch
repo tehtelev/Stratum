@@ -1,8 +1,8 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemCommands.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemCommands.cs
-index 1d4be19..8145794 100644
+index 1d4be19..5c26aab 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemCommands.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemCommands.cs
-@@ -21,10 +21,19 @@ internal class ServerSystemCommands : ServerSystem
+@@ -21,10 +21,21 @@ internal class ServerSystemCommands : ServerSystem
  		new CmdEntity(server);
  		new CmdGive(server);
  		new CmdDebug(server);
@@ -15,14 +15,16 @@ index 1d4be19..8145794 100644
 +		new StratumLoginProtection(server);
 +		new StratumNametags(server);
 +		new StratumEntityCaps(server);
++#if STRATUM_NIMBUS
 +		new Nimbus.CmdNimbus(server);
 +		Nimbus.NimbusBackend.MaybeStart(server);
++#endif
  		new CmdInfo(server);
  		new CmdChunk(server);
  		new CmdModDBUtil(server);
  		if (!server.IsDedicatedServer)
  		{
-@@ -33,6 +42,11 @@ internal class ServerSystemCommands : ServerSystem
+@@ -33,6 +44,13 @@ internal class ServerSystemCommands : ServerSystem
  		new CmdSetBlock(server);
  		new CmdExecuteAs(server);
  		new CmdActivate(server);
@@ -31,6 +33,8 @@ index 1d4be19..8145794 100644
 +
 +	public override void OnBeginShutdown()
 +	{
++#if STRATUM_NIMBUS
 +		Nimbus.NimbusBackend.MaybeStop();
++#endif
 +	}
  }

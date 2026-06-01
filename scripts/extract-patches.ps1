@@ -171,6 +171,9 @@ try {
         $projSrcDir = Join-Path $sourcesDir $Proj
         if (-not (Test-Path $projSrcDir)) { return }
         Get-ChildItem -Path $projSrcDir -Recurse -File | ForEach-Object {
+            # Only manage .cs files. csproj/json/xml overrides under sources/ are
+            # hand-placed and not produced by this script; never delete them.
+            if ($_.Extension -ne '.cs') { return }
             $full = (Resolve-Path $_.FullName).Path
             if ($Kept.ContainsKey($full)) { return }
             Remove-Item $_.FullName
