@@ -1,7 +1,20 @@
 diff --git a/VintagestoryLib/Vintagestory.Client/GuiScreenDownloadMods.cs b/VintagestoryLib/Vintagestory.Client/GuiScreenDownloadMods.cs
-index 2fb4996..f613e69 100644
+index 2fb4996..df84b6d 100644
 --- a/VintagestoryLib/Vintagestory.Client/GuiScreenDownloadMods.cs
 +++ b/VintagestoryLib/Vintagestory.Client/GuiScreenDownloadMods.cs
+@@ -69,11 +69,11 @@ public class GuiScreenDownloadMods : GuiScreen
+ 			title = Lang.Get("downloadmods-title-dependencyinstall");
+ 			text = Lang.Get("downloadmods-dependencyinstall", string.Join(", ", modsToDownload));
+ 		}
+ 		else
+ 		{
+-			installPath = Path.Combine(GamePaths.DataPathServerMods, GamePaths.ReplaceInvalidChars(sourceServer.Host + "-" + sourceServer.Port));
++			installPath = System.IO.Path.Combine(GamePaths.DataPathServerMods, GamePaths.ReplaceInvalidChars(sourceServer.Host + "-" + sourceServer.Port));
+ 			title = Lang.Get("downloadmods-title-serverinstall");
+ 			text = Lang.Get("downloadmods-serverinstall", modsToDownload.Count);
+ 		}
+ 		return new GuiScreenDownloadMods(sourceServer, serverArgs, installPath, modsToDownload, title, text, screenManager, parentScreen);
+ 	}
 @@ -430,12 +430,10 @@ public class GuiScreenDownloadMods : GuiScreen
  			FocusedMouseCursor = ScreenManager.mainMenuComposer.MouseOverCursor;
  		}

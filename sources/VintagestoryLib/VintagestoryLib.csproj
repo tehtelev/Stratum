@@ -11,21 +11,8 @@
   </PropertyGroup>
   <PropertyGroup />
   <ItemGroup>
-    <Compile Remove="GuiScreen.cs" />
-    <Compile Remove="GuiScreenMainRight.cs" />
-    <Compile Remove="Vintagestory\ClientLogger.cs" />
-    <Compile Remove="Vintagestory.Client\**\*.cs" />
-    <Compile Remove="Vintagestory.Client.Gui\**\*.cs" />
-    <Compile Remove="Vintagestory.Client.MaxObf\**\*.cs" />
-    <Compile Remove="Vintagestory.Client.Network\**\*.cs" />
-    <Compile Remove="Vintagestory.Client.NoObf\**\*.cs" />
-    <Compile Remove="Vintagestory.Client.Util\**\*.cs" />
-    <Compile Remove="Vintagestory.ClientNative\**\*.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Vintagestory.Client.NoObf\INetworkConnection.cs" />
-    <Compile Include="Vintagestory.Client.NoObf\MonitorObject.cs" />
-    <Compile Include="Vintagestory.Client.NoObf\VintageStorySocket.cs" />
   </ItemGroup>
   <!-- Nimbus integration is optional. When the Nimbus.Shared project is checked
        out, define STRATUM_NIMBUS so the Nimbus/* folder and the patched baseline

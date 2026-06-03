@@ -1,7 +1,38 @@
 diff --git a/VintagestoryLib/Vintagestory.Client.NoObf/SystemRenderSunMoon.cs b/VintagestoryLib/Vintagestory.Client.NoObf/SystemRenderSunMoon.cs
-index 34ff0fd..36dc7f1 100644
+index 34ff0fd..ac7f262 100644
 --- a/VintagestoryLib/Vintagestory.Client.NoObf/SystemRenderSunMoon.cs
 +++ b/VintagestoryLib/Vintagestory.Client.NoObf/SystemRenderSunMoon.cs
+@@ -52,11 +52,11 @@ public class SystemRenderSunMoon : ClientSystem
+ 		MeshData customQuadModelData = QuadMeshUtilExt.GetCustomQuadModelData(0f, 0f, 0f, ImageSize, ImageSize, byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue);
+ 		customQuadModelData.Flags = new int[4];
+ 		quadModel = game.Platform.UploadMesh(customQuadModelData);
+ 		game.eventManager.RegisterRenderer(OnRenderFrame3D, EnumRenderStage.Opaque, Name, 0.3);
+ 		game.eventManager.RegisterRenderer(OnRenderFrame3DPost, EnumRenderStage.Opaque, Name, 999.0);
+-		GL.GenQueries(1, ref occlQueryId);
++		GL.GenQueries(1, out occlQueryId);
+ 	}
+ 
+ 	private void OnRenderFrame3DPost(float obj)
+ 	{
+ 		//IL_0052: Unknown result type (might be due to invalid IL or missing references)
+@@ -101,15 +101,15 @@ public class SystemRenderSunMoon : ClientSystem
+ 		standard.ProjectionMatrix = game.api.renderapi.CurrentProjectionMatrix;
+ 		standard.Tex2D = suntextureId;
+ 		if (firstTickDone)
+ 		{
+ 			int num = default(int);
+-			GL.GetQueryObject(occlQueryId, (GetQueryObjectParam)34919, ref num);
++			GL.GetQueryObject(occlQueryId, (GetQueryObjectParam)34919, out num);
+ 			if (num > 0)
+ 			{
+ 				int num2 = default(int);
+-				GL.GetQueryObject(occlQueryId, (GetQueryObjectParam)34918, ref num2);
++				GL.GetQueryObject(occlQueryId, (GetQueryObjectParam)34918, out num2);
+ 				targetSunSpec = GameMath.Clamp((float)num2 / 1500f, 0f, 1f);
+ 				nowQuerying = false;
+ 			}
+ 		}
+ 		firstTickDone = true;
 @@ -220,26 +220,26 @@ public class SystemRenderSunMoon : ClientSystem
  			double[] top2 = game.PMatrix.Top;
  			double[] cameraMatrixOrigin2 = game.api.renderapi.CameraMatrixOrigin;

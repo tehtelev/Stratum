@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Client.NoObf/ClientPlatformWindows.cs b/VintagestoryLib/Vintagestory.Client.NoObf/ClientPlatformWindows.cs
-index 4f8ca6d..1dcaf54 100644
+index 4f8ca6d..50a4240 100644
 --- a/VintagestoryLib/Vintagestory.Client.NoObf/ClientPlatformWindows.cs
 +++ b/VintagestoryLib/Vintagestory.Client.NoObf/ClientPlatformWindows.cs
 @@ -362,11 +362,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
@@ -15,6 +15,32 @@ index 4f8ca6d..1dcaf54 100644
  			}
  			((NativeWindow)window).CursorState = val;
  		}
+@@ -544,11 +544,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+ 		{
+ 			LogFrameworkVersions();
+ 		}
+ 		logger.Notification("OpenAL Version: " + AL.Get((ALGetString)45058));
+-		string text = Path.Combine(GamePaths.Binaries, "Lib/OpenTK.dll");
++		string text = System.IO.Path.Combine(GamePaths.Binaries, "Lib/OpenTK.dll");
+ 		if (File.Exists(text))
+ 		{
+ 			FileVersionInfo versionInfo = FileVersionInfo.GetVersionInfo(text);
+ 			logger.Notification("OpenTK Version: " + versionInfo.FileVersion + " (" + versionInfo.Comments + ")");
+ 		}
+@@ -703,11 +703,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		minimalGuiShaderProgram = new ShaderProgramMinimalGui();
+ 		minimalGuiShaderProgram.Compile();
+ 		windowsize.Width = ((NativeWindow)window).ClientSize.X;
+ 		windowsize.Height = ((NativeWindow)window).ClientSize.Y;
+ 		GL.LineWidth(1.5f);
+-		ErrorCode error = GL.GetError();
++		OpenTK.Graphics.OpenGL.ErrorCode error = GL.GetError();
+ 		SupportsThickLines = (int)error != 1281;
+ 		cpuCoreCount = Environment.ProcessorCount;
+ 	}
+ 
+ 	public override void RebuildFrameBuffers()
 @@ -721,11 +721,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
  		}
  	}
@@ -28,7 +54,189 @@ index 4f8ca6d..1dcaf54 100644
  	private void OnWindowResize(ResizeEventArgs e)
  	{
  		doResize = Environment.TickCount + 40;
-@@ -3452,14 +3452,14 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+@@ -1239,13 +1239,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 			GL.TexParameter((TextureTarget)3553, (TextureParameterName)10240, 9729);
+ 			GL.TexParameter((TextureTarget)3553, (TextureParameterName)4100, new float[4] { 1f, 1f, 1f, 1f });
+ 			GL.TexParameter((TextureTarget)3553, (TextureParameterName)10242, 33069);
+ 			GL.TexParameter((TextureTarget)3553, (TextureParameterName)10243, 33069);
+ 			GL.FramebufferTexture2D((FramebufferTarget)36160, (FramebufferAttachment)36067, (TextureTarget)3553, frameBufferRef3.ColorTextureIds[3], 0);
+-			DrawBuffersEnum[] array = new DrawBuffersEnum[4];
+-			RuntimeHelpers.InitializeArray(array, (RuntimeFieldHandle)/*OpCode not supported: LdMemberToken*/);
+-			DrawBuffersEnum[] array2 = (DrawBuffersEnum[])(object)array;
++			DrawBuffersEnum[] array2 = new DrawBuffersEnum[] { DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2, DrawBuffersEnum.ColorAttachment3 };
+ 			GL.DrawBuffers(4, array2);
+ 		}
+ 		else
+ 		{
+ 			DrawBuffersEnum[] array3 = (DrawBuffersEnum[])(object)new DrawBuffersEnum[2]
+@@ -1284,13 +1282,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		GL.TexImage2D((TextureTarget)3553, 0, (PixelInternalFormat)32856, num, num2, 0, val, (PixelType)5121, (IntPtr)IntPtr.Zero);
+ 		GL.TexParameter((TextureTarget)3553, (TextureParameterName)10241, 9729);
+ 		GL.TexParameter((TextureTarget)3553, (TextureParameterName)10240, 9729);
+ 		GL.FramebufferTexture2D((FramebufferTarget)36160, (FramebufferAttachment)36066, (TextureTarget)3553, frameBufferRef3.ColorTextureIds[2], 0);
+ 		GL.FramebufferTexture2D((FramebufferTarget)36160, (FramebufferAttachment)36096, (TextureTarget)3553, list[0].DepthTextureId, 0);
+-		DrawBuffersEnum[] array4 = new DrawBuffersEnum[3];
+-		RuntimeHelpers.InitializeArray(array4, (RuntimeFieldHandle)/*OpCode not supported: LdMemberToken*/);
+-		DrawBuffersEnum[] array5 = (DrawBuffersEnum[])(object)array4;
++		DrawBuffersEnum[] array5 = new DrawBuffersEnum[] { DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2 };
+ 		GL.DrawBuffers(3, array5);
+ 		ClearFrameBuffer(EnumFrameBuffer.Transparent);
+ 		CheckFboStatus((FramebufferTarget)36160, EnumFrameBuffer.Transparent);
+ 		if (SetupSSAO)
+ 		{
+@@ -1684,13 +1680,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 			ScreenManager.FrameProfiler.Mark("rendTransp-fbbound");
+ 			GlDisableCullFace();
+ 			GlDepthMask(flag: false);
+ 			GlEnableDepthTest();
+ 			ScreenManager.FrameProfiler.Mark("rendTransp-dbset");
+-			DrawBuffersEnum[] array = new DrawBuffersEnum[3];
+-			RuntimeHelpers.InitializeArray(array, (RuntimeFieldHandle)/*OpCode not supported: LdMemberToken*/);
+-			DrawBuffersEnum[] array2 = (DrawBuffersEnum[])(object)array;
++			DrawBuffersEnum[] array2 = new DrawBuffersEnum[] { DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2 };
+ 			GL.DrawBuffers(3, array2);
+ 			GL.Enable((EnableCap)3042);
+ 			GL.BlendEquation(0, (BlendEquationMode)32774);
+ 			GL.BlendFunc(0, (BlendingFactorSrc)1, (BlendingFactorDest)1);
+ 			GL.BlendEquation(1, (BlendEquationMode)32774);
+@@ -1995,13 +1989,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 			final.FrostVignetting = ShaderUniforms.FrostVignetting;
+ 			RenderFullscreenTriangle(screenQuad);
+ 			final.Stop();
+ 			if (RenderSSAO)
+ 			{
+-				DrawBuffersEnum[] array2 = new DrawBuffersEnum[4];
+-				RuntimeHelpers.InitializeArray(array2, (RuntimeFieldHandle)/*OpCode not supported: LdMemberToken*/);
+-				array = (DrawBuffersEnum[])(object)array2;
++				array = new DrawBuffersEnum[] { DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2, DrawBuffersEnum.ColorAttachment3 };
+ 				GL.DrawBuffers(4, array);
+ 			}
+ 			else
+ 			{
+ 				array = (DrawBuffersEnum[])(object)new DrawBuffersEnum[2]
+@@ -2062,12 +2054,12 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		//IL_0001: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0006: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0007: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_000d: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0037: Expected I4, but got Unknown
+-		FramebufferErrorCode val = Ext.CheckFramebufferStatus(target);
+-		switch (val - 36053)
++		FramebufferErrorCode val = GL.CheckFramebufferStatus(target);
++		switch ((int)val - 36053)
+ 		{
+ 		case 0:
+ 			return;
+ 		case 1:
+ 			throw new Exception("FBO " + fbtype + ": One or more attachment points are not framebuffer attachment complete. This could mean there’s no texture attached or the format isn’t renderable. For color textures this means the base format must be RGB or RGBA and for depth textures it must be a DEPTH_COMPONENT format. Other causes of this error are that the width or height is zero or the z-offset is out of range in case of render to volume.");
+@@ -2082,22 +2074,22 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		case 7:
+ 			throw new Exception("FBO " + fbtype + ": The attachment point referenced by GL.ReadBuffers() doesn’t have an attachment.");
+ 		case 8:
+ 			throw new Exception("FBO " + fbtype + ": This particular FBO configuration is not supported by the implementation.");
+ 		}
+-		throw new Exception("FBO " + fbtype + ": Framebuffer unknown error (" + ((object)(*(FramebufferErrorCode*)(&val))/*cast due to constrained. prefix*/).ToString() + ")");
++		throw new Exception("FBO " + fbtype + ": Framebuffer unknown error (" + val.ToString() + ")");
+ 	}
+ 
+ 	public override void CheckGlError(string errmsg = null)
+ 	{
+ 		//IL_0009: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_000e: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_000f: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_002c: Unknown result type (might be due to invalid IL or missing references)
+ 		if (GlErrorChecking)
+ 		{
+-			ErrorCode error = GL.GetError();
++			OpenTK.Graphics.OpenGL.ErrorCode error = GL.GetError();
+ 			if ((int)error != 0)
+ 			{
+ 				throw new Exception(string.Format("{0} - OpenGL threw an error: {1}", (errmsg == null) ? "" : (errmsg + " "), error));
+ 			}
+ 		}
+@@ -2109,11 +2101,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		//IL_0005: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0006: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0050: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0056: Invalid comparison between Unknown and I4
+ 		//IL_0037: Unknown result type (might be due to invalid IL or missing references)
+-		ErrorCode error = GL.GetError();
++		OpenTK.Graphics.OpenGL.ErrorCode error = GL.GetError();
+ 		if ((int)error != 0)
+ 		{
+ 			string arg = (ClientSettings.GlDebugMode ? "" : ". Enable Gl Debug Mode in the settings or clientsettings.json to track this error");
+ 			string message = string.Format("{0} - OpenGL threw an error: {1}{2}", (errmsg == null) ? "" : (errmsg + " "), error, arg);
+ 			Logger.Error(message);
+@@ -2127,14 +2119,14 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 	public unsafe override string GlGetError()
+ 	{
+ 		//IL_0000: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0005: Unknown result type (might be due to invalid IL or missing references)
+ 		//IL_0006: Unknown result type (might be due to invalid IL or missing references)
+-		ErrorCode error = GL.GetError();
++		OpenTK.Graphics.OpenGL.ErrorCode error = GL.GetError();
+ 		if ((int)error != 0)
+ 		{
+-			return ((object)(*(ErrorCode*)(&error))/*cast due to constrained. prefix*/).ToString();
++			return ((object)(*(OpenTK.Graphics.OpenGL.ErrorCode*)(&error))/*cast due to constrained. prefix*/).ToString();
+ 		}
+ 		return null;
+ 	}
+ 
+ 	public override string GetGLShaderVersionString()
+@@ -2535,11 +2527,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 	{
+ 		if (ENABLE_MIPMAPS)
+ 		{
+ 			GL.BindTexture((TextureTarget)3553, textureId);
+ 			int num = default(int);
+-			GL.GetTexParameter((TextureTarget)3553, (GetTextureParameter)33085, ref num);
++			GL.GetTexParameter((TextureTarget)3553, (GetTextureParameter)33085, out num);
+ 			if (num > 0)
+ 			{
+ 				GL.TexParameter((TextureTarget)3553, (TextureParameterName)10241, 9986);
+ 				GL.GenerateMipmap((GenerateMipmapTarget)3553);
+ 				GL.TexParameter((TextureTarget)3553, (TextureParameterName)34049, 0f);
+@@ -2579,11 +2571,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 	public override int GlGetMaxTextureSize()
+ 	{
+ 		int result = 1024;
+ 		try
+ 		{
+-			GL.GetInteger((GetPName)3379, ref result);
++			GL.GetInteger((GetPName)3379, out result);
+ 		}
+ 		catch
+ 		{
+ 		}
+ 		return result;
+@@ -2616,11 +2608,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		//IL_0016: Unknown result type (might be due to invalid IL or missing references)
+ 		VAO vAO = (VAO)modelRef;
+ 		BufferAccessMask val = (BufferAccessMask)34;
+ 		if (vAO.Persistent)
+ 		{
+-			val = (BufferAccessMask)(val | 0x50);
++			val = (BufferAccessMask)((int)val | 0x50);
+ 		}
+ 		bool persistent = vAO.Persistent;
+ 		if (data.xyz != null)
+ 		{
+ 			updateVAO(data.xyz, data.XyzOffset, data.XyzCount, vAO.xyzVboId, vAO.xyzPtr, persistent);
+@@ -3243,11 +3235,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		}
+ 		VAO vAO = (VAO)modelRef;
+ 		BufferAccessMask val = (BufferAccessMask)34;
+ 		if (vAO.Persistent)
+ 		{
+-			val = (BufferAccessMask)(val | 0x50);
++			val = (BufferAccessMask)((int)val | 0x50);
+ 		}
+ 		bool persistent = vAO.Persistent;
+ 		int verticesCount = data.VerticesCount;
+ 		if (facedataBuffer == null || facedataBuffer.Length < verticesCount / 4)
+ 		{
+@@ -3452,14 +3444,14 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
  			for (int i = 0; i < val.Height; i++)
  			{
  				for (int j = 0; j < val.Width; j++)
@@ -47,7 +255,7 @@ index 4f8ca6d..1dcaf54 100644
  			}
  			preLoadedCursors[cursorCoode] = new MouseCursor(hotx, hoty, val.Width, val.Height, array);
  			((SKNativeObject)val).Dispose();
-@@ -3549,11 +3549,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+@@ -3549,11 +3541,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
  
  	private void Mouse_Move(MouseMoveEventArgs e)
  	{
@@ -60,7 +268,7 @@ index 4f8ca6d..1dcaf54 100644
  
  	private void SetMousePosition(float x, float y)
  	{
-@@ -3563,21 +3563,21 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+@@ -3563,21 +3555,21 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
  		{
  			mouseY += ClientSettings.WeirdMacOSMouseYOffset;
  		}
@@ -85,7 +293,7 @@ index 4f8ca6d..1dcaf54 100644
  				deltaPrecise = (int)num,
  				value = (int)prevWheelValue,
  				valuePrecise = prevWheelValue
-@@ -3589,93 +3589,93 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+@@ -3589,93 +3581,93 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
  	private void Mouse_ButtonDown(MouseButtonEventArgs e)
  	{
  		//IL_0002: Unknown result type (might be due to invalid IL or missing references)
@@ -141,7 +349,7 @@ index 4f8ca6d..1dcaf54 100644
  			return;
  		}
 -		int keyCode = KeyConverter.NewKeysToGlKeys[((KeyboardKeyEventArgs)(ref e)).Key];
-+		int keyCode = KeyConverter.NewKeysToGlKeys[e.Key];
++		int keyCode = KeyConverter.NewKeysToGlKeys[(int)e.Key];
  		foreach (KeyEventHandler keyEventHandler in keyEventHandlers)
  		{
  			KeyEvent keyEvent = new KeyEvent
@@ -175,7 +383,7 @@ index 4f8ca6d..1dcaf54 100644
  			return;
  		}
 -		int keyCode = KeyConverter.NewKeysToGlKeys[((KeyboardKeyEventArgs)(ref e)).Key];
-+		int keyCode = KeyConverter.NewKeysToGlKeys[e.Key];
++		int keyCode = KeyConverter.NewKeysToGlKeys[(int)e.Key];
  		lastKeyUpMs = EllapsedMs;
  		lastKeyUpKey = keyCode;
  		foreach (KeyEventHandler keyEventHandler in keyEventHandlers)
@@ -197,3 +405,29 @@ index 4f8ca6d..1dcaf54 100644
  	}
  
  	public override MouseEvent CreateMouseEvent(EnumMouseButton button)
+@@ -3710,11 +3702,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 			text = text.Insert(startIndex, shader.PrefixCode);
+ 		}
+ 		GL.ShaderSource(num, text);
+ 		GL.CompileShader(num);
+ 		int num2 = default(int);
+-		GL.GetShader(num, (ShaderParameter)35713, ref num2);
++		GL.GetShader(num, (ShaderParameter)35713, out num2);
+ 		if (num2 != 1)
+ 		{
+ 			string shaderInfoLog = GL.GetShaderInfoLog(num);
+ 			logger.Error("Shader compile error in {0} {1}", shader.Filename, shaderInfoLog.TrimEnd());
+ 			logger.VerboseDebug("{0}", text);
+@@ -3737,11 +3729,11 @@ public sealed class ClientPlatformWindows : ClientPlatformAbstract
+ 		{
+ 			GL.BindAttribLocation(program.ProgramId, attribute.Key, attribute.Value);
+ 		}
+ 		GL.LinkProgram(num);
+ 		int num2 = default(int);
+-		GL.GetProgram(num, (GetProgramParameterName)35714, ref num2);
++		GL.GetProgram(num, (GetProgramParameterName)35714, out num2);
+ 		string programInfoLog = GL.GetProgramInfoLog(num);
+ 		if (num2 != 1)
+ 		{
+ 			logger.Error("Link error in shader program for pass {0}: {1}", program.PassName, programInfoLog.TrimEnd());
+ 			result = false;

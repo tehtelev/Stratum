@@ -1,0 +1,30 @@
+diff --git a/VintagestoryLib/Vintagestory.Client/ScreenManager.cs b/VintagestoryLib/Vintagestory.Client/ScreenManager.cs
+index 9651f17..08fb06f 100644
+--- a/VintagestoryLib/Vintagestory.Client/ScreenManager.cs
++++ b/VintagestoryLib/Vintagestory.Client/ScreenManager.cs
+@@ -601,11 +601,11 @@ public class ScreenManager : KeyEventHandler, MouseEventHandler, NewFrameHandler
+ 		string playStyle = ParsedArgs.PlayStyle;
+ 		string text = ParsedArgs.OpenWorldName;
+ 		if (text == null)
+ 		{
+ 			int num = 0;
+-			while (File.Exists(GamePaths.Saves + Path.DirectorySeparatorChar + "world" + num + ".vcdbs"))
++			while (File.Exists(GamePaths.Saves + System.IO.Path.DirectorySeparatorChar + "world" + num + ".vcdbs"))
+ 			{
+ 				num++;
+ 			}
+ 			text = "world" + num + ".vcdbs";
+ 		}
+@@ -620,11 +620,11 @@ public class ScreenManager : KeyEventHandler, MouseEventHandler, NewFrameHandler
+ 			{
+ 				if (playStyle2.LangCode == playStyle)
+ 				{
+ 					ConnectToSingleplayer(new StartServerArgs
+ 					{
+-						SaveFileLocation = GamePaths.Saves + Path.DirectorySeparatorChar + text + ".vcdbs",
++						SaveFileLocation = GamePaths.Saves + System.IO.Path.DirectorySeparatorChar + text + ".vcdbs",
+ 						WorldName = text,
+ 						PlayStyle = playStyle2.Code,
+ 						PlayStyleLangCode = playStyle2.LangCode,
+ 						WorldType = playStyle2.WorldType,
+ 						WorldConfiguration = playStyle2.WorldConfig,
