@@ -1,0 +1,17 @@
+diff --git a/VintagestoryLib/Vintagestory.Common.Network.Packets/AnimationPacket.cs b/VintagestoryLib/Vintagestory.Common.Network.Packets/AnimationPacket.cs
+index a45cd69..87468af 100644
+--- a/VintagestoryLib/Vintagestory.Common.Network.Packets/AnimationPacket.cs
++++ b/VintagestoryLib/Vintagestory.Common.Network.Packets/AnimationPacket.cs
+@@ -3,11 +3,11 @@ using ProtoBuf;
+ using Vintagestory.API.Common;
+ using Vintagestory.API.Common.Entities;
+ 
+ namespace Vintagestory.Common.Network.Packets;
+ 
+-[ProtoContract(/*Could not decode attribute arguments.*/)]
++[ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
+ public class AnimationPacket
+ {
+ 	public long entityId;
+ 
+ 	public int[] activeAnimations;

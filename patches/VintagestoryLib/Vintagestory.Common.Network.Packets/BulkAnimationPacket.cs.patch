@@ -1,0 +1,15 @@
+diff --git a/VintagestoryLib/Vintagestory.Common.Network.Packets/BulkAnimationPacket.cs b/VintagestoryLib/Vintagestory.Common.Network.Packets/BulkAnimationPacket.cs
+index 9f97677..325ae6c 100644
+--- a/VintagestoryLib/Vintagestory.Common.Network.Packets/BulkAnimationPacket.cs
++++ b/VintagestoryLib/Vintagestory.Common.Network.Packets/BulkAnimationPacket.cs
+@@ -1,9 +1,9 @@
+ using ProtoBuf;
+ 
+ namespace Vintagestory.Common.Network.Packets;
+ 
+-[ProtoContract(/*Could not decode attribute arguments.*/)]
++[ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
+ public class BulkAnimationPacket
+ {
+ 	public AnimationPacket[] Packets;
+ }
