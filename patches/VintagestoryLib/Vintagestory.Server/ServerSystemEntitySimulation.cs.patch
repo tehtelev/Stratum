@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
-index 750557a..f063a48 100644
+index 750557a..337640d 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 @@ -1,8 +1,11 @@
@@ -15,7 +15,7 @@ index 750557a..f063a48 100644
  using Vintagestory.API.Common.Entities;
  using Vintagestory.API.Config;
  using Vintagestory.API.Datastructures;
-@@ -22,13 +25,91 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -22,13 +25,96 @@ public class ServerSystemEntitySimulation : ServerSystem
  
  	private Dictionary<string, List<string>> deathMessagesCache;
  
@@ -64,6 +64,10 @@ index 750557a..f063a48 100644
 +	private bool stratumHardDespawnExemptIfNamedCached;
 +	private string[] stratumHardDespawnExemptPrefixesCached = Array.Empty<string>();
 +
++	// Stratum: server animators are restored on demand for non-player entity animation callbacks/state.
++	private readonly object stratumServerAnimatorDemandLock = new object();
++	private readonly HashSet<string> stratumServerAnimatorShapeLoadedTypes = new HashSet<string>();
++
 +	// Round-robin cursor (in eligible-creature index space) so the per-tick creature budget
 +	// rotates fairly across all creatures over successive ticks.
 +	private int stratumCreatureRoundRobinCursor;
@@ -102,12 +106,13 @@ index 750557a..f063a48 100644
  	{
 +		stratumSelectionBlockFilter = StratumSelectionBlockFilter;
 +		stratumSelectionEntityFilter = StratumSelectionEntityFilter;
++		AnimationManager.StratumServerAnimatorDemand = StratumEnsureDemandedServerAnimator;
  		server.RegisterGameTickListener(UpdateEvery1000ms, 1000);
  		server.EventManager.OnGameWorldBeingSaved += EventManager_OnGameWorldBeingSaved;
  		server.RegisterGameTickListener(UpdateEvery100ms, 100);
  		server.clientAwarenessEvents[EnumClientAwarenessEvent.ChunkTransition].Add(OnPlayerLeaveChunk);
  		server.PacketHandlers[17] = HandleEntityInteraction;
-@@ -43,26 +124,33 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -43,26 +129,33 @@ public class ServerSystemEntitySimulation : ServerSystem
  		player.Player.ItemCollectMode = packet.RuntimeSetting.ItemCollectMode;
  	}
  
@@ -144,17 +149,41 @@ index 750557a..f063a48 100644
  	private void EventManager_OnGameWorldBeingSaved()
  	{
  		if (server.RunPhase != EnumServerRunPhase.Shutdown)
-@@ -82,61 +170,181 @@ public class ServerSystemEntitySimulation : ServerSystem
- 		new ShapeTesselatorManager(server).LoadEntityShapes(server.EntityTypes, server.api);
+@@ -77,66 +170,249 @@ public class ServerSystemEntitySimulation : ServerSystem
+ 	}
+ 
+ 	public override void OnBeginModsAndConfigReady()
+ 	{
+ 		server.EventManager.OnPlayerRespawn += OnPlayerRespawn;
+-		new ShapeTesselatorManager(server).LoadEntityShapes(server.EntityTypes, server.api);
++		StratumLoadPlayerEntityShapes();
  	}
  
  	public override void OnPlayerJoin(ServerPlayer player)
  	{
-+		// Stratum: reconnect player animators after restoring vanilla server shape loading.
++		// Stratum: reconnect only player animators. Mob/global server animators remain deferred
++		// until their gameplay need and load cost are validated separately.
 +		StratumEnsurePlayerAnimator(player?.Entity);
  		physicsManager.ForceClientUpdateTick(player.client);
  	}
  
++	private void StratumLoadPlayerEntityShapes()
++	{
++		List<EntityProperties> playerTypes = new List<EntityProperties>(1);
++		foreach (EntityProperties type in server.EntityTypes)
++		{
++			if (type?.Code?.Path == "player")
++			{
++				playerTypes.Add(type);
++			}
++		}
++
++		if (playerTypes.Count > 0)
++		{
++			new ShapeTesselatorManager(server).LoadEntityShapes(playerTypes, server.api);
++		}
++	}
++
 +	private void StratumEnsurePlayerAnimator(EntityPlayer entity)
 +	{
 +		if (entity?.AnimManager == null || entity.AnimManager.Animator != null || entity.Properties?.Client == null)
@@ -162,28 +191,73 @@ index 750557a..f063a48 100644
 +			return;
 +		}
 +
-+		EntityClientProperties client = entity.Properties.Client;
-+		if (client.LoadedShapeForEntity == null)
++		lock (stratumServerAnimatorDemandLock)
 +		{
-+			foreach (EntityProperties type in server.EntityTypes)
++			if (entity.AnimManager.Animator != null || !StratumEnsureEntityShape(entity))
 +			{
-+				if (type?.Code != null && type.Code.Equals(entity.Properties.Code))
-+				{
-+					client.LoadedShape = type.Client?.LoadedShape;
-+					client.LoadedAlternateShapes = type.Client?.LoadedAlternateShapes;
-+					break;
-+				}
++				return;
 +			}
 +
-+			client.DetermineLoadedShape(entity.EntityId);
++			entity.AnimManager.LoadAnimator(server.api, entity, entity.Properties.Client.LoadedShapeForEntity, entity.AnimManager.Animator?.Animations, entity.requirePosesOnServer, null, "head");
 +		}
++	}
 +
-+		if (client.LoadedShapeForEntity == null)
++	private void StratumEnsureDemandedServerAnimator(AnimationManager manager, Entity entity, string reason)
++	{
++		if (manager == null || entity == null || entity is EntityPlayer || entity.AnimManager != manager || manager.StratumHasAnimator || entity.World?.Side != EnumAppSide.Server || entity.Properties?.Client == null)
 +		{
 +			return;
 +		}
 +
-+		entity.AnimManager.LoadAnimator(server.api, entity, client.LoadedShapeForEntity, entity.AnimManager.Animator?.Animations, entity.requirePosesOnServer, null, "head");
++		lock (stratumServerAnimatorDemandLock)
++		{
++			if (manager.StratumHasAnimator || !StratumEnsureEntityShape(entity))
++			{
++				return;
++			}
++
++			manager.LoadAnimator(server.api, entity, entity.Properties.Client.LoadedShapeForEntity, null, entity.requirePosesOnServer, null);
++		}
++	}
++
++	private bool StratumEnsureEntityShape(Entity entity)
++	{
++		EntityClientProperties client = entity.Properties?.Client;
++		if (client == null)
++		{
++			return false;
++		}
++
++		if (client.LoadedShapeForEntity != null)
++		{
++			return true;
++		}
++
++		EntityProperties entityType = null;
++		foreach (EntityProperties type in server.EntityTypes)
++		{
++			if (type?.Code != null && type.Code.Equals(entity.Properties.Code))
++			{
++				entityType = type;
++				break;
++			}
++		}
++
++		if (entityType != null)
++		{
++			string typeCode = entityType.Code.ToString();
++			if (!stratumServerAnimatorShapeLoadedTypes.Contains(typeCode))
++			{
++				new ShapeTesselatorManager(server).LoadEntityShapes(new List<EntityProperties>(1) { entityType }, server.api);
++				stratumServerAnimatorShapeLoadedTypes.Add(typeCode);
++			}
++
++			client.LoadedShape = entityType.Client?.LoadedShape;
++			client.LoadedAlternateShapes = entityType.Client?.LoadedAlternateShapes;
++		}
++
++		client.DetermineLoadedShape(entity.EntityId);
++		return client.LoadedShapeForEntity != null;
 +	}
 +
  	public override void OnPlayerDisconnect(ServerPlayer player)
@@ -345,7 +419,7 @@ index 750557a..f063a48 100644
  		SendEntityDespawns();
  		int count = server.DelayedSpawnQueue.Count;
  		if (count <= 0)
-@@ -185,19 +393,145 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -185,19 +461,145 @@ public class ServerSystemEntitySimulation : ServerSystem
  		}
  	}
  
@@ -494,7 +568,7 @@ index 750557a..f063a48 100644
  				{
  					if (value is EntityPlayer entityPlayer)
  					{
-@@ -209,12 +543,17 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -209,12 +611,17 @@ public class ServerSystemEntitySimulation : ServerSystem
  						ServerMain.Logger.Warning("Exception while ticking entity {0} ({1}) at {2}: ", value.GetName(), value.Properties?.Class, value.Pos);
  						ServerMain.Logger.Error(e);
  					}
@@ -512,7 +586,7 @@ index 750557a..f063a48 100644
  		}
  		ServerMain.FrameProfiler.Enter("despawning");
  		foreach (KeyValuePair<Entity, EntityDespawnData> item in list)
-@@ -222,27 +561,553 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -222,27 +629,553 @@ public class ServerSystemEntitySimulation : ServerSystem
  			server.DespawnEntity(item.Key, item.Value);
  			ServerMain.FrameProfiler.Mark("despawned-", item.Key.Code.Path);
  		}
@@ -1050,8 +1124,7 @@ index 750557a..f063a48 100644
 +		// nearby entities just to find one by ID, then enforced range below anyway.
 +		Entity entity = server.GetEntityById(p.EntityId);
 +		if (entity == null)
- 		{
--			ServerMain.Logger.Debug("HandleEntityInteraction received from client " + client.PlayerName + " but no such entity found in his range!");
++		{
 +			ServerMain.Logger.Debug("HandleEntityInteraction received from client " + client.PlayerName + " but no such entity found!");
 +			return;
 +		}
@@ -1060,7 +1133,8 @@ index 750557a..f063a48 100644
 +		double entityDx = entity.Pos.X - playerPos.X;
 +		double entityDz = entity.Pos.Z - playerPos.Z;
 +		if (entityDx * entityDx + entityDz * entityDz > pickingRange * pickingRange)
-+		{
+ 		{
+-			ServerMain.Logger.Debug("HandleEntityInteraction received from client " + client.PlayerName + " but no such entity found in his range!");
 +			ServerMain.Logger.Debug("HandleEntityInteraction from " + client.PlayerName + " rejected: entity " + p.EntityId + " not in range!");
  			return;
  		}
@@ -1070,7 +1144,7 @@ index 750557a..f063a48 100644
  		ItemStack itemStack = client.Player.InventoryManager?.ActiveHotbarSlot?.Itemstack;
  		float num = itemStack?.Collectible.GetAttackRange(itemStack) ?? GlobalConstants.DefaultAttackRange;
  		double x = pos.X + client.Entityplayer.LocalEyePos.X;
-@@ -390,11 +1255,20 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -390,11 +1323,20 @@ public class ServerSystemEntitySimulation : ServerSystem
  	{
  		if (deathMessagesCache == null)
  		{
@@ -1092,7 +1166,7 @@ index 750557a..f063a48 100644
  			return;
  		}
  		int num = server.SaveGameData?.WorldConfiguration.GetString("playerlives", "-1").ToInt(-1) ?? (-1);
-@@ -428,10 +1302,11 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -428,10 +1370,11 @@ public class ServerSystemEntitySimulation : ServerSystem
  			else
  			{
  				ServerMain.Logger.Audit(Lang.Get("{0} died. Death message: {1}", item.PlayerName, text));

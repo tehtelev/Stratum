@@ -1,0 +1,16 @@
+diff --git a/VintagestoryLib/Vintagestory.Common.Network.Packets/EntityTagPacket.cs b/VintagestoryLib/Vintagestory.Common.Network.Packets/EntityTagPacket.cs
+index cb4605d..93b91dc 100644
+--- a/VintagestoryLib/Vintagestory.Common.Network.Packets/EntityTagPacket.cs
++++ b/VintagestoryLib/Vintagestory.Common.Network.Packets/EntityTagPacket.cs
+@@ -1,10 +1,10 @@
+ using ProtoBuf;
+ 
+ namespace Vintagestory.Common.Network.Packets;
+ 
+-[ProtoContract(/*Could not decode attribute arguments.*/)]
++[ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
+ public class EntityTagPacket
+ {
+ 	public long EntityId = 1L;
+ 
+ 	public long TagsBitmask1 = 2L;

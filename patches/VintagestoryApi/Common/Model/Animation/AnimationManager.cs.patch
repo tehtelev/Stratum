@@ -1,0 +1,358 @@
+diff --git a/VintagestoryApi/Common/Model/Animation/AnimationManager.cs b/VintagestoryApi/Common/Model/Animation/AnimationManager.cs
+index 573ec12..4d57a87 100644
+--- a/VintagestoryApi/Common/Model/Animation/AnimationManager.cs
++++ b/VintagestoryApi/Common/Model/Animation/AnimationManager.cs
+@@ -27,11 +27,23 @@ namespace Vintagestory.API.Common
+         public bool AnimationsDirty { get; set; }
+ 
+         /// <summary>
+         /// The animator for the animation manager.
+         /// </summary>
+-        public IAnimator Animator { get; set; }
++        private IAnimator stratumAnimator;
++
++        public IAnimator Animator
++        {
++            get
++            {
++                StratumEnsureServerAnimator("Animator");
++                return stratumAnimator;
++            }
++            set { stratumAnimator = value; }
++        }
++
++        public bool StratumHasAnimator => stratumAnimator != null;
+ 
+         /// <summary>
+         /// The entity head controller for this animator.
+         /// </summary>
+         public IHeadController HeadController { get; set; }
+@@ -44,13 +56,46 @@ namespace Vintagestory.API.Common
+ 
+         public bool AdjustCollisionBoxToAnimation { get; set; }
+ 
+         public List<AnimFrameCallback> Triggers;
+ 
+-        public event StartAnimationDelegate OnStartAnimation;
+-        public event StartAnimationDelegate OnAnimationReceived;
+-        public event Action<string> OnAnimationStopped;
++        // Stratum: allow the server to lazily attach animators when mods subscribe to server animation callbacks.
++        public static Action<AnimationManager, Entity, string> StratumServerAnimatorDemand;
++
++        private StartAnimationDelegate stratumOnStartAnimation;
++        private StartAnimationDelegate stratumOnAnimationReceived;
++        private Action<string> stratumOnAnimationStopped;
++
++        public event StartAnimationDelegate OnStartAnimation
++        {
++            add
++            {
++                StratumEnsureServerAnimator("OnStartAnimation");
++                stratumOnStartAnimation += value;
++            }
++            remove { stratumOnStartAnimation -= value; }
++        }
++
++        public event StartAnimationDelegate OnAnimationReceived
++        {
++            add
++            {
++                StratumEnsureServerAnimator("OnAnimationReceived");
++                stratumOnAnimationReceived += value;
++            }
++            remove { stratumOnAnimationReceived -= value; }
++        }
++
++        public event Action<string> OnAnimationStopped
++        {
++            add
++            {
++                StratumEnsureServerAnimator("OnAnimationStopped");
++                stratumOnAnimationStopped += value;
++            }
++            remove { stratumOnAnimationStopped -= value; }
++        }
+ 
+ 
+         /// <summary>
+         /// The entity attached to this Animation Manager.
+         /// </summary>
+@@ -71,10 +116,19 @@ namespace Vintagestory.API.Common
+             this.api = api;
+             this.entity = entity;
+             capi = api as ICoreClientAPI;
+         }
+ 
++        // Stratum: demand-load server animators only when server-side code reads animation state or callbacks.
++        private void StratumEnsureServerAnimator(string reason)
++        {
++            if (api?.Side == EnumAppSide.Server && stratumAnimator == null && entity != null)
++            {
++                StratumServerAnimatorDemand?.Invoke(this, entity, reason);
++            }
++        }
++
+         public IAnimator LoadAnimator(ICoreAPI api, Entity entity, Shape entityShape, RunningAnimation[] copyOverAnims, bool requirePosesOnServer, string[] disableElements, params string[] requireJointsForElements)
+         {
+             Init(entity.Api, entity);
+ 
+             if (entityShape == null) return null;
+@@ -127,11 +181,12 @@ namespace Vintagestory.API.Common
+             return false;
+         }
+ 
+         public virtual RunningAnimation GetAnimationState(string anim)
+         {
+-            return Animator.GetAnimationState(anim);
++            StratumEnsureServerAnimator("GetAnimationState");
++            return Animator?.GetAnimationState(anim);
+         }
+ 
+         /// <summary>
+         /// If given animation is running, will set its progress to the first animation frame
+         /// </summary>
+@@ -151,31 +206,34 @@ namespace Vintagestory.API.Common
+         /// As StartAnimation, except that it does not attempt to start the animation if the named animation is non-existent for this entity
+         /// </summary>
+         /// <param name="animdata"></param>
+         public virtual bool TryStartAnimation(AnimationMetaData animdata)
+         {
+-            if (((AnimatorBase)Animator).GetAnimationState(animdata.Animation) == null) return false;
++            StratumEnsureServerAnimator("TryStartAnimation");
++            if (stratumAnimator == null) return false;
++            if (((AnimatorBase)stratumAnimator).GetAnimationState(animdata.Animation) == null) return false;
+             return StartAnimation(animdata);
+         }
+ 
+         /// <summary>
+         /// Client: Starts given animation
+         /// Server: Sends all active anims to all connected clients then purges the ActiveAnimationsByAnimCode list
+         /// </summary>
+         /// <param name="animdata"></param>
+         public virtual bool StartAnimation(AnimationMetaData animdata)
+         {
++            StratumEnsureServerAnimator("StartAnimation");
+             if (animdata == null)
+             {
+                 throw new Exception("Can't play null animdata");
+             }
+-            if (OnStartAnimation != null)
++            if (stratumOnStartAnimation != null)
+             {
+                 EnumHandling handling = EnumHandling.PassThrough;
+                 bool preventDefault = false;
+                 bool started = false;
+-                foreach (StartAnimationDelegate dele in OnStartAnimation.GetInvocationList())
++                foreach (StartAnimationDelegate dele in stratumOnStartAnimation.GetInvocationList())
+                 {
+                     started = dele(ref animdata, ref handling);
+                     if (handling == EnumHandling.PreventSubsequent) return started;
+                     if (animdata == null)
+                     {
+@@ -231,10 +289,15 @@ namespace Vintagestory.API.Common
+         /// <param name="code"></param>
+         public virtual void StopAnimation(string code)
+         {
+             if (code == null || entity == null) return;
+ 
++            if (StratumShouldKeepMovingAnimationActive(code))
++            {
++                return;
++            }
++
+             if (entity.World.Side == EnumAppSide.Server)
+             {
+                 AnimationsDirty = true;
+             }
+ 
+@@ -254,10 +317,93 @@ namespace Vintagestory.API.Common
+             {
+                 entity.UpdateDebugAttributes();
+             }
+         }
+ 
++        // Stratum: AI tasks can stop run/walk during task hand-off while path traversal
++        // still has movement controls set. Keep locomotion active until movement really stops
++        // so clients do not receive an empty animation packet between movement packets.
++        private bool StratumShouldKeepMovingAnimationActive(string code)
++        {
++            return entity?.World?.Side == EnumAppSide.Server
++                && StratumIsLocomotionAnimation(code)
++                && StratumIsMovingForAnimation()
++                && StratumTryGetActiveAnimation(code, out _, out _);
++        }
++
++        private bool StratumTryGetActiveAnimation(string code, out string activeKey, out AnimationMetaData activeAnimation)
++        {
++            if (ActiveAnimationsByAnimCode.TryGetValue(code, out activeAnimation))
++            {
++                activeKey = code;
++                return true;
++            }
++
++            foreach (KeyValuePair<string, AnimationMetaData> val in ActiveAnimationsByAnimCode)
++            {
++                if (string.Equals(val.Value.Code, code, StringComparison.OrdinalIgnoreCase) || string.Equals(val.Value.Animation, code, StringComparison.OrdinalIgnoreCase))
++                {
++                    activeKey = val.Key;
++                    activeAnimation = val.Value;
++                    return true;
++                }
++            }
++
++            activeKey = null;
++            activeAnimation = null;
++            return false;
++        }
++
++        private static bool StratumIsLocomotionAnimation(string code)
++        {
++            return string.Equals(code, "walk", StringComparison.OrdinalIgnoreCase)
++                || string.Equals(code, "run", StringComparison.OrdinalIgnoreCase)
++                || string.Equals(code, "swim", StringComparison.OrdinalIgnoreCase)
++                || string.Equals(code, "crawl", StringComparison.OrdinalIgnoreCase)
++                || string.Equals(code, "fly", StringComparison.OrdinalIgnoreCase);
++        }
++
++        private bool StratumIsMovingForAnimation()
++        {
++            if (entity is not EntityAgent agent)
++            {
++                return false;
++            }
++
++            if (agent.Controls?.TriesToMove == true)
++            {
++                return true;
++            }
++
++            EntityPos pos = entity.Pos;
++            return pos != null && pos.Motion.X * pos.Motion.X + pos.Motion.Z * pos.Motion.Z > 0.000001;
++        }
++
++        private void StratumStopHeldLocomotionWhenIdle()
++        {
++            if (entity?.World?.Side != EnumAppSide.Server || StratumIsMovingForAnimation())
++            {
++                return;
++            }
++
++            string[] keys = ActiveAnimationsByAnimCode.Keys.ToArray();
++            for (int i = 0; i < keys.Length; i++)
++            {
++                string key = keys[i];
++                if (!ActiveAnimationsByAnimCode.TryGetValue(key, out AnimationMetaData animMeta))
++                {
++                    continue;
++                }
++
++                string code = animMeta.Code ?? key;
++                if (StratumIsLocomotionAnimation(code))
++                {
++                    StopAnimation(code);
++                }
++            }
++        }
++
+ 
+         public virtual void StopAllAnimations()
+         {
+             if (entity == null) return;
+ 
+@@ -352,11 +498,11 @@ namespace Vintagestory.API.Common
+         }
+ 
+         protected virtual void onReceivedServerAnimation(AnimationMetaData animmetadata)
+         {
+             EnumHandling handling = EnumHandling.PassThrough;
+-            OnAnimationReceived?.Invoke(ref animmetadata, ref handling);
++            stratumOnAnimationReceived?.Invoke(ref animmetadata, ref handling);
+ 
+             if (handling == EnumHandling.PassThrough)
+             {
+                 ActiveAnimationsByAnimCode[animmetadata.Animation] = animmetadata;
+             }
+@@ -367,11 +513,11 @@ namespace Vintagestory.API.Common
+         /// </summary>
+         /// <param name="tree"></param>
+         /// <param name="forClient"></param>
+         public virtual void ToAttributes(ITreeAttribute tree, bool forClient)
+         {
+-            if (Animator == null) return;
++            if (stratumAnimator == null) return;
+ 
+             ITreeAttribute animtree = new TreeAttribute();
+             tree["activeAnims"] = animtree;
+             SerializeActiveAnimations(forClient, (code, ms) => { animtree[code] = new ByteArrayAttribute(ms); });
+         }
+@@ -381,11 +527,11 @@ namespace Vintagestory.API.Common
+         /// </summary>
+         /// <param name="stream"></param>
+         /// <param name="forClient"></param>
+         public virtual void ToAttributeBytes(BinaryWriter stream, bool forClient)
+         {
+-            if (Animator == null) return;
++            if (stratumAnimator == null) return;
+ 
+             StreamedTreeAttribute streamedAnimTree = new StreamedTreeAttribute(stream);
+             streamedAnimTree.WithKey("activeAnims");
+             SerializeActiveAnimations(forClient, (code, ms) => { streamedAnimTree[code] = new StreamedByteArrayAttribute(ms); } );
+             streamedAnimTree.EndKey();
+@@ -401,11 +547,11 @@ namespace Vintagestory.API.Common
+             {
+                 if (val.Value.Code == null) val.Value.Code = val.Key; // ah wtf.
+ 
+                 if (!forClient && val.Value.Code != "die") continue;
+ 
+-                RunningAnimation anim = Animator.GetAnimationState(val.Value.Animation);
++                RunningAnimation anim = stratumAnimator.GetAnimationState(val.Value.Animation);
+                 if (anim != null)
+                 {
+                     val.Value.StartFrameOnce = anim.CurrentFrame;
+                 }
+ 
+@@ -446,14 +592,16 @@ namespace Vintagestory.API.Common
+         /// The event fired at each server tick.
+         /// </summary>
+         /// <param name="dt"></param>
+         public virtual void OnServerTick(float dt)
+         {
+-            if (Animator != null)
++            StratumStopHeldLocomotionWhenIdle();
++
++            if (stratumAnimator != null)
+             {
+-                Animator.CalculateMatrices = !entity.Alive || entity.requirePosesOnServer;
+-                Animator.OnFrame(ActiveAnimationsByAnimCode, dt);
++                stratumAnimator.CalculateMatrices = !entity.Alive || entity.requirePosesOnServer;
++                stratumAnimator.OnFrame(ActiveAnimationsByAnimCode, dt);
+                 AdjustCollisionBoxToAnimation = ActiveAnimationsByAnimCode.Any(anim => anim.Value.AdjustCollisionBox);
+             }
+ 
+             runTriggers();
+         }
+@@ -495,10 +643,11 @@ namespace Vintagestory.API.Common
+             }
+         }
+ 
+         public virtual void RegisterFrameCallback(AnimFrameCallback trigger)
+         {
++            StratumEnsureServerAnimator("RegisterFrameCallback");
+             if (Triggers == null) Triggers = new List<AnimFrameCallback>();
+             Triggers.Add(trigger);
+         }
+ 
+         private void runTriggers()
+@@ -537,11 +686,11 @@ namespace Vintagestory.API.Common
+             }
+         }
+ 
+         public virtual void TriggerAnimationStopped(string code)
+         {
+-            OnAnimationStopped?.Invoke(code);
++            stratumOnAnimationStopped?.Invoke(code);
+         }
+ 
+         Dictionary<string, ILoadedSound> loopingSounds = null;
+ 
+         public void ShouldPlaySound(string animationMetaCode, AnimationSound sound)

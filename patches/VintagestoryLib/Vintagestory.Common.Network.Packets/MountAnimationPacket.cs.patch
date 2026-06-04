@@ -1,0 +1,16 @@
+diff --git a/VintagestoryLib/Vintagestory.Common.Network.Packets/MountAnimationPacket.cs b/VintagestoryLib/Vintagestory.Common.Network.Packets/MountAnimationPacket.cs
+index 41800e5..419b965 100644
+--- a/VintagestoryLib/Vintagestory.Common.Network.Packets/MountAnimationPacket.cs
++++ b/VintagestoryLib/Vintagestory.Common.Network.Packets/MountAnimationPacket.cs
+@@ -1,10 +1,10 @@
+ using ProtoBuf;
+ 
+ namespace Vintagestory.Common.Network.Packets;
+ 
+-[ProtoContract(/*Could not decode attribute arguments.*/)]
++[ProtoContract(ImplicitFields = ImplicitFields.AllFields)]
+ public class MountAnimationPacket
+ {
+ 	public string gaitCode;
+ 
+ 	public AnimationPacket animPacket;

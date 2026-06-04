@@ -1,15 +1,22 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerPackets.cs b/VintagestoryLib/Vintagestory.Server/ServerPackets.cs
-index d4a0736..f1eadb8 100644
+index d4a0736..17d72b0 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerPackets.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerPackets.cs
-@@ -1,5 +1,6 @@
+@@ -1,11 +1,13 @@
 +using System;
  using System.Collections.Generic;
  using System.IO;
  using System.Linq;
  using Vintagestory.API.Common;
  using Vintagestory.API.Common.Entities;
-@@ -238,13 +239,24 @@ public class ServerPackets
+ using Vintagestory.API.Datastructures;
++using Vintagestory.API.MathTools;
+ using Vintagestory.Common;
+ using Vintagestory.Common.Network.Packets;
+ 
+ namespace Vintagestory.Server;
+ 
+@@ -238,13 +240,24 @@ public class ServerPackets
  		};
  	}
  
@@ -37,3 +44,41 @@ index d4a0736..f1eadb8 100644
  		packet_EntityDespawn.SetDeathDamageSource(deathDamageSource);
  		packet_EntityDespawn.SetDespawnReason(despawnReason);
  		return new Packet_Server
+@@ -345,20 +358,36 @@ public class ServerPackets
+ 			}
+ 		};
+ 		if (entity is EntityAgent entityAgent)
+ 		{
+ 			packet_EntityPosition.BodyYaw = CollectibleNet.SerializeFloatPrecise(entityAgent.BodyYaw);
+-			packet_EntityPosition.Controls = entityAgent.Controls.ToInt();
++			int controls = entityAgent.Controls.ToInt();
++			if (entity is not EntityPlayer && (controls & 0x0F) == 0 && StratumHasMovementForAnimation(entityAgent, pos))
++			{
++				controls |= 1;
++			}
++			packet_EntityPosition.Controls = controls;
+ 		}
+ 		EntityControls entityControls = ((entity.SidedProperties == null) ? null : entity.GetInterface<IMountable>()?.ControllingControls);
+ 		if (entityControls != null)
+ 		{
+ 			packet_EntityPosition.MountControls = entityControls.ToInt();
+ 		}
+ 		return packet_EntityPosition;
+ 	}
+ 
++	private static bool StratumHasMovementForAnimation(EntityAgent entity, EntityPos pos)
++	{
++		Vec3d walkVector = entity.Controls?.WalkVector;
++		if (walkVector != null && (walkVector.X * walkVector.X + walkVector.Z * walkVector.Z) > 0.00000001)
++		{
++			return true;
++		}
++
++		return pos.Motion.X * pos.Motion.X + pos.Motion.Z * pos.Motion.Z > 0.00000025;
++	}
++
+ 	public static byte[] getEntityDataForClient(Entity entity, FastMemoryStream ms, BinaryWriter writer)
+ 	{
+ 		ms.Reset();
+ 		entity.ToBytes(writer, forClient: true);
+ 		return ms.ToArray();
