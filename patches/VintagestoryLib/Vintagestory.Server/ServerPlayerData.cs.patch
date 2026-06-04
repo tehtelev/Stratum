@@ -1,0 +1,17 @@
+diff --git a/VintagestoryLib/Vintagestory.Server/ServerPlayerData.cs b/VintagestoryLib/Vintagestory.Server/ServerPlayerData.cs
+index 5392fb5..e585bd3 100644
+--- a/VintagestoryLib/Vintagestory.Server/ServerPlayerData.cs
++++ b/VintagestoryLib/Vintagestory.Server/ServerPlayerData.cs
+@@ -6,11 +6,11 @@ using Vintagestory.API.Server;
+ using Vintagestory.API.Util;
+ using Vintagestory.Common;
+ 
+ namespace Vintagestory.Server;
+ 
+-[JsonObject(/*Could not decode attribute arguments.*/)]
++[JsonObject(MemberSerialization.OptIn)]
+ public class ServerPlayerData : IComparable<ServerPlayerData>, IServerPlayerData
+ {
+ 	[JsonProperty]
+ 	public string PlayerUID;
+ 

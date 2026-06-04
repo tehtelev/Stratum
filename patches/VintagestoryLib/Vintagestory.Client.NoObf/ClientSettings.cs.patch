@@ -1,0 +1,17 @@
+diff --git a/VintagestoryLib/Vintagestory.Client.NoObf/ClientSettings.cs b/VintagestoryLib/Vintagestory.Client.NoObf/ClientSettings.cs
+index 9786197..c1e2c75 100644
+--- a/VintagestoryLib/Vintagestory.Client.NoObf/ClientSettings.cs
++++ b/VintagestoryLib/Vintagestory.Client.NoObf/ClientSettings.cs
+@@ -7,11 +7,11 @@ using Vintagestory.API.Config;
+ using Vintagestory.API.MathTools;
+ using Vintagestory.Common;
+ 
+ namespace Vintagestory.Client.NoObf;
+ 
+-[JsonObject(/*Could not decode attribute arguments.*/)]
++[JsonObject(MemberSerialization.OptIn)]
+ public class ClientSettings : SettingsBase
+ {
+ 	private List<Action<string, KeyCombination>> OnKeyCombinationsUpdated = new List<Action<string, KeyCombination>>();
+ 
+ 	public static ClientSettings Inst;

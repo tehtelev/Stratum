@@ -1,0 +1,17 @@
+diff --git a/VintagestoryLib/Vintagestory.Common/SettingsBase.cs b/VintagestoryLib/Vintagestory.Common/SettingsBase.cs
+index 477ca81..215024e 100644
+--- a/VintagestoryLib/Vintagestory.Common/SettingsBase.cs
++++ b/VintagestoryLib/Vintagestory.Common/SettingsBase.cs
+@@ -5,11 +5,11 @@ using System.Runtime.Serialization;
+ using Newtonsoft.Json;
+ using Vintagestory.API.Client;
+ 
+ namespace Vintagestory.Common;
+ 
+-[JsonObject(/*Could not decode attribute arguments.*/)]
++[JsonObject(MemberSerialization.OptIn)]
+ public abstract class SettingsBase : SettingsBaseNoObf, ISettings
+ {
+ 	protected bool isnewfile;
+ 
+ 	public abstract string FileName { get; }

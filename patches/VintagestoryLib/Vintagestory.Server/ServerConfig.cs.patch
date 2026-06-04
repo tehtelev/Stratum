@@ -1,8 +1,8 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerConfig.cs b/VintagestoryLib/Vintagestory.Server/ServerConfig.cs
-index 93750fa..405c556 100644
+index 93750fa..d777299 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerConfig.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerConfig.cs
-@@ -4,10 +4,11 @@ using System.Drawing;
+@@ -4,46 +4,57 @@ using System.Drawing;
  using System.IO;
  using System.Linq;
  using System.Reflection;
@@ -14,10 +14,12 @@ index 93750fa..405c556 100644
  using Vintagestory.API.MathTools;
  using Vintagestory.API.Server;
  using Vintagestory.Common;
-@@ -16,34 +17,44 @@ using Vintagestory.Server.Network;
+ using Vintagestory.Server.Network;
+ 
  namespace Vintagestory.Server;
  
- [JsonObject(/*Could not decode attribute arguments.*/)]
+-[JsonObject(/*Could not decode attribute arguments.*/)]
++[JsonObject(MemberSerialization.OptIn)]
  public class ServerConfig : IServerConfig
  {
 +	[JsonIgnore]
