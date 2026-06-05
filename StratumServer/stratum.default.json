@@ -189,6 +189,10 @@
     "TimerResolution": {
       "Enabled": true,
       "PeriodMs": 1
+    },
+    "Join": {
+      "CacheStartupPackets": true,
+      "MaxQueueAdmissionsPerPass": 2
     }
   },
   "Commands": {

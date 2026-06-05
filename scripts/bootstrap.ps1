@@ -73,6 +73,44 @@ try {
         Expand-Archive -Path $ServerZip -DestinationPath $vanillaDir -Force
     }
 
+    # Build-time compatibility: some server zips omit a small set of managed
+    # client-facing references that VintagestoryLib still compiles against.
+    # Pull only those DLLs from the public Linux client archive when missing.
+    $vanillaLibDir = Join-Path $vanillaDir 'Lib'
+    New-Item -ItemType Directory -Force -Path $vanillaLibDir | Out-Null
+    $requiredClientRefs = @('OpenTK.Graphics.dll', 'csogg.dll', 'csvorbis.dll')
+    $missingClientRefs = @($requiredClientRefs | Where-Object { -not (Test-Path (Join-Path $vanillaLibDir $_)) })
+    if ($missingClientRefs.Count -gt 0) {
+        Write-Host "Missing managed refs in server zip: $($missingClientRefs -join ', ')"
+        New-Item -ItemType Directory -Force -Path $zipCacheDir | Out-Null
+        $clientTarName = "vs_client_linux-x64_$Version.tar.gz"
+        $clientTarPath = Join-Path $zipCacheDir $clientTarName
+        if (-not (Test-Path $clientTarPath)) {
+            $clientUrl = "https://cdn.vintagestory.at/gamefiles/stable/$clientTarName"
+            Write-Host "Downloading $clientUrl"
+            Invoke-WebRequest -Uri $clientUrl -OutFile $clientTarPath
+        } else {
+            Write-Host "Using cached $clientTarPath"
+        }
+
+        $tmpClientExtract = Join-Path $repoRoot ".tmp-client-$Version"
+        if (Test-Path $tmpClientExtract) { Remove-Item -Recurse -Force $tmpClientExtract }
+        New-Item -ItemType Directory -Force -Path $tmpClientExtract | Out-Null
+        tar -xzf $clientTarPath -C $tmpClientExtract
+
+        foreach ($refName in $missingClientRefs) {
+            $sourceRef = Get-ChildItem -Path $tmpClientExtract -Recurse -File -Filter $refName | Select-Object -First 1
+            if ($sourceRef) {
+                Copy-Item -Force $sourceRef.FullName (Join-Path $vanillaLibDir $refName)
+                Write-Host "Restored build ref $refName from Linux client archive"
+            } else {
+                Write-Warning "Could not find $refName in $clientTarName"
+            }
+        }
+
+        Remove-Item -Recurse -Force $tmpClientExtract
+    }
+
     if (-not (Get-Command ilspycmd -ErrorAction SilentlyContinue)) {
         Write-Host "Installing ilspycmd"
         dotnet tool install -g ilspycmd | Out-Null

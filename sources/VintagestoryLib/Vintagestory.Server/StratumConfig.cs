@@ -565,6 +565,8 @@ internal class StratumPerformanceConfig
 
 	public StratumTimerResolutionConfig TimerResolution { get; set; } = new StratumTimerResolutionConfig();
 
+	public StratumJoinConfig Join { get; set; } = new StratumJoinConfig();
+
 	public void EnsurePopulated()
 	{
 		ChunkSending ??= new StratumChunkSendingConfig();
@@ -587,6 +589,7 @@ internal class StratumPerformanceConfig
 		EntityCollisions ??= new StratumEntityCollisionsConfig();
 		BlockEntityInit ??= new StratumBlockEntityInitConfig();
 		TimerResolution ??= new StratumTimerResolutionConfig();
+		Join ??= new StratumJoinConfig();
 		ChunkSending.EnsureSane();
 		ChunkGeneration.EnsureSane();
 		ChunkRequestManagement.EnsureSane();
@@ -607,6 +610,20 @@ internal class StratumPerformanceConfig
 		EntityCollisions.EnsureSane();
 		BlockEntityInit.EnsureSane();
 		TimerResolution.EnsureSane();
+		Join.EnsureSane();
+	}
+}
+
+internal class StratumJoinConfig
+{
+	public bool CacheStartupPackets { get; set; } = true;
+
+	// Limits how many queued players are admitted in one queue pass. 0 = vanilla behavior.
+	public int MaxQueueAdmissionsPerPass { get; set; } = 2;
+
+	public void EnsureSane()
+	{
+		MaxQueueAdmissionsPerPass = Math.Max(0, Math.Min(64, MaxQueueAdmissionsPerPass));
 	}
 }
 

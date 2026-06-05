@@ -10,6 +10,12 @@
     <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
   </PropertyGroup>
   <PropertyGroup />
+  <PropertyGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\OpenTK.Graphics.dll') Or !Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csogg.dll') Or !Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csvorbis.dll')">
+    <DefineConstants>$(DefineConstants);STRATUM_CLIENT_REF_FALLBACKS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\OpenTK.Graphics.dll')">
+    <PackageReference Include="OpenTK.Graphics" Version="4.9.4" />
+  </ItemGroup>
   <ItemGroup>
   </ItemGroup>
   <ItemGroup>
@@ -87,14 +93,23 @@
     <Reference Include="DnsClient">
       <HintPath>..\..\.vanilla\Lib\DnsClient.dll</HintPath>
     </Reference>
-    <Reference Include="OpenTK.Graphics">
+    <Reference Include="OpenTK.Graphics" Condition="Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\OpenTK.Graphics.dll')">
       <HintPath>..\..\.vanilla\Lib\OpenTK.Graphics.dll</HintPath>
     </Reference>
-    <Reference Include="csvorbis">
+    <Reference Include="OpenTK.Graphics" Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\OpenTK.Graphics.dll') And Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\OpenTK.Graphics.dll')">
+      <HintPath>..\..\.vanilla\OpenTK.Graphics.dll</HintPath>
+    </Reference>
+    <Reference Include="csvorbis" Condition="Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csvorbis.dll')">
       <HintPath>..\..\.vanilla\Lib\csvorbis.dll</HintPath>
     </Reference>
-    <Reference Include="csogg">
+    <Reference Include="csvorbis" Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csvorbis.dll') And Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\csvorbis.dll')">
+      <HintPath>..\..\.vanilla\csvorbis.dll</HintPath>
+    </Reference>
+    <Reference Include="csogg" Condition="Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csogg.dll')">
       <HintPath>..\..\.vanilla\Lib\csogg.dll</HintPath>
+    </Reference>
+    <Reference Include="csogg" Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csogg.dll') And Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\csogg.dll')">
+      <HintPath>..\..\.vanilla\csogg.dll</HintPath>
     </Reference>
     <Reference Include="xplatforminterface">
       <HintPath>..\..\.vanilla\Lib\xplatforminterface.dll</HintPath>
