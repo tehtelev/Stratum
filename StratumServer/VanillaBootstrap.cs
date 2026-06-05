@@ -19,10 +19,21 @@ internal static class VanillaBootstrap
 		string installDir = AppContext.BaseDirectory;
 		string markerPath = Path.Combine(installDir, ".stratum-base");
 		string expectedMarker = baseGameVersion;
+		bool markerExists = File.Exists(markerPath);
+		string currentMarker = markerExists ? File.ReadAllText(markerPath).Trim() : string.Empty;
+		bool markerMatches = markerExists && currentMarker == expectedMarker;
 
-		if (!refresh && File.Exists(markerPath) && File.ReadAllText(markerPath).Trim() == expectedMarker)
+		if (!refresh && markerMatches)
 		{
 			return;
+		}
+
+		bool existingInstallWithoutMarker = !markerExists && LooksLikeExistingInstall(installDir);
+		bool overwriteExisting = refresh || !markerMatches || existingInstallWithoutMarker;
+
+		if (overwriteExisting)
+		{
+			CleanStaleAssets(installDir);
 		}
 
 		(string archiveName, bool isZip) = GetArchiveForPlatform(baseGameVersion);
@@ -59,8 +70,15 @@ internal static class VanillaBootstrap
 		}
 
 		string sourceRoot = FindContentRoot(extractDir);
-		int copied = OverlayMissingFiles(sourceRoot, installDir);
-		Console.WriteLine($"Stratum: installed {copied} vanilla file(s) (existing files were preserved)");
+		int copied = OverlayVanillaFiles(sourceRoot, installDir, overwriteExisting);
+		if (overwriteExisting)
+		{
+			Console.WriteLine($"Stratum: installed {copied} vanilla file(s) (existing files were refreshed)");
+		}
+		else
+		{
+			Console.WriteLine($"Stratum: installed {copied} vanilla file(s) (existing files were preserved)");
+		}
 
 		File.WriteAllText(markerPath, expectedMarker);
 	}
@@ -117,14 +135,15 @@ internal static class VanillaBootstrap
 		return extractDir;
 	}
 
-	private static int OverlayMissingFiles(string sourceRoot, string installDir)
+	private static int OverlayVanillaFiles(string sourceRoot, string installDir, bool overwriteExisting)
 	{
 		int copied = 0;
 		foreach (string sourcePath in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories))
 		{
 			string rel = Path.GetRelativePath(sourceRoot, sourcePath);
 			string destPath = Path.Combine(installDir, rel);
-			if (File.Exists(destPath))
+			bool exists = File.Exists(destPath);
+			if (exists && !overwriteExisting)
 			{
 				continue;
 			}
@@ -134,9 +153,27 @@ internal static class VanillaBootstrap
 			{
 				Directory.CreateDirectory(destDir);
 			}
-			File.Copy(sourcePath, destPath);
+			File.Copy(sourcePath, destPath, overwrite: overwriteExisting);
 			copied++;
 		}
 		return copied;
+	}
+
+	private static bool LooksLikeExistingInstall(string installDir)
+	{
+		return File.Exists(Path.Combine(installDir, "VintagestoryLib.dll"))
+			|| Directory.Exists(Path.Combine(installDir, "assets"));
+	}
+
+	private static void CleanStaleAssets(string installDir)
+	{
+		string assetsDir = Path.Combine(installDir, "assets");
+		if (!Directory.Exists(assetsDir))
+		{
+			return;
+		}
+
+		Console.WriteLine("Stratum: clearing stale vanilla assets before refresh");
+		Directory.Delete(assetsDir, recursive: true);
 	}
 }
