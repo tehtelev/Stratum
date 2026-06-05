@@ -281,10 +281,10 @@ internal sealed class StratumPerformanceStats
 			decimal averageBlockTickChunks = totalBlockTickPasses <= 0 ? 0m : decimal.Round((decimal)totalBlockTickChunksTicked / totalBlockTickPasses, 2);
 			return "Stratum Performance\n" +
 				"\nChunk Pipeline\n" +
-				$"  Send: {(chunkSending.Enabled ? "on" : "off")} server={chunkSending.MaxChunksPerServerTick} client={chunkSending.MaxChunksPerClientTick} local={(chunkSending.IncludeLocalClients ? "yes" : "no")}\n" +
+				$"  Send: {(chunkSending.Enabled ? "on" : "off")} server={chunkSending.MaxChunksPerServerTick} client={chunkSending.MaxChunksPerClientTick} local={(chunkSending.IncludeLocalClients ? "yes" : "no")} adaptive={(chunkSending.AdaptiveUnderOverload ? "yes" : "no")} overload={chunkSending.OverloadTickMs}ms scale={chunkSending.OverloadScale:0.##}\n" +
 				$"  Last: budget={lastChunkBudget} sent={lastChunksSent} deferredClients={lastDeferredClients}\n" +
 				$"  Totals: ticks={totalChunkSendTicks} sent={totalChunksSent} avg={averageChunks} peak={peakChunksSent}\n" +
-				$"  Generation: {(chunkGeneration.Enabled ? "on" : "off")} server={chunkGeneration.MaxColumnRequestsPerServerTick} client={chunkGeneration.MaxColumnRequestsPerClientTick} local={(chunkGeneration.IncludeLocalClients ? "yes" : "no")}\n" +
+				$"  Generation: {(chunkGeneration.Enabled ? "on" : "off")} server={chunkGeneration.MaxColumnRequestsPerServerTick} client={chunkGeneration.MaxColumnRequestsPerClientTick} local={(chunkGeneration.IncludeLocalClients ? "yes" : "no")} adaptive={(chunkGeneration.AdaptiveUnderOverload ? "yes" : "no")} overload={chunkGeneration.OverloadTickMs}ms scale={chunkGeneration.OverloadScale:0.##}\n" +
 				$"  Last gen: budget={lastColumnRequestBudget} requested={lastColumnRequests} queues={lastPendingColumnRequests}/{lastWorkerColumnRequests}\n" +
 				$"  Gen totals: requested={totalColumnRequests} avg={averageColumnRequests} deferredClients={totalGenerationDeferredClients} peak={peakColumnRequests}\n" +
 				$"  Requests: {(chunkRequestManagement.Enabled ? "on" : "off")} staleCancel={(chunkRequestManagement.CancelStalePendingRequests ? "yes" : "no")} forward={(chunkRequestManagement.PrioritizeMovingDirection ? "yes" : "no")} lastCancel={lastCancelledColumnRequests} peakCancel={peakCancelledColumnRequests} totalCancel={totalCancelledColumnRequests} prioritizedRings={totalPrioritizedChunkRings} lastPrioritized={lastPrioritizedChunkRings}\n" +

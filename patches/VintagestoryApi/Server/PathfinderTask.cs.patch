@@ -1,0 +1,31 @@
+diff --git a/VintagestoryApi/Server/PathfinderTask.cs b/VintagestoryApi/Server/PathfinderTask.cs
+index cc21075..b48973d 100644
+--- a/VintagestoryApi/Server/PathfinderTask.cs
++++ b/VintagestoryApi/Server/PathfinderTask.cs
+@@ -16,22 +16,25 @@ namespace Vintagestory.API.Server
+         public int searchDepth;
+         public int mhdistanceTolerance = 0;
+         public List<Vec3d> waypoints;
+         public EnumAICreatureType CreatureType;
+         public float modeMinFleeDistance;
++        public long SourceEntityId;
++        public long EnqueuedMilliseconds;
+ 
+         public bool Finished;
+ 
+-        public PathfinderTask(BlockPos startBlockPos, BlockPos targetBlockPos, float modeMinFleeDistance, int maxFallHeight, float stepHeight, Cuboidf collisionBox, int searchDepth, int mhdistanceTolerance = 0, EnumAICreatureType creatureType = EnumAICreatureType.Default)
++        public PathfinderTask(BlockPos startBlockPos, BlockPos targetBlockPos, float modeMinFleeDistance, int maxFallHeight, float stepHeight, Cuboidf collisionBox, int searchDepth, int mhdistanceTolerance = 0, EnumAICreatureType creatureType = EnumAICreatureType.Default, long sourceEntityId = 0)
+         {
+             this.startBlockPos = startBlockPos;
+             this.targetBlockPos = targetBlockPos;
+             this.maxFallHeight = maxFallHeight;
+             this.stepHeight = stepHeight;
+             this.collisionBox = collisionBox;
+             this.searchDepth = searchDepth;
+             this.mhdistanceTolerance = mhdistanceTolerance;
+             this.modeMinFleeDistance = modeMinFleeDistance;
+             this.CreatureType = creatureType;
++            this.SourceEntityId = sourceEntityId;
+         }
+     }
+ }

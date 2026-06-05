@@ -1,0 +1,49 @@
+diff --git a/VintagestoryLib/Vintagestory/Logger.cs b/VintagestoryLib/Vintagestory/Logger.cs
+index f06bc69..8f9c105 100644
+--- a/VintagestoryLib/Vintagestory/Logger.cs
++++ b/VintagestoryLib/Vintagestory/Logger.cs
+@@ -6,10 +6,11 @@ using System.Globalization;
+ using System.IO;
+ using System.Linq;
+ using System.Text;
+ using Vintagestory.API.Common;
+ using Vintagestory.API.Config;
++using Vintagestory.Server;
+ 
+ namespace Vintagestory;
+ 
+ public abstract class Logger : LoggerBase, IDisposable
+ {
+@@ -196,29 +197,24 @@ public abstract class Logger : LoggerBase, IDisposable
+ 				{
+ 					LogToFile(logFile, logType, message, args);
+ 				}
+ 				catch (NotSupportedException)
+ 				{
+-					Console.WriteLine("Unable to write to log file " + logFile);
++					StratumConsole.WriteLine("Unable to write to log file " + logFile);
+ 				}
+ 				catch (ObjectDisposedException)
+ 				{
+-					Console.WriteLine("Unable to write to log file " + logFile);
++					StratumConsole.WriteLine("Unable to write to log file " + logFile);
+ 				}
+ 			}
+ 			if (base.TraceLog && printToDebugWindow(logType))
+ 			{
+ 				Trace.WriteLine(FormatLogEntry(logType, message, args));
+ 			}
+ 			if (printToConsole(logType))
+ 			{
+-				SetColorForLogType(logType);
+-				Console.WriteLine(FormatLogEntry(logType, message, args));
+-				if (canUseColor)
+-				{
+-					Console.ResetColor();
+-				}
++				StratumConsole.WriteLogLine(logType, FormatLogEntry(logType, message, args));
+ 			}
+ 		}
+ 		catch (Exception)
+ 		{
+ 		}

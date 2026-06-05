@@ -1,8 +1,8 @@
 diff --git a/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs b/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
-index 48a886b..358a29d 100644
+index 48a886b..b0ddb62 100644
 --- a/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
 +++ b/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
-@@ -1,15 +1,44 @@
+@@ -1,15 +1,45 @@
  using System;
  using System.Collections.Concurrent;
 +using System.Collections.Generic;
@@ -10,6 +10,7 @@ index 48a886b..358a29d 100644
 +using System.Linq;
 +using System.Reflection;
  using Vintagestory.API.Common;
++using Vintagestory.API.Common.Entities;
  using Vintagestory.API.Server;
  
  #nullable disable
@@ -47,7 +48,7 @@ index 48a886b..358a29d 100644
          protected ICoreServerAPI api;
          // This system has its own AStar classes to avoid potential cross-thread issues with others (e.g. Essentials.PathfindSystem)
          protected AStar astar_offthread;
-@@ -17,10 +46,14 @@ namespace Vintagestory.Essentials
+@@ -17,10 +47,18 @@ namespace Vintagestory.Essentials
          protected bool isShuttingDown;
          public ConcurrentQueue<PathfinderTask> PathfinderTasks = new ConcurrentQueue<PathfinderTask>();
          protected readonly Stopwatch totalTime = new Stopwatch();
@@ -55,14 +56,18 @@ index 48a886b..358a29d 100644
  
 +        // Stratum: extra worker threads beyond the built-in single ai-pathfinding thread.
 +        private readonly List<PathfindingAsyncWorker> stratumExtraWorkers = new List<PathfindingAsyncWorker>();
++        private readonly object stratumQueueTrimLock = new object();
 +        private int stratumMaxQueued;
++        private int stratumMaxTaskAgeMs;
++        private long stratumDroppedQueuedTasks;
++        private long stratumDroppedStaleTasks;
 +
          public override bool ShouldLoad(EnumAppSide forSide)
          {
              return forSide == EnumAppSide.Server;
          }
  
-@@ -33,10 +66,53 @@ namespace Vintagestory.Essentials
+@@ -33,10 +71,56 @@ namespace Vintagestory.Essentials
  
              api.Event.ServerRunPhase(EnumServerRunPhase.Shutdown, () => isShuttingDown = true);
              api.Event.RegisterGameTickListener(OnMainThreadTick, 20);
@@ -77,6 +82,7 @@ index 48a886b..358a29d 100644
 +            // Read Stratum config reflectively (lives in VintagestoryLib, internal) to avoid a hard dependency.
 +            int extra = 0;
 +            int maxQueued = 0;
++            int maxTaskAgeMs = 2000;
 +            bool asyncEnabled = true;
 +            try
 +            {
@@ -94,6 +100,7 @@ index 48a886b..358a29d 100644
 +                    // We already have one built-in worker thread; add (workers - 1) extras.
 +                    extra = Math.Max(0, workers - 1);
 +                    maxQueued = (int)(pf.GetType().GetProperty("MaxQueued")?.GetValue(pf) ?? 0);
++                    maxTaskAgeMs = (int)(pf.GetType().GetProperty("MaxTaskAgeMs")?.GetValue(pf) ?? maxTaskAgeMs);
 +                }
 +            }
 +            catch (Exception e)
@@ -102,6 +109,7 @@ index 48a886b..358a29d 100644
 +            }
 +
 +            stratumMaxQueued = maxQueued;
++            stratumMaxTaskAgeMs = Math.Max(0, maxTaskAgeMs);
 +            if (!asyncEnabled || extra <= 0) return;
 +
 +            for (int i = 0; i < extra; i++)
@@ -116,19 +124,129 @@ index 48a886b..358a29d 100644
  
          public int OffThreadInterval()
          {
-@@ -110,10 +186,15 @@ namespace Vintagestory.Essentials
+@@ -103,20 +187,123 @@ namespace Vintagestory.Essentials
+         /// <summary>
+         /// Threadsafe way of dequeueing next task
+         /// </summary>
+         protected PathfinderTask Next()
+         {
+-            if (!PathfinderTasks.TryDequeue(out PathfinderTask task)) task = null;
+-            return task;
++            while (PathfinderTasks.TryDequeue(out PathfinderTask task))
++            {
++                if (!StratumIsObsoleteTask(task, out _))
++                {
++                    return task;
++                }
++
++                StratumMarkDropped(task);
++                stratumDroppedStaleTasks++;
++            }
++
++            return null;
          }
  
  
          public void EnqueuePathfinderTask(PathfinderTask task)
          {
++            if (task != null)
++            {
++                task.EnqueuedMilliseconds = api?.World?.ElapsedMilliseconds ?? 0;
++            }
++
 +            if (stratumMaxQueued > 0 && PathfinderTasks.Count >= stratumMaxQueued)
 +            {
-+                // Drop oldest to keep the queue bounded under sustained load.
-+                PathfinderTasks.TryDequeue(out _);
++                StratumPrunePathfinderQueue(forceOneFreeSlot: true);
 +            }
              PathfinderTasks.Enqueue(task);
          }
  
++        private void StratumPrunePathfinderQueue(bool forceOneFreeSlot)
++        {
++            if (stratumMaxQueued <= 0)
++            {
++                return;
++            }
++
++            lock (stratumQueueTrimLock)
++            {
++                int count = PathfinderTasks.Count;
++                if (count <= 0)
++                {
++                    return;
++                }
++
++                int targetKeep = forceOneFreeSlot ? Math.Max(0, stratumMaxQueued - 1) : stratumMaxQueued;
++                List<PathfinderTask> keep = new List<PathfinderTask>(Math.Min(count, stratumMaxQueued));
++                for (int i = 0; i < count && PathfinderTasks.TryDequeue(out PathfinderTask queued); i++)
++                {
++                    if (StratumIsObsoleteTask(queued, out _))
++                    {
++                        StratumMarkDropped(queued);
++                        stratumDroppedStaleTasks++;
++                        continue;
++                    }
++
++                    keep.Add(queued);
++                }
++
++                int overflow = Math.Max(0, keep.Count - targetKeep);
++                for (int i = 0; i < keep.Count; i++)
++                {
++                    if (i < overflow)
++                    {
++                        StratumMarkDropped(keep[i]);
++                        stratumDroppedQueuedTasks++;
++                        continue;
++                    }
++
++                    PathfinderTasks.Enqueue(keep[i]);
++                }
++            }
++        }
++
++        private bool StratumIsObsoleteTask(PathfinderTask task, out string reason)
++        {
++            reason = null;
++            if (task == null || task.Finished)
++            {
++                reason = "finished";
++                return true;
++            }
++
++            long nowMs = api?.World?.ElapsedMilliseconds ?? 0;
++            if (stratumMaxTaskAgeMs > 0 && task.EnqueuedMilliseconds > 0 && nowMs - task.EnqueuedMilliseconds > stratumMaxTaskAgeMs)
++            {
++                reason = "stale";
++                return true;
++            }
++
++            if (task.SourceEntityId > 0)
++            {
++                Entity owner = api?.World?.GetEntityById(task.SourceEntityId);
++                if (owner == null || !owner.Alive || owner.State == EnumEntityState.Inactive || owner.ShouldDespawn)
++                {
++                    reason = "owner-gone";
++                    return true;
++                }
++            }
++
++            return false;
++        }
++
++        private static void StratumMarkDropped(PathfinderTask task)
++        {
++            if (task == null)
++            {
++                return;
++            }
++
++            task.waypoints = null;
++            task.Finished = true;
++        }
++
  
          public override void Dispose()
+         {
+             astar_mainthread?.Dispose();   // astar_mainthread will be null clientside, as this ModSystem is only started on servers
+             astar_mainthread = null;

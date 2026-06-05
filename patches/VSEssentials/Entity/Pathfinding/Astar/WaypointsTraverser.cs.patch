@@ -1,0 +1,17 @@
+diff --git a/VSEssentials/Entity/Pathfinding/Astar/WaypointsTraverser.cs b/VSEssentials/Entity/Pathfinding/Astar/WaypointsTraverser.cs
+index 365cdfa..e3cd85b 100644
+--- a/VSEssentials/Entity/Pathfinding/Astar/WaypointsTraverser.cs
++++ b/VSEssentials/Entity/Pathfinding/Astar/WaypointsTraverser.cs
+@@ -212,11 +212,11 @@ namespace Vintagestory.Essentials
+             var bh = entity.GetBehavior<EntityBehaviorControlledPhysics>();
+             float stepHeight = bh == null ? 0.6f : bh.StepHeight;
+             bool avoidFall = entity.Properties.FallDamage && entity.Properties.Attributes?["reckless"].AsBool(false) != true;
+             int maxFallHeight = avoidFall ? 4 - (int)(movingSpeed * 30) : 12;   // fast moving entities cannot safely fall so far (might miss target block below due to outward drift)
+ 
+-            return new PathfinderTask(startBlockPos, targetBlockPos, modeMinFleeDistance, maxFallHeight, stepHeight, entity.CollisionBox, searchDepth, mhdistanceTolerance, creatureType ?? this.creatureType);
++            return new PathfinderTask(startBlockPos, targetBlockPos, modeMinFleeDistance, maxFallHeight, stepHeight, entity.CollisionBox, searchDepth, mhdistanceTolerance, creatureType ?? this.creatureType, entity.EntityId);
+         }
+ 
+ 
+         private void FindPath_Async(BlockPos startBlockPos, BlockPos targetBlockPos, float modeMinFleeDistance, int searchDepth, int mhdistanceTolerance = 0)
+         {

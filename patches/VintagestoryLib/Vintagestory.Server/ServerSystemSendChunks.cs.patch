@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemSendChunks.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemSendChunks.cs
-index 277d286..0724298 100644
+index 277d286..847827c 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemSendChunks.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemSendChunks.cs
 @@ -1,10 +1,11 @@
@@ -37,7 +37,7 @@ index 277d286..0724298 100644
  		chunkPackets = null;
  		chunksToSend = null;
  		mapChunksToSend = null;
-@@ -54,46 +67,120 @@ internal class ServerSystemSendChunks : ServerSystem
+@@ -54,46 +67,152 @@ internal class ServerSystemSendChunks : ServerSystem
  	{
  		if (server.RunPhase != EnumServerRunPhase.RunGame)
  		{
@@ -50,10 +50,10 @@ index 277d286..0724298 100644
 +		int stratumCancelledColumnRequests = CleanupStratumChunkColumnRequests(stratumChunkRequestManagement);
 +		stratumPrioritizedChunkRingsThisTick = 0;
 +		bool stratumBudgetEnabled = stratumChunkSending.Enabled;
-+		int stratumChunkBudget = stratumBudgetEnabled ? Math.Max(1, stratumChunkSending.MaxChunksPerServerTick) : int.MaxValue;
++		int stratumChunkBudget = stratumBudgetEnabled ? GetStratumAdaptiveChunkSendBudget(stratumChunkSending, serverBudget: true) : int.MaxValue;
 +		int startingStratumChunkBudget = stratumChunkBudget;
 +		bool stratumGenerationBudgetEnabled = stratumChunkGeneration.Enabled;
-+		int stratumColumnRequestBudget = stratumGenerationBudgetEnabled ? Math.Max(1, stratumChunkGeneration.MaxColumnRequestsPerServerTick) : int.MaxValue;
++		int stratumColumnRequestBudget = stratumGenerationBudgetEnabled ? GetStratumAdaptiveChunkGenerationBudget(stratumChunkGeneration, serverBudget: true) : int.MaxValue;
 +		int startingStratumColumnRequestBudget = stratumColumnRequestBudget;
 +		int stratumChunksSent = 0;
 +		int stratumDeferredClients = 0;
@@ -89,6 +89,38 @@ index 277d286..0724298 100644
  		packetsWithoutEntities.Clear();
 +		StratumRuntime.PerformanceStats.RecordChunkSendTick(startingStratumChunkBudget, stratumChunksSent, stratumDeferredClients, startingStratumColumnRequestBudget, stratumColumnRequests, stratumGenerationDeferredClients, GetPendingChunkColumnQueueCount(), server.chunkThread?.requestedChunkColumns.Count ?? 0, stratumCancelledColumnRequests, stratumPrioritizedChunkRingsThisTick);
 +		StratumRuntime.Timings.RecordElapsed("chunk.pipeline", stratumTimingStart);
++	}
++
++	private int GetStratumAdaptiveChunkSendBudget(StratumChunkSendingConfig config, bool serverBudget)
++	{
++		int baseBudget = Math.Max(1, serverBudget ? config.MaxChunksPerServerTick : config.MaxChunksPerClientTick);
++		if (!config.AdaptiveUnderOverload || !IsStratumChunkPipelineOverloaded(config.OverloadTickMs))
++		{
++			return baseBudget;
++		}
++
++		int floor = Math.Max(1, serverBudget ? config.OverloadFloorServerTick : config.OverloadFloorClientTick);
++		int scaled = (int)Math.Floor(baseBudget * config.OverloadScale);
++		return Math.Min(baseBudget, Math.Max(floor, scaled));
++	}
++
++	private int GetStratumAdaptiveChunkGenerationBudget(StratumChunkGenerationConfig config, bool serverBudget)
++	{
++		int baseBudget = Math.Max(1, serverBudget ? config.MaxColumnRequestsPerServerTick : config.MaxColumnRequestsPerClientTick);
++		if (!config.AdaptiveUnderOverload || !IsStratumChunkPipelineOverloaded(config.OverloadTickMs))
++		{
++			return baseBudget;
++		}
++
++		int floor = Math.Max(1, serverBudget ? config.OverloadFloorServerTick : config.OverloadFloorClientTick);
++		int scaled = (int)Math.Floor(baseBudget * config.OverloadScale);
++		return Math.Min(baseBudget, Math.Max(floor, scaled));
++	}
++
++	private bool IsStratumChunkPipelineOverloaded(int thresholdMs)
++	{
++		StatsCollection stats = server.StatsCollector[GameMath.Mod(server.StatsCollectorIndex - 1, server.StatsCollector.Length)];
++		return stats != null && stats.ticksTotal > 0 && (double)stats.tickTimeTotal / stats.ticksTotal > thresholdMs;
 +	}
 +
 +	private List<ConnectedClient> GetStratumChunkBudgetClientOrder()
@@ -145,7 +177,7 @@ index 277d286..0724298 100644
 +		bool applyStratumBudget = stratumChunkSending.Enabled && (!client.IsLocalConnection || stratumChunkSending.IncludeLocalClients);
 +		if (applyStratumBudget)
 +		{
-+			num2 = Math.Min(num2, Math.Max(1, stratumChunkSending.MaxChunksPerClientTick));
++			num2 = Math.Min(num2, GetStratumAdaptiveChunkSendBudget(stratumChunkSending, serverBudget: false));
 +			num2 = Math.Min(num2, Math.Max(0, stratumChunkBudget));
 +			deferredChunks = num2 <= 0 && (client.forceSendChunks.Count > 0 || client.CurrentChunkSentRadius < num);
 +		}
@@ -155,7 +187,7 @@ index 277d286..0724298 100644
 +		bool applyStratumGenerationBudget = stratumChunkGeneration.Enabled && (!client.IsLocalConnection || stratumChunkGeneration.IncludeLocalClients);
 +		if (applyStratumGenerationBudget)
 +		{
-+			columnRequestBudget = Math.Min(columnRequestBudget, Math.Max(1, stratumChunkGeneration.MaxColumnRequestsPerClientTick));
++			columnRequestBudget = Math.Min(columnRequestBudget, GetStratumAdaptiveChunkGenerationBudget(stratumChunkGeneration, serverBudget: false));
 +			columnRequestBudget = Math.Min(columnRequestBudget, Math.Max(0, stratumColumnRequestBudget));
 +		}
  		foreach (long forceSendMapChunk in client.forceSendMapChunks)
@@ -163,7 +195,7 @@ index 277d286..0724298 100644
  			Vec2i vec2i = server.WorldMap.MapChunkPosFromChunkIndex2D(forceSendMapChunk);
  			server.loadedMapChunks.TryGetValue(forceSendMapChunk, out var value);
  			if (value != null)
-@@ -125,18 +212,22 @@ internal class ServerSystemSendChunks : ServerSystem
+@@ -125,18 +244,22 @@ internal class ServerSystemSendChunks : ServerSystem
  					chunk = loadedChunk,
  					pos = pos,
  					withEntities = true
@@ -187,7 +219,7 @@ index 277d286..0724298 100644
  		}
  		foreach (ServerMapChunkWithCoord item4 in mapChunksToSend)
  		{
-@@ -203,16 +294,31 @@ internal class ServerSystemSendChunks : ServerSystem
+@@ -203,16 +326,31 @@ internal class ServerSystemSendChunks : ServerSystem
  				server.SendPacketFast(client.Id, value3.ToPacket(vec3i.X, vec3i.Z));
  				client.SetMapRegionSent(forceSendMapRegion);
  			}
@@ -221,7 +253,7 @@ index 277d286..0724298 100644
  		for (int i = 0; i < octagonPoints.Length; i++)
  		{
  			int x = octagonPoints[i].X;
-@@ -258,41 +364,224 @@ internal class ServerSystemSendChunks : ServerSystem
+@@ -258,41 +396,224 @@ internal class ServerSystemSendChunks : ServerSystem
  					}
  					num2++;
  				}

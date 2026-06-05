@@ -1,0 +1,94 @@
+diff --git a/VintagestoryLib/Vintagestory.Server/ServerConsole.cs b/VintagestoryLib/Vintagestory.Server/ServerConsole.cs
+index d83f277..35b1da6 100644
+--- a/VintagestoryLib/Vintagestory.Server/ServerConsole.cs
++++ b/VintagestoryLib/Vintagestory.Server/ServerConsole.cs
+@@ -26,28 +26,38 @@ public class ServerConsole
+ 	public ServerConsole(ServerMain server, CancellationToken token)
+ 	{
+ 		this.token = token;
+ 		this.server = server;
+ 		inputStream = Console.OpenStandardInput();
++		StratumConsole.Initialize();
+ 		TyronThreadPool.QueueTask((Func<Task>)readAsync, "ServerConsoleReadInput");
+ 	}
+ 
+ 	private async Task readAsync()
+ 	{
++		if (StratumConsole.IsInteractive)
++		{
++			readConsoleKeys();
++			return;
++		}
++
+ 		while (!token.IsCancellationRequested)
+ 		{
+ 			readCount = await inputStream.ReadAsync(_memoryBuffer, token);
+ 			if (readCount == 0)
+ 			{
+ 				break;
+ 			}
+-			input += Encoding.UTF8.GetString(_memoryBuffer.Slice(0, readCount).Span);
++			string readText = Encoding.UTF8.GetString(_memoryBuffer.Slice(0, readCount).Span);
++			StratumConsole.RecordInput(readText);
++			input += readText;
+ 			if (!input.EndsWithOrdinal(Environment.NewLine))
+ 			{
+ 				break;
+ 			}
+ 			string inputCopy = input.Trim();
++			StratumConsole.ClearSubmittedInput();
+ 			server.EnqueueMainThreadTask(delegate
+ 			{
+ 				if (server.RunPhase == EnumServerRunPhase.Standby)
+ 				{
+ 					if (inputCopy == "/stop")
+@@ -66,10 +76,49 @@ public class ServerConsole
+ 			});
+ 			input = string.Empty;
+ 		}
+ 	}
+ 
++	private void readConsoleKeys()
++	{
++		while (!token.IsCancellationRequested)
++		{
++			if (!Console.KeyAvailable)
++			{
++				Thread.Sleep(50);
++				continue;
++			}
++
++			ConsoleKeyInfo key = Console.ReadKey(intercept: true);
++			if (!StratumConsole.TryHandleKey(key, out string submittedLine))
++			{
++				continue;
++			}
++
++			string inputCopy = submittedLine.Trim();
++			server.EnqueueMainThreadTask(delegate
++			{
++				if (server.RunPhase == EnumServerRunPhase.Standby)
++				{
++					if (inputCopy == "/stop")
++					{
++						Environment.Exit(0);
++					}
++					if (inputCopy == "/stats")
++					{
++						ServerMain.Logger.Notification(CmdStats.genStats(server, "\n"));
++					}
++				}
++				else
++				{
++					server.ReceiveServerConsole(inputCopy);
++				}
++			});
++		}
++	}
++
+ 	public void Dispose()
+ 	{
++		StratumConsole.Shutdown();
+ 		server = null;
+ 	}
+ }

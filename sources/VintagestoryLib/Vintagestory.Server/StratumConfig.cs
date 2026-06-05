@@ -672,13 +672,18 @@ internal class StratumPathfindingConfig
 	// Worker thread count for async pathfinding. 0 = auto (max(2, Environment.ProcessorCount / 2)).
 	public int WorkerThreads { get; set; } = 0;
 
-	// Max queued pathfind requests before we drop new ones (oldest stays). 0 = unbounded.
+	// Max queued pathfind requests before stale or oldest queued work is dropped. 0 = unbounded.
 	public int MaxQueued { get; set; } = 512;
+
+	// Queued async path requests older than this are considered stale and can be discarded
+	// before useful work is dropped. 0 = never stale by age.
+	public int MaxTaskAgeMs { get; set; } = 2000;
 
 	public void EnsureSane()
 	{
 		WorkerThreads = Math.Max(0, WorkerThreads);
 		MaxQueued = Math.Max(0, MaxQueued);
+		MaxTaskAgeMs = Math.Max(0, MaxTaskAgeMs);
 	}
 }
 
@@ -787,10 +792,24 @@ internal class StratumChunkSendingConfig
 
 	public bool IncludeLocalClients { get; set; }
 
+	public bool AdaptiveUnderOverload { get; set; } = true;
+
+	public int OverloadTickMs { get; set; } = 45;
+
+	public float OverloadScale { get; set; } = 0.5f;
+
+	public int OverloadFloorServerTick { get; set; } = 64;
+
+	public int OverloadFloorClientTick { get; set; } = 8;
+
 	public void EnsureSane()
 	{
 		MaxChunksPerServerTick = Math.Max(1, MaxChunksPerServerTick);
 		MaxChunksPerClientTick = Math.Max(1, MaxChunksPerClientTick);
+		OverloadTickMs = Math.Max(10, Math.Min(1000, OverloadTickMs));
+		OverloadScale = Math.Max(0.05f, Math.Min(1f, OverloadScale));
+		OverloadFloorServerTick = Math.Max(1, OverloadFloorServerTick);
+		OverloadFloorClientTick = Math.Max(1, OverloadFloorClientTick);
 	}
 }
 
@@ -1217,10 +1236,24 @@ internal class StratumChunkGenerationConfig
 
 	public bool IncludeLocalClients { get; set; }
 
+	public bool AdaptiveUnderOverload { get; set; } = true;
+
+	public int OverloadTickMs { get; set; } = 45;
+
+	public float OverloadScale { get; set; } = 0.5f;
+
+	public int OverloadFloorServerTick { get; set; } = 4;
+
+	public int OverloadFloorClientTick { get; set; } = 1;
+
 	public void EnsureSane()
 	{
 		MaxColumnRequestsPerServerTick = Math.Max(1, MaxColumnRequestsPerServerTick);
 		MaxColumnRequestsPerClientTick = Math.Max(1, MaxColumnRequestsPerClientTick);
+		OverloadTickMs = Math.Max(10, Math.Min(1000, OverloadTickMs));
+		OverloadScale = Math.Max(0.05f, Math.Min(1f, OverloadScale));
+		OverloadFloorServerTick = Math.Max(1, OverloadFloorServerTick);
+		OverloadFloorClientTick = Math.Max(1, OverloadFloorClientTick);
 	}
 }
 
