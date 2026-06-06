@@ -42,6 +42,9 @@
     "RequiredProgressRatio": 0.5,
     "GraceSeconds": 0.5,
     "MinimumTrackedBreakSeconds": 0.5,
+    "PartialProgressRetentionSeconds": 8.0,
+    "MaxRememberedProgressRatio": 0.95,
+    "MaxRememberedPartialBreaksPerClient": 24,
     "KickMessage": "Disconnected by Stratum block break protection"
   },
   "ClientModPolicy": {

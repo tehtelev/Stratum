@@ -489,6 +489,12 @@ internal class StratumBlockBreakGuardsConfig
 
 	public float MinimumTrackedBreakSeconds { get; set; } = 0.15f;
 
+	public float PartialProgressRetentionSeconds { get; set; } = 8f;
+
+	public float MaxRememberedProgressRatio { get; set; } = 0.95f;
+
+	public int MaxRememberedPartialBreaksPerClient { get; set; } = 24;
+
 	public string KickMessage { get; set; } = "Disconnected by Stratum block break protection";
 
 	public void EnsureSane()
@@ -498,6 +504,9 @@ internal class StratumBlockBreakGuardsConfig
 		RequiredProgressRatio = Math.Max(0.1f, Math.Min(1f, RequiredProgressRatio));
 		GraceSeconds = Math.Max(0f, GraceSeconds);
 		MinimumTrackedBreakSeconds = Math.Max(0f, MinimumTrackedBreakSeconds);
+		PartialProgressRetentionSeconds = Math.Max(0f, PartialProgressRetentionSeconds);
+		MaxRememberedProgressRatio = Math.Max(0.1f, Math.Min(0.99f, MaxRememberedProgressRatio));
+		MaxRememberedPartialBreaksPerClient = Math.Max(0, MaxRememberedPartialBreaksPerClient);
 		if (string.IsNullOrWhiteSpace(KickMessage))
 		{
 			KickMessage = "Disconnected by Stratum block break protection";

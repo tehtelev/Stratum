@@ -29,35 +29,38 @@ internal sealed class StratumBlockBreakGuard
 		BlockSelection selection = player.CurrentBlockSelection;
 		if (!player.Entity.Controls.LeftMouseDown || selection?.Position == null)
 		{
-			ResetBreak(player.ClientId);
+			ParkBreak(player.ClientId, server.ElapsedMilliseconds);
 			return;
 		}
 
 		Block block = GetBreakBlock(server, selection.Position);
 		if (block == null || block.Id == 0)
 		{
-			ResetBreak(player.ClientId);
+			ClearBreak(player.ClientId);
 			return;
 		}
 
+		StratumBlockBreakGuardsConfig config = StratumRuntime.Config.BlockBreakGuards;
 		ItemSlot activeSlot = player.inventoryMgr.ActiveHotbarSlot;
-		int heldItemId = activeSlot?.Itemstack?.Id ?? 0;
 		float resistance = Math.Max(0f, block.GetResistance(server.BlockAccessor, selection.Position));
 		float damagePerSecond = CalculateDamagePerSecond(server, player, selection, block, activeSlot);
 		float damage = Math.Max(0f, dt) * damagePerSecond;
+		long now = server.ElapsedMilliseconds;
 
 		lock (gate)
 		{
 			ClientBreakState state = GetOrCreateState(player.ClientId);
-			if (!state.IsTracking(selection.Position, block.Id, heldItemId))
+			state.ExpireRemembered(now, config);
+			if (!state.IsTracking(selection.Position, block.Id))
 			{
-				state.Start(selection.Position, block.Id, heldItemId, server.ElapsedMilliseconds);
+				state.ParkCurrent(now, config);
+				state.Start(selection.Position, block.Id, now, config);
 			}
 
 			state.RequiredResistance = resistance;
 			state.DamagePerSecond = damagePerSecond;
 			state.ObservedDamage += damage;
-			state.LastObservedMs = server.ElapsedMilliseconds;
+			state.LastObservedMs = now;
 		}
 	}
 
@@ -80,7 +83,6 @@ internal sealed class StratumBlockBreakGuard
 
 		ServerPlayer player = client.Player;
 		ItemSlot activeSlot = player.inventoryMgr.ActiveHotbarSlot;
-		int heldItemId = activeSlot?.Itemstack?.Id ?? 0;
 		float resistance = Math.Max(0f, block.GetResistance(server.BlockAccessor, requestedSelection.Position));
 		float damagePerSecond = CalculateDamagePerSecond(server, player, requestedSelection, block, activeSlot);
 		float expectedBreakSeconds = damagePerSecond <= 0f ? float.MaxValue : resistance / damagePerSecond;
@@ -97,13 +99,15 @@ internal sealed class StratumBlockBreakGuard
 		lock (gate)
 		{
 			ClientBreakState state = GetOrCreateState(client.Id);
+			state.ExpireRemembered(now, config);
 			BlockSelection currentSelection = player.CurrentBlockSelection;
-			bool hasTrackedProgress = state.IsTracking(requestedSelection.Position, block.Id, heldItemId);
-			if (config.RequireServerSelection && !hasTrackedProgress && !SamePosition(currentSelection?.Position, requestedSelection.Position))
+			bool hasTrackedProgress = state.IsTracking(requestedSelection.Position, block.Id);
+			float rememberedDamage = hasTrackedProgress ? 0f : state.GetRememberedDamage(requestedSelection.Position, block.Id, now, config);
+			if (config.RequireServerSelection && !hasTrackedProgress && rememberedDamage <= 0f && !SamePosition(currentSelection?.Position, requestedSelection.Position))
 			{
 				reason = $"break target {requestedSelection.Position} does not match server selection {FormatPos(currentSelection?.Position)}";
 			}
-			else if (!hasTrackedProgress)
+			else if (!hasTrackedProgress && rememberedDamage <= 0f)
 			{
 				reason = $"no tracked mining progress for {requestedSelection.Position}";
 			}
@@ -111,7 +115,8 @@ internal sealed class StratumBlockBreakGuard
 			{
 				float ratio = Math.Max(0.1f, Math.Min(1f, config.RequiredProgressRatio));
 				float requiredDamage = resistance * ratio;
-				float observedWithGrace = state.ObservedDamage + Math.Max(0f, config.GraceSeconds) * Math.Max(state.DamagePerSecond, damagePerSecond);
+				float observedDamage = hasTrackedProgress ? state.ObservedDamage : rememberedDamage;
+				float observedWithGrace = observedDamage + Math.Max(0f, config.GraceSeconds) * Math.Max(state.DamagePerSecond, damagePerSecond);
 				if (observedWithGrace < requiredDamage)
 				{
 					reason = $"insufficient mining progress {observedWithGrace:0.###}/{requiredDamage:0.###} on {requestedSelection.Position}";
@@ -121,7 +126,7 @@ internal sealed class StratumBlockBreakGuard
 			if (reason == null)
 			{
 				totalObservedBreaks++;
-				state.ClearBreak();
+				state.ClearBreak(requestedSelection.Position, block.Id);
 				return true;
 			}
 
@@ -179,13 +184,24 @@ internal sealed class StratumBlockBreakGuard
 		return state;
 	}
 
-	private void ResetBreak(int clientId)
+	private void ParkBreak(int clientId, long nowMs)
 	{
 		lock (gate)
 		{
 			if (clients.TryGetValue(clientId, out ClientBreakState state))
 			{
-				state.ClearBreak();
+				state.ParkCurrent(nowMs, StratumRuntime.Config.BlockBreakGuards);
+			}
+		}
+	}
+
+	private void ClearBreak(int clientId)
+	{
+		lock (gate)
+		{
+			if (clients.TryGetValue(clientId, out ClientBreakState state))
+			{
+				state.ClearCurrentBreak();
 			}
 		}
 	}
@@ -247,9 +263,9 @@ internal sealed class StratumBlockBreakGuard
 
 	private sealed class ClientBreakState
 	{
+		private readonly Dictionary<BreakKey, RememberedBreak> rememberedBreaks = new Dictionary<BreakKey, RememberedBreak>();
 		private BlockPos position;
 		private int blockId;
-		private int heldItemId;
 		private long violationWindowStartedMs;
 		private long lastViolationLogMs = long.MinValue;
 
@@ -263,27 +279,114 @@ internal sealed class StratumBlockBreakGuard
 
 		public int ViolationsInWindow { get; private set; }
 
-		public bool IsTracking(BlockPos pos, int forBlockId, int forHeldItemId)
+		public bool IsTracking(BlockPos pos, int forBlockId)
 		{
-			return position != null && position.Equals(pos) && blockId == forBlockId && heldItemId == forHeldItemId;
+			return position != null && position.Equals(pos) && blockId == forBlockId;
 		}
 
-		public void Start(BlockPos pos, int forBlockId, int forHeldItemId, long nowMs)
+		public void Start(BlockPos pos, int forBlockId, long nowMs, StratumBlockBreakGuardsConfig config)
 		{
 			position = pos.Copy();
 			blockId = forBlockId;
-			heldItemId = forHeldItemId;
-			ObservedDamage = 0f;
+			ObservedDamage = GetRememberedDamage(pos, forBlockId, nowMs, config);
 			DamagePerSecond = 0f;
 			RequiredResistance = 0f;
 			LastObservedMs = nowMs;
 		}
 
-		public void ClearBreak()
+		public void ParkCurrent(long nowMs, StratumBlockBreakGuardsConfig config)
+		{
+			if (position == null)
+			{
+				return;
+			}
+
+			if (ObservedDamage > 0f && config.PartialProgressRetentionSeconds > 0f && config.MaxRememberedPartialBreaksPerClient > 0)
+			{
+				float maxRememberedDamage = RequiredResistance > 0f ? RequiredResistance * config.MaxRememberedProgressRatio : ObservedDamage;
+				RememberedBreak remembered = new RememberedBreak
+				{
+					Damage = Math.Max(0f, Math.Min(ObservedDamage, maxRememberedDamage)),
+					LastObservedMs = nowMs
+				};
+
+				rememberedBreaks[new BreakKey(position, blockId)] = remembered;
+				TrimRemembered(config.MaxRememberedPartialBreaksPerClient);
+			}
+
+			ClearCurrentBreak();
+		}
+
+		public float GetRememberedDamage(BlockPos pos, int forBlockId, long nowMs, StratumBlockBreakGuardsConfig config)
+		{
+			if (pos == null || config.PartialProgressRetentionSeconds <= 0f)
+			{
+				return 0f;
+			}
+
+			BreakKey key = new BreakKey(pos, forBlockId);
+			if (!rememberedBreaks.TryGetValue(key, out RememberedBreak remembered))
+			{
+				return 0f;
+			}
+
+			if (nowMs - remembered.LastObservedMs > config.PartialProgressRetentionSeconds * 1000f)
+			{
+				rememberedBreaks.Remove(key);
+				return 0f;
+			}
+
+			return Math.Max(0f, remembered.Damage);
+		}
+
+		public void ExpireRemembered(long nowMs, StratumBlockBreakGuardsConfig config)
+		{
+			if (rememberedBreaks.Count == 0)
+			{
+				return;
+			}
+
+			if (config.PartialProgressRetentionSeconds <= 0f)
+			{
+				rememberedBreaks.Clear();
+				return;
+			}
+
+			long maxAgeMs = (long)(config.PartialProgressRetentionSeconds * 1000f);
+			List<BreakKey> expired = null;
+			foreach (KeyValuePair<BreakKey, RememberedBreak> entry in rememberedBreaks)
+			{
+				if (nowMs - entry.Value.LastObservedMs > maxAgeMs)
+				{
+					expired ??= new List<BreakKey>();
+					expired.Add(entry.Key);
+				}
+			}
+
+			if (expired == null)
+			{
+				return;
+			}
+
+			foreach (BreakKey key in expired)
+			{
+				rememberedBreaks.Remove(key);
+			}
+		}
+
+		public void ClearBreak(BlockPos pos, int forBlockId)
+		{
+			rememberedBreaks.Remove(new BreakKey(pos, forBlockId));
+			if (IsTracking(pos, forBlockId))
+			{
+				ClearCurrentBreak();
+			}
+		}
+
+		public void ClearCurrentBreak()
 		{
 			position = null;
 			blockId = 0;
-			heldItemId = 0;
 			ObservedDamage = 0f;
 			DamagePerSecond = 0f;
 			RequiredResistance = 0f;
@@ -311,5 +414,71 @@ internal sealed class StratumBlockBreakGuard
 			lastViolationLogMs = nowMs;
 			return true;
 		}
+
+		private void TrimRemembered(int maxEntries)
+		{
+			while (rememberedBreaks.Count > maxEntries)
+			{
+				BreakKey oldestKey = default;
+				long oldestMs = long.MaxValue;
+				foreach (KeyValuePair<BreakKey, RememberedBreak> entry in rememberedBreaks)
+				{
+					if (entry.Value.LastObservedMs < oldestMs)
+					{
+						oldestKey = entry.Key;
+						oldestMs = entry.Value.LastObservedMs;
+					}
+				}
+
+				rememberedBreaks.Remove(oldestKey);
+			}
+		}
+	}
+
+	private readonly struct BreakKey : IEquatable<BreakKey>
+	{
+		private readonly int x;
+		private readonly int y;
+		private readonly int z;
+		private readonly int dimension;
+		private readonly int blockId;
+
+		public BreakKey(BlockPos pos, int blockId)
+		{
+			x = pos.X;
+			y = pos.Y;
+			z = pos.Z;
+			dimension = pos.dimension;
+			this.blockId = blockId;
+		}
+
+		public bool Equals(BreakKey other)
+		{
+			return x == other.x && y == other.y && z == other.z && dimension == other.dimension && blockId == other.blockId;
+		}
+
+		public override bool Equals(object obj)
+		{
+			return obj is BreakKey other && Equals(other);
+		}
+
+		public override int GetHashCode()
+		{
+			unchecked
+			{
+				int hash = x;
+				hash = (hash * 397) ^ y;
+				hash = (hash * 397) ^ z;
+				hash = (hash * 397) ^ dimension;
+				hash = (hash * 397) ^ blockId;
+				return hash;
+			}
+		}
+	}
+
+	private struct RememberedBreak
+	{
+		public float Damage;
+		public long LastObservedMs;
 	}
 }
