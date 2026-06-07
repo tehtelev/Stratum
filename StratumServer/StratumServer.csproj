@@ -60,9 +60,6 @@
     <MSBuild Projects="..\VSSurvivalMod\VSSurvivalMod.csproj"
          Targets="Build"
          Properties="Configuration=$(Configuration);SkipDeployToVSInstall=true" />
-    <MSBuild Projects="..\StratumUI\StratumUI.csproj"
-         Targets="Build"
-         Properties="Configuration=$(Configuration);SkipDeployToVSInstall=true" />
     <MSBuild Projects="..\StratumServerGui\StratumServerGui.csproj"
          Targets="Build"
          Properties="Configuration=$(Configuration)"
@@ -77,7 +74,7 @@
       <_StratumLibOutput>..\VintagestoryLib\bin\$(Configuration)\$(TargetFramework)</_StratumLibOutput>
       <_StratumApiOutput>..\bin\$(Configuration)\$(TargetFramework)</_StratumApiOutput>
       <_StratumModOutput>..\bin\$(Configuration)\$(TargetFramework)</_StratumModOutput>
-      <_StratumUIPackage>$(StratumInstall)\Mods\StratumUI</_StratumUIPackage>
+
     </PropertyGroup>
 
     <ItemGroup>
@@ -99,9 +96,6 @@
       <_StratumRootModFiles Include="$(_StratumModOutput)\VSEssentials.pdb" Condition="Exists('$(_StratumModOutput)\VSEssentials.pdb')" />
       <_StratumRootModFiles Include="$(_StratumModOutput)\VSSurvivalMod.dll" />
       <_StratumRootModFiles Include="$(_StratumModOutput)\VSSurvivalMod.pdb" Condition="Exists('$(_StratumModOutput)\VSSurvivalMod.pdb')" />
-      <_StratumModFiles Include="$(_StratumModOutput)\StratumUI.dll" />
-      <_StratumModFiles Include="$(_StratumModOutput)\StratumUI.pdb" Condition="Exists('$(_StratumModOutput)\StratumUI.pdb')" />
-      <_StratumModFiles Include="..\StratumUI\modinfo.json" />
 
       <_StratumGuiFiles Include="..\StratumServerGui\bin\$(Configuration)\net10.0-windows\StratumServerGui.exe" Condition="Exists('..\StratumServerGui\bin\$(Configuration)\net10.0-windows\StratumServerGui.exe')" />
       <_StratumGuiFiles Include="..\StratumServerGui\bin\$(Configuration)\net10.0-windows\StratumServerGui.dll" Condition="Exists('..\StratumServerGui\bin\$(Configuration)\net10.0-windows\StratumServerGui.dll')" />
@@ -111,14 +105,11 @@
 
     <MakeDir Directories="$(StratumInstall)" />
     <MakeDir Directories="$(StratumInstall)\Mods" />
-    <MakeDir Directories="$(_StratumUIPackage)" />
   <MakeDir Directories="$(StratumInstall)\Data" />
   <Copy SourceFiles="$(MSBuildProjectDirectory)\stratum.default.json"
       DestinationFiles="$(StratumInstall)\Data\stratum.json"
       Condition="!Exists('$(StratumInstall)\Data\stratum.json')" />
         <Message Importance="High" Text="Overlaying Stratum launcher and patched server assemblies into $(StratumInstall)" />
-    <Delete Files="$(StratumInstall)\Mods\StratumUI.dll;$(StratumInstall)\Mods\StratumUI.pdb"
-            TreatErrorsAsWarnings="true" />
     <Copy SourceFiles="@(_StratumRootFiles)"
           DestinationFolder="$(StratumInstall)"
           SkipUnchangedFiles="true" />
@@ -130,9 +121,6 @@
           SkipUnchangedFiles="true" />
         <Copy SourceFiles="@(_StratumRootModFiles)"
           DestinationFolder="$(StratumInstall)\Mods"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(_StratumModFiles)"
-          DestinationFolder="$(_StratumUIPackage)"
           SkipUnchangedFiles="true" />
 
     <Copy SourceFiles="@(_StratumGuiFiles)"
@@ -151,6 +139,6 @@
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$libDir = '$(StratumInstall)\Lib'; if (Test-Path $libDir) { Get-ChildItem $libDir -File | ForEach-Object { $r = Join-Path '$(StratumInstall)' $_.Name; if ((Test-Path $r) -and (Get-Item $r).Length -eq $_.Length) { Remove-Item $r -Force; Write-Host ('  pruned root duplicate: ' + $_.Name) } } }&quot;"
           IgnoreExitCode="true" />
 
-        <Message Importance="High" Text="Stratum overlay deployed to $(StratumInstall). Copy assets, Lib, and base Mods there from $(VSInstall) if they are missing or stale; StratumUI is deployed to Mods\StratumUI automatically." />
+        <Message Importance="High" Text="Stratum overlay deployed to $(StratumInstall). Copy assets, Lib, and base Mods there from $(VSInstall) if they are missing or stale." />
   </Target>
 </Project>

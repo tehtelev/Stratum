@@ -7,7 +7,7 @@ index 35d8f61..63bb01f 100644
  			value.OnPacket(customPacket, client.Player);
  		}
  	}
-
+ 
 +	// Stratum: expose custom packet channel names for packet attribution reports.
 +	internal bool StratumTryGetChannelName(int channelId, bool udp, out string channelName)
 +	{

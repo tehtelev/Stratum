@@ -1,23 +1,63 @@
 diff --git a/VSEssentials/Systems/WorldMap/EntityLayer/SystemRemotePlayerTracking.cs b/VSEssentials/Systems/WorldMap/EntityLayer/SystemRemotePlayerTracking.cs
-index 95d7ca4..e472518 100644
+index 95d7ca4..ef98a07 100644
 --- a/VSEssentials/Systems/WorldMap/EntityLayer/SystemRemotePlayerTracking.cs
 +++ b/VSEssentials/Systems/WorldMap/EntityLayer/SystemRemotePlayerTracking.cs
-@@ -28,0 +29,3 @@ namespace Vintagestory.GameContent
+@@ -25,10 +25,13 @@ namespace Vintagestory.GameContent
+         public double Yaw;
+ 
+         [ProtoMember(5)]
+         public bool Despawn;
+ 
 +        [ProtoMember(6)]
 +        public string PlayerName = "";
 +
-@@ -77 +80 @@ namespace Vintagestory.GameContent
+         public IPlayer? AssociatedPlayer;
+ 
+         public void SetFrom(PacketPlayerPosition packet)
+         {
+             PosX = packet.PosX;
+@@ -74,11 +77,11 @@ namespace Vintagestory.GameContent
+                     sapi.Event.PlayerJoin += ServerEvent_PlayerJoin;
+                     sapi.Event.PlayerDisconnect += ServerEvent_PlayerDisconnect;
+ 
+                     sapi.Event.RegisterGameTickListener(OnTick, 100);
+                     break;
 -                case ICoreClientAPI:
 +                case ICoreClientAPI capi:
-@@ -90,0 +94,5 @@ namespace Vintagestory.GameContent
+                     ((IClientNetworkChannel)channel).SetMessageHandler<PacketPlayerPosition>(p =>
+                     {
+                         if (string.IsNullOrEmpty(p.PlayerUid)) return;
+ 
+                         if (p.Despawn)
+@@ -86,10 +89,15 @@ namespace Vintagestory.GameContent
+                             trackedPlayerPackets.Remove(p.PlayerUid); // Player has left or not tracked.
+                             return;
+                         }
+ 
+                         p.AssociatedPlayer = api.World.PlayerByUid(p.PlayerUid);
 +                        if (p.AssociatedPlayer == null && capi.World.Player?.PlayerUID == p.PlayerUid)
 +                        {
 +                            p.AssociatedPlayer = capi.World.Player;
 +                        }
 +
-@@ -117,0 +126 @@ namespace Vintagestory.GameContent
+                         trackedPlayerPackets[p.PlayerUid] = p;
+                     });
+                     break;
+             }
+         }
+@@ -112,10 +120,11 @@ namespace Vintagestory.GameContent
+         {
+             var playerPos = player.Entity.Pos;
+             PacketPlayerPosition packet = new()
+             {
+                 PlayerUid = player.PlayerUID,
 +                PlayerName = player.PlayerName,
-@@ -128,18 +128,39 @@ namespace Vintagestory.GameContent
+                 PosX = playerPos.X,
+                 PosZ = playerPos.Z,
+                 Yaw = playerPos.Yaw
+             };
+ 
+@@ -128,18 +137,39 @@ namespace Vintagestory.GameContent
              ((IServerNetworkChannel)channel).SendPacket(packet, player); // Always track the  client player
  
              // We only show the player to themselves if they're in spectator mode or hide other players is on
@@ -58,7 +98,7 @@ index 95d7ca4..e472518 100644
              }
  
              int[] ourGroups = player.Groups.Select(group => group.GroupUid).ToArray();
-@@ -147,22 +168,48 @@ namespace Vintagestory.GameContent
+@@ -147,22 +177,49 @@ namespace Vintagestory.GameContent
  
              foreach (var playerToReceive in api.World.AllOnlinePlayers.Cast<IServerPlayer>())
              {

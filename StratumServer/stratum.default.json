@@ -300,6 +300,11 @@
       "Enabled": true,
       "Privilege": "stratum.vanish"
     },
+    "Pvp": {
+      "Enabled": true,
+      "Privilege": "stratum.pvp"
+    },
+    "VanishReminderIntervalSeconds": 4,
     "Freeze": {
       "Enabled": true,
       "Privilege": "stratum.freeze"
@@ -350,7 +355,6 @@
   },
   "Chat": {
     "Enabled": true,
-    "RolePrefixesEnabled": true,
     "LinkifyUrls": true,
     "PrefixFormat": "[{tag}]",
     "RulesText": "Rules: be respectful, no griefing, no cheating, no harassment, and do not abuse exploits.",
@@ -359,21 +363,18 @@
     "MotdText": "Welcome to this Stratum server.",
     "RolePrefixes": {
       "admin": {
-        "Enabled": true,
         "Tag": "Admin",
         "Color": "#ff5f57",
         "Bold": true,
         "Priority": 100
       },
       "sumod": {
-        "Enabled": true,
         "Tag": "Mod",
         "Color": "#4cc9f0",
         "Bold": true,
         "Priority": 50
       },
       "crmod": {
-        "Enabled": true,
         "Tag": "Mod",
         "Color": "#4cc9f0",
         "Bold": true,

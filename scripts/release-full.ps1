@@ -211,11 +211,6 @@ try {
             Copy-Item $_.FullName $modsDir -Force
         }
     }
-    foreach ($optionalMod in @('StratumUI', 'VsNpc')) {
-        Get-ChildItem -Path $binRoot -File -Filter "$optionalMod.*" -ErrorAction SilentlyContinue | ForEach-Object {
-            Copy-Item $_.FullName $modsDir -Force
-        }
-    }
 
     # Nimbus is an optional integration; only overlay if its build output exists
     if (Test-Path $nimbusOut) {

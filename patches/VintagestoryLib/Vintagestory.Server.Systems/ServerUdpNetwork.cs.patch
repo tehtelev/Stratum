@@ -1,11 +1,21 @@
 diff --git a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-index 719a68b..5cfa8f7 100644
+index 719a68b..e6adcda 100644
 --- a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
 +++ b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-@@ -55,0 +56,2 @@ public class ServerUdpNetwork : ServerSystem
+@@ -51,10 +51,12 @@ public class ServerUdpNetwork : ServerSystem
+ 			UdpPacket[] array2 = array;
+ 			for (int j = 0; j < array2.Length; j++)
+ 			{
+ 				UdpPacket udpPacket = array2[j];
+ 				server.TotalReceivedBytesUdp += udpPacket.Packet.Length;
 +				// Stratum: observe inbound UDP traffic for packet attribution reports.
 +				StratumRuntime.PacketLimiter.ObserveUdpPacket(udpPacket.Client, udpPacket.Packet, udpPacket.Packet.Length, server.api.networkapi);
-@@ -196,22 +196,32 @@ public class ServerUdpNetwork : ServerSystem
+ 				switch (udpPacket.Packet.Id)
+ 				{
+ 				case 1:
+ 					HandleConnectionRequest(udpPacket, uNetServer);
+ 					break;
+@@ -196,22 +198,32 @@ public class ServerUdpNetwork : ServerSystem
  		if (flag)
  		{
  			message = new AnimationPacket(entity);

@@ -15,8 +15,11 @@ namespace Vintagestory.Server;
 
 internal class CmdStratumStaffCommands
 {
+	private const string VanishIndicatorCode = "stratum-vanish-active";
+
 	private readonly ServerMain server;
 	private readonly Dictionary<string, string> lastMessagePartnerByUid = new Dictionary<string, string>(StringComparer.Ordinal);
+	private readonly Dictionary<string, long> lastVanishIndicatorMsByUid = new Dictionary<string, long>(StringComparer.Ordinal);
 
 	public CmdStratumStaffCommands(ServerMain server)
 	{
@@ -125,6 +128,12 @@ internal class CmdStratumStaffCommands
 			.WithArgs(parsers.OptionalWordRange("mode", "on", "off", "toggle"))
 			.RequiresPrivilege(Privilege.chat)
 			.HandleWith(HandleVanish);
+
+		server.api.commandapi.Create("pvp")
+			.WithDescription("Show or toggle global PvP")
+			.WithArgs(parsers.OptionalWordRange("mode", "on", "off", "status"))
+			.RequiresPrivilege(Privilege.chat)
+			.HandleWith(HandlePvp);
 
 		server.api.commandapi.Create("freeze")
 			.WithDescription("Freeze or unfreeze an online player")
@@ -637,11 +646,39 @@ internal class CmdStratumStaffCommands
 		if (enable)
 		{
 			StratumStaffCommandState.HideVanishedPlayerFromOthers(server, player);
+			SendVanishIndicator(player, force: true);
 			return TextCommandResult.Success(StratumCommandText.Confirm("Vanish enabled"));
 		}
 
 		StratumStaffCommandState.RevealPlayerToOthers(server, player);
+		lastVanishIndicatorMsByUid.Remove(player.PlayerUID);
 		return TextCommandResult.Success(StratumCommandText.Confirm("Vanish disabled"));
+	}
+
+	private TextCommandResult HandlePvp(TextCommandCallingArgs args)
+	{
+		if (!CheckAccess(args, StratumRuntime.Config.Commands.Pvp, "pvp", out TextCommandResult failure))
+		{
+			return failure;
+		}
+
+		string mode = args[0] as string;
+		if (string.IsNullOrWhiteSpace(mode) || string.Equals(mode, "status", StringComparison.OrdinalIgnoreCase))
+		{
+			return TextCommandResult.Success(StratumCommandText.Title("PvP") + StratumCommandText.Row("Status", server.Config.AllowPvP ? "on" : "off"));
+		}
+
+		bool enable = string.Equals(mode, "on", StringComparison.OrdinalIgnoreCase);
+		if (server.Config.AllowPvP == enable)
+		{
+			return TextCommandResult.Success(StratumCommandText.Confirm("PvP already " + (enable ? "enabled" : "disabled")));
+		}
+
+		server.Config.AllowPvP = enable;
+		server.ConfigNeedsSaving = true;
+		server.SendMessageToGeneral(StratumCommandText.Warning("PvP is now " + (enable ? "enabled" : "disabled") + "."), EnumChatType.Notification);
+		StratumRuntime.LogAudit("pvp " + (enable ? "on" : "off") + " actor=" + EscapeLog(args.Caller.GetName()), true);
+		return TextCommandResult.Success(StratumCommandText.Confirm("PvP " + (enable ? "enabled" : "disabled")));
 	}
 
 	private TextCommandResult HandleFreeze(TextCommandCallingArgs args)
@@ -1150,7 +1187,39 @@ internal class CmdStratumStaffCommands
 			}
 		}
 
+		UpdateVanishIndicators();
 		EnforceJailedPlayers();
+	}
+
+	private void UpdateVanishIndicators()
+	{
+		foreach (ConnectedClient client in server.Clients.Values)
+		{
+			if (client?.Player == null || !client.State.IsAdmitted() || !StratumStaffCommandState.IsVanished(client.Player.PlayerUID))
+			{
+				continue;
+			}
+
+			SendVanishIndicator(client.Player, force: false);
+		}
+	}
+
+	private void SendVanishIndicator(IServerPlayer player, bool force)
+	{
+		if (player == null || string.IsNullOrWhiteSpace(player.PlayerUID))
+		{
+			return;
+		}
+
+		long nowMs = server.ElapsedMilliseconds;
+		int intervalMs = Math.Max(3000, StratumRuntime.Config.Commands.VanishReminderIntervalSeconds * 1000);
+		if (!force && lastVanishIndicatorMsByUid.TryGetValue(player.PlayerUID, out long lastMs) && nowMs - lastMs < intervalMs)
+		{
+			return;
+		}
+
+		lastVanishIndicatorMsByUid[player.PlayerUID] = nowMs;
+		player.SendIngameError(VanishIndicatorCode, "Vanish is active");
 	}
 
 	private void OnPlayerJoin(IServerPlayer player)
@@ -1163,6 +1232,7 @@ internal class CmdStratumStaffCommands
 	{
 		StratumStaffCommandState.MarkSeen(server, player, "offline");
 		StratumStaffCommandState.ClearSessionState(player.PlayerUID);
+		lastVanishIndicatorMsByUid.Remove(player.PlayerUID);
 	}
 
 	private void OnPlayerDeath(IServerPlayer player, DamageSource damageSource)

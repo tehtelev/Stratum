@@ -2,13 +2,15 @@ diff --git a/VSSurvivalMod/Systems/Boats/EntityBehaviorSeatable.cs b/VSSurvivalM
 index e0e3ce5..2e86ae0 100644
 --- a/VSSurvivalMod/Systems/Boats/EntityBehaviorSeatable.cs
 +++ b/VSSurvivalMod/Systems/Boats/EntityBehaviorSeatable.cs
-@@ -137,10 +137,12 @@ namespace Vintagestory.GameContent
-
+@@ -135,14 +135,16 @@ namespace Vintagestory.GameContent
+             if (!allowSit(byEntity)) return;
+             if (itemslot.Itemstack?.Collectible is ItemRope) return;
+ 
              int seleBox = (byEntity as EntityPlayer).EntitySelection?.SelectionBoxIndex ?? -1;
              var bhs = entity.GetBehavior<EntityBehaviorSelectionBoxes>();
 +            int selectionBoxIndex = seleBox - 1;
 +            bool hasSelectionBox = bhs?.selectionBoxes != null && selectionBoxIndex >= 0 && selectionBoxIndex < bhs.selectionBoxes.Length;
-
+ 
 -            if (bhs != null && byEntity.MountedOn == null && seleBox > 0)
 +            if (hasSelectionBox && byEntity.MountedOn == null)
              {
@@ -17,9 +19,13 @@ index e0e3ce5..2e86ae0 100644
                  string apname = apap.AttachPoint.Code;
                  var seat = Seats.FirstOrDefault((seat) => seat.Config.APName == apname || seat.Config.SelectionBox == apname);
                  if (seat != null && seat.Passenger != null && seat.Passenger.HasBehavior<EntityBehaviorRopeTieable>())
-@@ -157,9 +159,9 @@ namespace Vintagestory.GameContent
+                 {
+                     (seat.Passenger as EntityAgent).TryUnmount();
+@@ -155,13 +157,13 @@ namespace Vintagestory.GameContent
+             {
+                 return;
              }
-
+ 
              // If we have the selection boxes behavior, use that
 -            if (seleBox > 0 && bhs != null)
 +            if (hasSelectionBox)
@@ -27,10 +33,14 @@ index e0e3ce5..2e86ae0 100644
 -                var apap = bhs.selectionBoxes[seleBox - 1];
 +                var apap = bhs.selectionBoxes[selectionBoxIndex];
                  string apname = apap.AttachPoint.Code;
-
+ 
                  var seat = Seats.FirstOrDefault((seat) => seat.Config.APName == apname || seat.Config.SelectionBox == apname);
-@@ -369,14 +371,21 @@ namespace Vintagestory.GameContent
-
+                 if (seat != null && CanSitOn(seat) && byEntity.TryMount(seat))
+                 {
+@@ -367,18 +369,25 @@ namespace Vintagestory.GameContent
+ 
+ 
+ 
          public override WorldInteraction[] GetInteractionHelp(IClientWorldAccessor world, EntitySelection es, IClientPlayer player, ref EnumHandling handled)
          {
 -            if (es.SelectionBoxIndex > 0)
@@ -40,10 +50,10 @@ index e0e3ce5..2e86ae0 100644
 -                return SeatableInteractionHelp.GetOrCreateInteractionHelp(world.Api, this, Seats, es.SelectionBoxIndex - 1);
 +                return SeatableInteractionHelp.GetOrCreateInteractionHelp(world.Api, this, Seats, selectionBoxIndex);
              }
-
+ 
              return base.GetInteractionHelp(world, es, player, ref handled);
          }
-
+ 
 +        public bool HasSelectionBox(int selectionBoxIndex)
 +        {
 +            var bhs = entity.GetBehavior<EntityBehaviorSelectionBoxes>();
@@ -53,12 +63,18 @@ index e0e3ce5..2e86ae0 100644
          public override void OnEntityDeath(DamageSource damageSourceForDeath)
          {
              base.OnEntityDeath(damageSourceForDeath);
-@@ -449,7 +458,7 @@ namespace Vintagestory.GameContent
+ 
+             foreach (var seat in Seats) {
+@@ -447,11 +456,11 @@ namespace Vintagestory.GameContent
+         }
+ 
          private static IMountableSeat getSeat(EntityBehaviorSeatable eba, IMountableSeat[] seats, int slotIndex)
          {
              var bhs = eba.entity.GetBehavior<EntityBehaviorSelectionBoxes>();
 -            if (bhs == null) return null;
 +            if (bhs?.selectionBoxes == null || slotIndex < 0 || slotIndex >= bhs.selectionBoxes.Length) return null;
-
+ 
              var apap = bhs.selectionBoxes[slotIndex];
              string apname = apap.AttachPoint.Code;
+ 
+             return seats.FirstOrDefault((seat) => seat.Config.APName == apname || seat.Config.SelectionBox == apname);

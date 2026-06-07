@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerConfig.cs b/VintagestoryLib/Vintagestory.Server/ServerConfig.cs
-index 93750fa..d777299 100644
+index 93750fa..6b4edf8 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerConfig.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerConfig.cs
 @@ -4,46 +4,57 @@ using System.Drawing;
@@ -133,7 +133,8 @@ index 93750fa..d777299 100644
 -	[OnDeserialized]
 -	internal void OnDeserializedMethod(StreamingContext context)
 +	public void SetRoles(List<PlayerRole> roles, string defaultRoleCode = null)
-+	{
+ 	{
+-		if (Roles != null && Roles.Count > 0)
 +		Roles = roles ?? new List<PlayerRole>();
 +		if (!string.IsNullOrWhiteSpace(defaultRoleCode))
 +		{
@@ -144,27 +145,26 @@ index 93750fa..d777299 100644
 +	}
 +
 +	private void RebuildRoleLookup()
- 	{
--		if (Roles != null && Roles.Count > 0)
++	{
 +		RolesByCode.Clear();
 +		if (Roles == null)
- 		{
--			RolesByCode.Clear();
--			foreach (PlayerRole role in Roles)
++		{
 +			return;
 +		}
 +
 +		foreach (PlayerRole role in Roles)
-+		{
+ 		{
+-			RolesByCode.Clear();
+-			foreach (PlayerRole role in Roles)
 +			if (role == null || string.IsNullOrWhiteSpace(role.Code))
- 			{
--				RolesByCode[role.Code] = role;
--				if (role.AutoGrant)
++			{
 +				continue;
 +			}
 +
 +			if (role.AutoGrant)
-+			{
+ 			{
+-				RolesByCode[role.Code] = role;
+-				if (role.AutoGrant)
 +				if (role.Privileges != null)
  				{
 -					if (role.Privileges != null)
@@ -254,7 +254,7 @@ index 93750fa..d777299 100644
  			Code = "suvisitor",
  			Name = "Survival Visitor",
  			Description = "Can only visit this world and chat but not use/place/break anything",
-@@ -762,32 +817,97 @@ public class ServerConfig : IServerConfig
+@@ -762,32 +817,116 @@ public class ServerConfig : IServerConfig
  			Color = Color.LightBlue,
  			DefaultGameMode = EnumGameMode.Survival,
  			AutoGrant = true
@@ -284,6 +284,8 @@ index 93750fa..d777299 100644
 +	private static readonly string[] StratumStaffPrivileges = new[]
 +	{
 +		"setspawn",
++		Privilege.tp,
++		Privilege.commandplayer,
 +		"stratum.tpahere",
 +		"stratum.whois",
 +		"stratum.staffchat",
@@ -300,6 +302,11 @@ index 93750fa..d777299 100644
 +		"stratum.privacy.bypass"
 +	};
 +
++	private static readonly string[] StratumAdminPrivileges = new[]
++	{
++		"stratum.pvp"
++	};
++
 +	private static readonly string[] StratumPlayerRoleCodes = new[]
 +	{
 +		"limitedsuplayer",
@@ -314,6 +321,11 @@ index 93750fa..d777299 100644
 +	{
 +		"sumod",
 +		"crmod"
++	};
++
++	private static readonly string[] StratumAdminRoleCodes = new[]
++	{
++		"admin"
 +	};
 +
 +	private void GrantStratumDefaults()
@@ -339,6 +351,13 @@ index 93750fa..d777299 100644
  		{
 -			RolesByCode[role2.Code] = role2;
 +			foreach (string privilege in StratumStaffPrivileges)
++			{
++				TryGrantPrivilege(roleCode, privilege);
++			}
++		}
++		foreach (string roleCode in StratumAdminRoleCodes)
++		{
++			foreach (string privilege in StratumAdminPrivileges)
 +			{
 +				TryGrantPrivilege(roleCode, privilege);
 +			}

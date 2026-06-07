@@ -1340,6 +1340,10 @@ internal class StratumCommandsConfig
 
 	public StratumCommandAccessConfig Vanish { get; set; } = StratumCommandAccessConfig.ForPrivilege("stratum.vanish");
 
+	public StratumCommandAccessConfig Pvp { get; set; } = StratumCommandAccessConfig.ForPrivilege("stratum.pvp");
+
+	public int VanishReminderIntervalSeconds { get; set; } = 4;
+
 	public StratumCommandAccessConfig Freeze { get; set; } = StratumCommandAccessConfig.ForPrivilege("stratum.freeze");
 
 	public StratumCommandAccessConfig Revive { get; set; } = StratumCommandAccessConfig.ForPrivilege("stratum.revive");
@@ -1382,6 +1386,7 @@ internal class StratumCommandsConfig
 		StaffBroadcast ??= StratumCommandAccessConfig.ForPrivilege("stratum.staffbroadcast");
 		InfoCommands ??= StratumCommandAccessConfig.ForPrivilege("stratum.info");
 		Vanish ??= StratumCommandAccessConfig.ForPrivilege("stratum.vanish");
+		Pvp ??= StratumCommandAccessConfig.ForPrivilege("stratum.pvp");
 		Freeze ??= StratumCommandAccessConfig.ForPrivilege("stratum.freeze");
 		Revive ??= StratumCommandAccessConfig.ForPrivilege("stratum.revive");
 		Jail ??= StratumCommandAccessConfig.ForPrivilege("stratum.jail");
@@ -1405,6 +1410,7 @@ internal class StratumCommandsConfig
 		StaffBroadcast.EnsurePopulated("stratum.staffbroadcast");
 		InfoCommands.EnsurePopulated("stratum.info");
 		Vanish.EnsurePopulated("stratum.vanish");
+		Pvp.EnsurePopulated("stratum.pvp");
 		Freeze.EnsurePopulated("stratum.freeze");
 		Revive.EnsurePopulated("stratum.revive");
 		Jail.EnsurePopulated("stratum.jail");
@@ -1417,6 +1423,7 @@ internal class StratumCommandsConfig
 		NearMaxRadiusBlocks = Math.Max(NearDefaultRadiusBlocks, NearMaxRadiusBlocks);
 		SlowmodeMaxSeconds = Math.Max(0, SlowmodeMaxSeconds);
 		ClearChatLines = Math.Min(200, Math.Max(1, ClearChatLines));
+		VanishReminderIntervalSeconds = Math.Min(30, Math.Max(3, VanishReminderIntervalSeconds));
 		JailSettings.EnsureSane();
 	}
 }
