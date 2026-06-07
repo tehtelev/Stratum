@@ -1,0 +1,61 @@
+diff --git a/VSEssentials/Systems/WorldMap/EntityLayer/PlayerMapLayer.cs b/VSEssentials/Systems/WorldMap/EntityLayer/PlayerMapLayer.cs
+index b7f9dd2..a553c12 100644
+--- a/VSEssentials/Systems/WorldMap/EntityLayer/PlayerMapLayer.cs
++++ b/VSEssentials/Systems/WorldMap/EntityLayer/PlayerMapLayer.cs
+@@ -81,11 +81,12 @@ namespace Vintagestory.GameContent
+
+             foreach (PacketPlayerPosition position in playerTracking.GetAllTrackedPlayerPositions())
+             {
+-                if (position.AssociatedPlayer is not IClientPlayer player) continue;
++                IClientPlayer? player = position.AssociatedPlayer as IClientPlayer;
++                bool isOwnPlayer = player == capi.World.Player || position.PlayerUid == capi.World.Player.PlayerUID;
+
+-                if (player.Entity == null)
++                if (player?.Entity == null)
+                 {
+                     worldPos.Set(position.PosX, 0, position.PosZ);
+                     yaw = (float)position.Yaw;
+@@ -97,11 +98,11 @@ namespace Vintagestory.GameContent
+                 }
+
+                 // Color, white by default for players
+                 Vec4f color = ColorUtil.WhiteArgbVec;
+-                string? entCode = player.Entitlements?.FirstOrDefault()?.Code;
++                string? entCode = player?.Entitlements?.FirstOrDefault()?.Code;
+                 if (entCode != null && GlobalConstants.playerColorByEntitlement.TryGetValue(entCode, out var col))
+                 {
+                     color = new Vec4f((float)col[0], (float)col[1], (float)col[2], (float)col[3]);
+@@ -113,11 +114,11 @@ namespace Vintagestory.GameContent
+                 float x = (float)(map.Bounds.renderX + viewPos.X);
+                 float y = (float)(map.Bounds.renderY + viewPos.Y);
+
+-                LoadedTexture tex = player == capi.World.Player ? ownPlayerTexture : otherPlayerTexture;
++                LoadedTexture tex = isOwnPlayer ? ownPlayerTexture : otherPlayerTexture;
+
+                 prog.BindTexture2D("tex2d", tex.TextureId, 0);
+
+@@ -136,11 +137,11 @@ namespace Vintagestory.GameContent
+
+             foreach (PacketPlayerPosition position in playerTracking.GetAllTrackedPlayerPositions())
+             {
+-                if (position.AssociatedPlayer is not IClientPlayer player) continue;
++                IClientPlayer? player = position.AssociatedPlayer as IClientPlayer;
+
+-                if (player.Entity == null)
++                if (player?.Entity == null)
+                 {
+                     worldPos.Set(position.PosX, 0, position.PosZ);
+                 }
+@@ -158,11 +159,15 @@ namespace Vintagestory.GameContent
+
+                 if (Math.Abs(viewPos.X - mouseX) < sc && Math.Abs(viewPos.Y - mouseY) < sc)
+                 {
+-                    hoverText.AppendLine(Lang.Get("worldmap-label-player", player.PlayerName));
++                    string playerName = player?.PlayerName ?? position.PlayerName;
++                    if (!string.IsNullOrWhiteSpace(playerName))
++                    {
++                        hoverText.AppendLine(Lang.Get("worldmap-label-player", playerName));
++                    }
+                 }
+             }
+         }

@@ -2,6 +2,21 @@ diff --git a/VSEssentials/Systems/WorldMap/EntityLayer/SystemRemotePlayerTrackin
 index 95d7ca4..e472518 100644
 --- a/VSEssentials/Systems/WorldMap/EntityLayer/SystemRemotePlayerTracking.cs
 +++ b/VSEssentials/Systems/WorldMap/EntityLayer/SystemRemotePlayerTracking.cs
+@@ -28,0 +29,3 @@ namespace Vintagestory.GameContent
++        [ProtoMember(6)]
++        public string PlayerName = "";
++
+@@ -77 +80 @@ namespace Vintagestory.GameContent
+-                case ICoreClientAPI:
++                case ICoreClientAPI capi:
+@@ -90,0 +94,5 @@ namespace Vintagestory.GameContent
++                        if (p.AssociatedPlayer == null && capi.World.Player?.PlayerUID == p.PlayerUid)
++                        {
++                            p.AssociatedPlayer = capi.World.Player;
++                        }
++
+@@ -117,0 +126 @@ namespace Vintagestory.GameContent
++                PlayerName = player.PlayerName,
 @@ -128,18 +128,39 @@ namespace Vintagestory.GameContent
              ((IServerNetworkChannel)channel).SendPacket(packet, player); // Always track the  client player
  
@@ -84,6 +99,7 @@ index 95d7ca4..e472518 100644
 +            return new PacketPlayerPosition
 +            {
 +                PlayerUid = packet.PlayerUid,
++                PlayerName = packet.PlayerName,
 +                PosX = System.Math.Floor(packet.PosX / grid) * grid + grid / 2.0,
 +                PosZ = System.Math.Floor(packet.PosZ / grid) * grid + grid / 2.0,
 +                Yaw = packet.Yaw,

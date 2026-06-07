@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerMain.cs b/VintagestoryLib/Vintagestory.Server/ServerMain.cs
-index 1017be9..36c351b 100644
+index 1017be9..9161ffd 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerMain.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerMain.cs
 @@ -27,10 +27,12 @@ using VintagestoryLib.Server.Systems;
@@ -835,7 +835,7 @@ index 1017be9..36c351b 100644
 +			StratumRuntime.BlockBreakGuard.ForgetClient(client.Id);
 +			return;
 +		}
-+		if (StratumRuntime.PacketLimiter.ShouldDrop(client, packet, cpk.byteLength, out string disconnectReason))
++		if (StratumRuntime.PacketLimiter.ShouldDrop(client, packet, cpk.byteLength, api.networkapi, out string disconnectReason))
 +		{
 +			if (disconnectReason != null)
 +			{

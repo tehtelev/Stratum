@@ -5,6 +5,12 @@
     "RunStartupPreflight": true,
     "LogPreflightWarnings": true
   },
+  "UpdateChecker": {
+    "Enabled": true,
+    "CheckOnStartup": true,
+    "LatestReleaseUrl": "https://api.github.com/repos/trevorftp/Stratum/releases/latest",
+    "TimeoutSeconds": 5
+  },
   "Hardening": {
     "PreserveVanillaProtocol": true,
     "PacketMonitoring": true,
@@ -19,6 +25,7 @@
     "KickViolations": true,
     "KickInvalidPackets": true,
     "KickOversizedCustomPackets": true,
+    "MonitorOnlySensitivePackets": true,
     "KickAfterViolations": 8,
     "KickMessage": "Disconnected by Stratum packet protection",
     "WindowSeconds": 5,

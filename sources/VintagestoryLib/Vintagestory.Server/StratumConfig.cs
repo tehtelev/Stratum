@@ -11,6 +11,8 @@ internal class StratumConfig
 
 	public StratumDiagnosticsConfig Diagnostics { get; set; } = new StratumDiagnosticsConfig();
 
+	public StratumUpdateCheckerConfig UpdateChecker { get; set; } = new StratumUpdateCheckerConfig();
+
 	public StratumHardeningConfig Hardening { get; set; } = new StratumHardeningConfig();
 
 	public StratumPacketLimitsConfig PacketLimits { get; set; } = new StratumPacketLimitsConfig();
@@ -47,6 +49,7 @@ internal class StratumConfig
 	public void EnsurePopulated()
 	{
 		Diagnostics ??= new StratumDiagnosticsConfig();
+		UpdateChecker ??= new StratumUpdateCheckerConfig();
 		Hardening ??= new StratumHardeningConfig();
 		PacketLimits ??= new StratumPacketLimitsConfig();
 		PacketBackPressure ??= new StratumPacketBackPressureConfig();
@@ -78,6 +81,7 @@ internal class StratumConfig
 		LoginProtection.EnsureSane();
 		PlayerPrivacy.EnsurePopulated();
 		Nametags.EnsurePopulated();
+		UpdateChecker.EnsureSane();
 		MigrateLegacyDefaults();
 	}
 
@@ -123,6 +127,25 @@ internal class StratumConfig
 			}
 			return prop;
 		}
+	}
+}
+
+internal class StratumUpdateCheckerConfig
+{
+	public bool Enabled { get; set; } = true;
+
+	public bool CheckOnStartup { get; set; } = true;
+
+	public string LatestReleaseUrl { get; set; } = "https://api.github.com/repos/trevorftp/Stratum/releases/latest";
+
+	public int TimeoutSeconds { get; set; } = 5;
+
+	public void EnsureSane()
+	{
+		LatestReleaseUrl = string.IsNullOrWhiteSpace(LatestReleaseUrl)
+			? "https://api.github.com/repos/trevorftp/Stratum/releases/latest"
+			: LatestReleaseUrl.Trim();
+		TimeoutSeconds = Math.Min(30, Math.Max(1, TimeoutSeconds));
 	}
 }
 
@@ -399,6 +422,8 @@ internal class StratumPacketLimitsConfig
 	public bool KickInvalidPackets { get; set; } = true;
 
 	public bool KickOversizedCustomPackets { get; set; } = true;
+
+	public bool MonitorOnlySensitivePackets { get; set; } = true;
 
 	public int KickAfterViolations { get; set; } = 8;
 

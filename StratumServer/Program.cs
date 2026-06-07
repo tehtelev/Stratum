@@ -56,7 +56,7 @@ internal static class Program
 			{
 				try
 				{
-					string stamp = $"{StratumInfo.BaseGameVersion}-stratum.{StratumInfo.StratumRevision}";
+					string stamp = StratumInfo.Version;
 					int written = EmbeddedOverlay.Apply(AppContext.BaseDirectory, refresh ? stamp + ":refresh:" + Guid.NewGuid().ToString("N") : stamp);
 					if (written > 0)
 					{

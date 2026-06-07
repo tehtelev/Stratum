@@ -10,12 +10,22 @@ Creates release-full/stratum-<version>-full by:
 
 This is intended to produce a contributor/server-owner friendly "everything together"
 folder that can be launched directly.
+
+.PARAMETER Revision
+Overrides the Stratum revision used for the folder/build version. Example:
+  ./scripts/release-full.ps1 -Revision 6
+
+.PARAMETER Version
+Overrides the full Stratum version string directly. Example:
+  ./scripts/release-full.ps1 -Version 1.22.3-stratum.6
 #>
 
 [CmdletBinding()]
 param(
     [string]$Configuration = 'Release',
     [string]$OutDir,
+    [string]$Revision,
+    [string]$Version,
     [switch]$NoClean
 )
 
@@ -26,7 +36,7 @@ if (-not $OutDir) {
     $OutDir = Join-Path $repoRoot 'release-full'
 }
 
-function Get-StratumVersion {
+function Get-StratumVersionInfo {
     param([string]$RepoRoot)
 
     $candidates = @(
@@ -50,11 +60,38 @@ function Get-StratumVersion {
         throw "Could not parse version fields from $infoFile"
     }
 
-    if ($pre) {
-        return "$baseVer-stratum.$rev-$pre"
+    $version = if ($pre) { "$baseVer-stratum.$rev-$pre" } else { "$baseVer-stratum.$rev" }
+
+    return [pscustomobject]@{
+        BaseGameVersion = $baseVer
+        Revision = $rev
+        PreRelease = $pre
+        Version = $version
+    }
+}
+
+function Resolve-StratumVersion {
+    param(
+        [object]$Info,
+        [string]$RevisionOverride,
+        [string]$VersionOverride
+    )
+
+    if ($VersionOverride) {
+        $versionBase = ($VersionOverride -split '-stratum')[0]
+        if ($versionBase -ne $Info.BaseGameVersion) {
+            throw "Version base '$versionBase' does not match StratumInfo.BaseGameVersion '$($Info.BaseGameVersion)'. Update StratumInfo.cs before building this release."
+        }
+
+        return $VersionOverride
     }
 
-    return "$baseVer-stratum.$rev"
+    $rev = if ($RevisionOverride) { $RevisionOverride } else { $Info.Revision }
+    if ($Info.PreRelease) {
+        return "$($Info.BaseGameVersion)-stratum.$rev-$($Info.PreRelease)"
+    }
+
+    return "$($Info.BaseGameVersion)-stratum.$rev"
 }
 
 function Copy-IfExists {
@@ -90,7 +127,8 @@ function Require-File {
 
 Push-Location $repoRoot
 try {
-    $version = Get-StratumVersion -RepoRoot $repoRoot
+    $versionInfo = Get-StratumVersionInfo -RepoRoot $repoRoot
+    $version = Resolve-StratumVersion -Info $versionInfo -RevisionOverride $Revision -VersionOverride $Version
     $stageDir = Join-Path $OutDir "stratum-$version-full"
 
     $libProject = Get-FirstExistingPath @(
@@ -107,7 +145,7 @@ try {
     }
 
     Write-Host "Building $solutionFile (Configuration=$Configuration, Version=$version)"
-    & dotnet build $solutionFile -c $Configuration -p:SkipDeployToVSInstall=true -nologo
+    & dotnet build $solutionFile -c $Configuration -p:Version=$version -p:InformationalVersion=$version -p:SkipDeployToVSInstall=true -nologo
     if ($LASTEXITCODE -ne 0) {
         throw "Solution build failed."
     }
@@ -126,8 +164,7 @@ try {
 
     # Write the bootstrap marker so StratumServer does not re-download vanilla files
     # when launched from this folder. The marker content must match BaseGameVersion exactly.
-    $baseGameVersion = ($version -split '-stratum')[0]
-    Set-Content -Path (Join-Path $stageDir '.stratum-base') -Value $baseGameVersion -NoNewline
+    Set-Content -Path (Join-Path $stageDir '.stratum-base') -Value $versionInfo.BaseGameVersion -NoNewline
 
     $tfm = 'net10.0'
     $binRoot = Join-Path $repoRoot "bin/$Configuration/$tfm"
@@ -194,6 +231,8 @@ try {
 
     $manifest = @(
         "version=$version",
+        "base_game_version=$($versionInfo.BaseGameVersion)",
+        "revision=$($version -replace '^.*-stratum\.([^-]+).*$','$1')",
         "configuration=$Configuration",
         "built_utc=$([DateTime]::UtcNow.ToString('o'))",
         "source=.vanilla + workspace build outputs (patched API/lib required)"

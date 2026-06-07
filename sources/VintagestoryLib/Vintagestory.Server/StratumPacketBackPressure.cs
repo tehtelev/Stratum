@@ -39,6 +39,16 @@ internal sealed class StratumPacketBackPressure
 		}
 	}
 
+	public (int Queued, int ServedThisTick) SnapshotClient(int clientId)
+	{
+		lock (gate)
+		{
+			queuedPerClient.TryGetValue(clientId, out int queued);
+			servedThisTick.TryGetValue(clientId, out int served);
+			return (queued, served);
+		}
+	}
+
 	public void ForgetClient(int clientId)
 	{
 		lock (gate)

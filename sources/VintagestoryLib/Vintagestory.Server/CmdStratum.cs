@@ -22,7 +22,7 @@ internal class CmdStratum
 		server.api.commandapi.Create(StratumInfo.Id)
 			.WithAlias("serverinfo")
 			.WithDesc("Show Stratum server information")
-			.WithArgs(server.api.commandapi.Parsers.OptionalWord("status|health|reload|preflight|packets|performance|perf|timings|players|player|chunks|entities|queues|violations|access|chat|pregen|get|set|save"), server.api.commandapi.Parsers.OptionalWord("argument"), server.api.commandapi.Parsers.OptionalWord("detail"), server.api.commandapi.Parsers.OptionalWord("value1"), server.api.commandapi.Parsers.OptionalWord("value2"), server.api.commandapi.Parsers.OptionalWord("value3"), server.api.commandapi.Parsers.OptionalWord("value4"))
+			.WithArgs(server.api.commandapi.Parsers.OptionalWord("status|version|update|health|reload|preflight|packets|performance|perf|timings|players|player|chunks|entities|queues|violations|access|chat|pregen|get|set|save"), server.api.commandapi.Parsers.OptionalWord("argument"), server.api.commandapi.Parsers.OptionalWord("detail"), server.api.commandapi.Parsers.OptionalWord("value1"), server.api.commandapi.Parsers.OptionalWord("value2"), server.api.commandapi.Parsers.OptionalWord("value3"), server.api.commandapi.Parsers.OptionalWord("value4"))
 			.RequiresPrivilege(Privilege.controlserver)
 			.HandleWith(HandleStratum);
 	}
@@ -45,14 +45,19 @@ internal class CmdStratum
 			return HandleHealth();
 		}
 
+		if (string.Equals(action, "version", StringComparison.OrdinalIgnoreCase) || string.Equals(action, "update", StringComparison.OrdinalIgnoreCase))
+		{
+			return HandleVersion(args[1] as string);
+		}
+
 		if (string.Equals(action, "packets", StringComparison.OrdinalIgnoreCase))
 		{
-			return HandlePackets();
+			return HandlePackets(args[1] as string, args[2] as string);
 		}
 
 		if (string.Equals(action, "violations", StringComparison.OrdinalIgnoreCase))
 		{
-			return HandlePackets();
+			return HandlePackets(args[1] as string, args[2] as string);
 		}
 
 		if (string.Equals(action, "players", StringComparison.OrdinalIgnoreCase))
@@ -122,7 +127,7 @@ internal class CmdStratum
 
 		if (action != null && action.Length > 0 && !string.Equals(action, "status", StringComparison.OrdinalIgnoreCase))
 		{
-			return TextCommandResult.Error("Usage: /stratum [status|health|reload|preflight|packets|performance|timings|players|player|chunks|entities|queues|violations|access|chat|pregen|get|set|save]");
+			return TextCommandResult.Error("Usage: /stratum [status|version|update|health|reload|preflight|packets|performance|timings|players|player|chunks|entities|queues|violations|access|chat|pregen|get|set|save]");
 		}
 
 		return HandleStatus();
@@ -137,6 +142,7 @@ internal class CmdStratum
 		StringBuilder output = new StringBuilder(StratumCommandText.Title(StratumInfo.FullName));
 		output.Append(StratumCommandText.Row("Base game", "Vintage Story " + StratumInfo.BaseGameVersion));
 		output.Append(StratumCommandText.Row("Protocol mode", StratumInfo.ProtocolMode));
+		output.Append(StratumCommandText.Row("Updates", StratumUpdateChecker.BuildReport()));
 		output.Append(StratumCommandText.Row("Run phase", server.RunPhase.ToString()));
 		output.Append(StratumCommandText.Row("Players", admittedPlayers + " / " + server.Config.MaxClients));
 		output.Append(StratumCommandText.Row("Uptime", (int)uptime.TotalDays + "d " + uptime.Hours + "h " + uptime.Minutes + "m " + uptime.Seconds + "s"));
@@ -149,6 +155,38 @@ internal class CmdStratum
 		output.Append(StratumCommandText.Row("Commands", "playerQoL=" + (config.Commands.Enabled ? "on" : "off") + ", tpaTimeout=" + config.Commands.TeleportRequests.TimeoutSeconds + "s, defaultHomes=" + config.Commands.Homes.DefaultMaxHomes + ", near=" + config.Commands.NearDefaultRadiusBlocks + "/" + config.Commands.NearMaxRadiusBlocks));
 		output.Append(StratumCommandText.Row("Chat", "rolePrefixes=" + (config.Chat.Enabled && config.Chat.RolePrefixesEnabled ? "on" : "off") + ", urlLinks=" + (config.Chat.Enabled && config.Chat.LinkifyUrls ? "on" : "off") + ", configuredRoles=" + config.Chat.RolePrefixes.Count));
 		return TextCommandResult.Success(output.ToString());
+	}
+
+	private TextCommandResult HandleVersion(string argument)
+	{
+		if (string.Equals(argument, "check", StringComparison.OrdinalIgnoreCase) || string.Equals(argument, "now", StringComparison.OrdinalIgnoreCase))
+		{
+			StratumUpdateCheckResult result = StratumUpdateChecker.CheckAsync(default).GetAwaiter().GetResult();
+			return TextCommandResult.Success(FormatVersion(result));
+		}
+
+		StringBuilder output = new StringBuilder(StratumCommandText.Title(StratumInfo.FullName));
+		output.Append(StratumCommandText.Row("Base game", "Vintage Story " + StratumInfo.BaseGameVersion));
+		output.Append(StratumCommandText.Row("Protocol mode", StratumInfo.ProtocolMode));
+		output.Append(StratumCommandText.Row("Updates", StratumUpdateChecker.BuildReport()));
+		output.Append(StratumCommandText.Row("Check now", "/stratum version check"));
+		return TextCommandResult.Success(output.ToString());
+	}
+
+	private static string FormatVersion(StratumUpdateCheckResult result)
+	{
+		StringBuilder output = new StringBuilder(StratumCommandText.Title("Stratum Version"));
+		output.Append(StratumCommandText.Row("Current", result.CurrentVersion ?? StratumInfo.Version));
+		if (!string.IsNullOrWhiteSpace(result.LatestVersion))
+		{
+			output.Append(StratumCommandText.Row("Latest", result.LatestVersion));
+		}
+		if (!string.IsNullOrWhiteSpace(result.ReleaseUrl))
+		{
+			output.Append(StratumCommandText.Row("Release", result.ReleaseUrl));
+		}
+		output.Append(StratumCommandText.Row("Status", StratumUpdateChecker.BuildReport()));
+		return output.ToString();
 	}
 
 	private TextCommandResult HandleReload()
@@ -178,9 +216,9 @@ internal class CmdStratum
 		return report.Passed ? TextCommandResult.Success(result) : TextCommandResult.Error(result);
 	}
 
-	private TextCommandResult HandlePackets()
+	private TextCommandResult HandlePackets(string mode, string detail)
 	{
-		return TextCommandResult.Success(StratumRuntime.PacketLimiter.BuildReport() + "\n" + StratumRuntime.BlockBreakGuard.BuildReport());
+		return TextCommandResult.Success(StratumRuntime.PacketLimiter.BuildReport(mode, detail) + "\n" + StratumRuntime.PacketBackPressure.BuildReport() + "\n" + StratumRuntime.BlockBreakGuard.BuildReport());
 	}
 
 	private TextCommandResult HandleHealth()

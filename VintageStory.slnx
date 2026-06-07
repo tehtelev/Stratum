@@ -5,7 +5,6 @@
     <Project Path="VSSurvivalMod/VSSurvivalMod.csproj" />
   </Folder>
   <Folder Name="/Vanilla/">
-    <Project Path="baseline/VintagestoryLib/VintagestoryLib.csproj" />
     <Project Path="Cairo/Cairo.csproj" />
     <Project Path="VintagestoryApi/VintagestoryAPI.csproj" />
   </Folder>

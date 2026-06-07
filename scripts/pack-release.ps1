@@ -38,8 +38,19 @@ try {
     if (-not $baseVer -or -not $rev) { throw "Could not parse version pieces from $infoFile" }
     $version = if ($pre) { "$baseVer-stratum.$rev-$pre" } else { "$baseVer-stratum.$rev" }
 
-    # Full solution build first. StratumServer's EmbeddedResource items point at
-    # the sibling bin outputs, so they must exist before the publish step.
+    $libProject = @(
+        (Join-Path $repoRoot 'baseline/VintagestoryLib/VintagestoryLib.csproj'),
+        (Join-Path $repoRoot 'VintagestoryLib/VintagestoryLib.csproj')
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $libProject) { throw 'Could not find VintagestoryLib.csproj in baseline/VintagestoryLib/ or VintagestoryLib/.' }
+
+    # Build the patched server library first. The solution intentionally skips the
+    # baseline lib project, but StratumServer embeds its output during publish.
+    Write-Host "Building patched server library (Configuration=$Configuration, Version=$version)"
+    & dotnet build $libProject -c $Configuration -p:Version=$version -p:InformationalVersion=$version -p:SkipDeployToVSInstall=true -nologo
+    if ($LASTEXITCODE -ne 0) { throw "Patched server library build failed" }
+
+    # Build the rest of the solution so API/mod outputs exist before publish.
     Write-Host "Building solution (Configuration=$Configuration, Version=$version)"
     & dotnet build VintageStory.slnx -c $Configuration -p:Version=$version -p:InformationalVersion=$version -nologo
     if ($LASTEXITCODE -ne 0) { throw "Solution build failed" }

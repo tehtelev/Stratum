@@ -1,0 +1,57 @@
+diff --git a/VSSurvivalMod/Entity/Behavior/BehaviorAttachable.cs b/VSSurvivalMod/Entity/Behavior/BehaviorAttachable.cs
+index 61b4e5d..e4dc183 100644
+--- a/VSSurvivalMod/Entity/Behavior/BehaviorAttachable.cs
++++ b/VSSurvivalMod/Entity/Behavior/BehaviorAttachable.cs
+@@ -376,10 +376,11 @@ namespace Vintagestory.GameContent
+         private bool TryRemoveAttachment(EntityAgent byEntity, int selectionBoxIndex)
+         {
+             int slotIndex = GetSlotIndexFromSelectionBoxIndex(selectionBoxIndex);
++            if (slotIndex < 0) return false;
+             ItemSlot slot = inv[slotIndex];
+
+             if (slot.Empty) return false;
+@@ -385,10 +386,11 @@ namespace Vintagestory.GameContent
+             if (ebh != null)
+             {
+                 var bhs = entity.GetBehavior<EntityBehaviorSelectionBoxes>();
++                if (bhs?.selectionBoxes == null || selectionBoxIndex < 0 || selectionBoxIndex >= bhs.selectionBoxes.Length) return false;
+                 var apap = bhs.selectionBoxes[selectionBoxIndex];
+                 string apname = apap.AttachPoint.Code;
+@@ -433,10 +435,11 @@ namespace Vintagestory.GameContent
+             if (iatta == null || !iatta.IsAttachable(entity, itemslot.Itemstack)) return false;
+
+             int slotIndex = GetSlotIndexFromSelectionBoxIndex(selectionBoxIndex);
++            if (slotIndex < 0) return false;
+             ItemSlot targetSlot = inv[slotIndex];
+             string code = iatta.GetCategoryCode(itemslot.Itemstack);
+@@ -535,18 +538,17 @@ namespace Vintagestory.GameContent
+         public int GetSlotIndexFromSelectionBoxIndex(int boxIndex)
+         {
+             if (boxIndex < 0) return -1;
+
+             var selectionBehavior = entity.GetBehavior<EntityBehaviorSelectionBoxes>();
+-            ArgumentNullException.ThrowIfNull(selectionBehavior);
++            if (selectionBehavior?.selectionBoxes == null || boxIndex >= selectionBehavior.selectionBoxes.Length) return -1;
+
+-            // Allow throwing if the index is out of bounds, since that shouldn't be happening
+             string apCode = selectionBehavior.selectionBoxes[boxIndex].AttachPoint.Code;
+
+             return wearableSlots.IndexOf(elem => elem.AttachmentPointCode == apCode);
+@@ -593,11 +595,13 @@ namespace Vintagestory.GameContent
+             if (es.SelectionBoxIndex > 0)
+             {
+-                return AttachableInteractionHelp.GetOrCreateInteractionHelp(world.Api, this, wearableSlots, es.SelectionBoxIndex - 1, GetSlotFromSelectionBoxIndex(es.SelectionBoxIndex - 1));
++                ItemSlot slot = GetSlotFromSelectionBoxIndex(es.SelectionBoxIndex - 1);
++                if (slot == null) return base.GetInteractionHelp(world, es, player, ref handled);
++                return AttachableInteractionHelp.GetOrCreateInteractionHelp(world.Api, this, wearableSlots, es.SelectionBoxIndex - 1, slot);
+             }
+@@ -610,8 +614,11 @@ namespace Vintagestory.GameContent
+             var selebox = capi.World.Player.CurrentEntitySelection.SelectionBoxIndex - 1;
+             if (selebox < 0) return null;
+
+-            return entity.GetBehavior<EntityBehaviorSelectionBoxes>().GetCenterPosOfBox(selebox)?.Add(0, 0.5, 0);
++            var selectionBoxes = entity.GetBehavior<EntityBehaviorSelectionBoxes>();
++            if (selectionBoxes?.selectionBoxes == null || selebox >= selectionBoxes.selectionBoxes.Length) return null;
++
++            return selectionBoxes.GetCenterPosOfBox(selebox)?.Add(0, 0.5, 0);
+         }

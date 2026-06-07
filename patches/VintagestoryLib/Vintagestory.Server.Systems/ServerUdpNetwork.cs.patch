@@ -2,6 +2,9 @@ diff --git a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs b/V
 index 719a68b..5cfa8f7 100644
 --- a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
 +++ b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
+@@ -55,0 +56,2 @@ public class ServerUdpNetwork : ServerSystem
++				// Stratum: observe inbound UDP traffic for packet attribution reports.
++				StratumRuntime.PacketLimiter.ObserveUdpPacket(udpPacket.Client, udpPacket.Packet, udpPacket.Packet.Length, server.api.networkapi);
 @@ -196,22 +196,32 @@ public class ServerUdpNetwork : ServerSystem
  		if (flag)
  		{

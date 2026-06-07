@@ -91,6 +91,7 @@ internal class ServerSystemStratum : ServerSystem
 	{
 		StratumPlayerPrivacy.Initialize(server);
 		StratumMetricsPublisher.Start();
+		StratumUpdateChecker.CheckOnStartup();
 		StratumRuntime.LogInfo("runtime ready. Use /stratum health, /stratum status, and /stratum timings start.");
 	}
 
