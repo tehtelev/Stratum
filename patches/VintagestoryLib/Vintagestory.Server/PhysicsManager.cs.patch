@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/PhysicsManager.cs b/VintagestoryLib/Vintagestory.Server/PhysicsManager.cs
-index 2c2605d..92a6071 100644
+index 2c2605d..4a09dd1 100644
 --- a/VintagestoryLib/Vintagestory.Server/PhysicsManager.cs
 +++ b/VintagestoryLib/Vintagestory.Server/PhysicsManager.cs
 @@ -101,10 +101,23 @@ public class PhysicsManager : LoadBalancedTask
@@ -26,7 +26,7 @@ index 2c2605d..92a6071 100644
  	public const float AttributesToClientsInterval = 0.2f;
  
  	private const int firstTick = 1;
-@@ -133,10 +146,18 @@ public class PhysicsManager : LoadBalancedTask
+@@ -133,10 +146,12 @@ public class PhysicsManager : LoadBalancedTask
  
  	private float physicsTickAccum;
  
@@ -34,18 +34,12 @@ index 2c2605d..92a6071 100644
  
 +	private long stratumLastStateUpdateMs;
 +
-+	private long stratumLastTickablesLogMs;
-+
-+	private int stratumParallelHits;
-+
-+	private int stratumSerialHits;
-+
  	private readonly List<IPhysicsTickable> tickables = new List<IPhysicsTickable>();
  
  	private ServerSystemEntitySimulation es;
  
  	private List<Packet_EntityAttributes> cliententitiesFullUpdate = new List<Packet_EntityAttributes>();
-@@ -157,10 +178,16 @@ public class PhysicsManager : LoadBalancedTask
+@@ -157,10 +172,16 @@ public class PhysicsManager : LoadBalancedTask
  
  	private ConcurrentDictionary<long, EntityTagPacket> entitiesTagPackets;
  
@@ -62,7 +56,7 @@ index 2c2605d..92a6071 100644
  	private readonly EntityDespawnData outofRangeDespawnData = new EntityDespawnData
  	{
  		Reason = EnumDespawnReason.OutOfRange
-@@ -168,12 +195,38 @@ public class PhysicsManager : LoadBalancedTask
+@@ -168,12 +189,38 @@ public class PhysicsManager : LoadBalancedTask
  
  	private List<long> alreadyTracked = new List<long>();
  
@@ -101,7 +95,7 @@ index 2c2605d..92a6071 100644
  	private PhysicsOffthreadTasks offthreadProcess;
  
  	private int currentTick;
-@@ -184,24 +237,46 @@ public class PhysicsManager : LoadBalancedTask
+@@ -184,24 +231,46 @@ public class PhysicsManager : LoadBalancedTask
  
  	public PhysicsManager(ICoreServerAPI sapi, ServerUdpNetwork udpNetwork)
  	{
@@ -116,7 +110,7 @@ index 2c2605d..92a6071 100644
 +		int stratumPhysicsMaxThreads = StratumRuntime.Config.Performance.Physics.MaxThreadsOverride;
 +		int baseMaxPhysicsThreads;
 +		if (stratumPhysicsMaxThreads > 0)
- 		{
++		{
 +			// Explicit override wins -- ignore both MagicNum (which is 1) and ReducedServerThreads.
 +			baseMaxPhysicsThreads = stratumPhysicsMaxThreads;
 +		}
@@ -130,7 +124,7 @@ index 2c2605d..92a6071 100644
 +		}
 +		maxPhysicsThreads = Math.Clamp(baseMaxPhysicsThreads, 1, 8);
 +		if (sapi.Server.ReducedServerThreads && stratumPhysicsMaxThreads <= 0)
-+		{
+ 		{
 +			// Honour --reducedthreads only when there's no explicit Stratum override.
  			maxPhysicsThreads = 1;
  		}
@@ -150,7 +144,7 @@ index 2c2605d..92a6071 100644
  			entitiesFullUpdate[i] = new Dictionary<long, Packet_EntityAttributes>();
  		}
  		for (int j = 0; j < entitiesPartialUpdate.Length; j++)
-@@ -221,10 +296,13 @@ public class PhysicsManager : LoadBalancedTask
+@@ -221,10 +290,13 @@ public class PhysicsManager : LoadBalancedTask
  			entitiesAnimPackets[m] = new Dictionary<long, AnimationPacket>();
  		}
  		for (int n = 0; n < entitiesUpdateReusableBuffers.Length; n++)
@@ -164,7 +158,7 @@ index 2c2605d..92a6071 100644
  		loadBalancer = new LoadBalancer(this, ServerMain.Logger);
  		loadBalancer.CreateDedicatedThreads(maxPhysicsThreads, "physicsManager", server.Serverthreads);
  		offthreadProcess = new PhysicsOffthreadTasks(this);
-@@ -251,13 +329,25 @@ public class PhysicsManager : LoadBalancedTask
+@@ -251,13 +323,25 @@ public class PhysicsManager : LoadBalancedTask
  		attrUpdateAccum = 0.2f;
  	}
  
@@ -191,7 +185,7 @@ index 2c2605d..92a6071 100644
  			{
  				if (result.Entity.ServerBehaviorsThreadsafe == null)
  				{
-@@ -268,11 +358,11 @@ public class PhysicsManager : LoadBalancedTask
+@@ -268,11 +352,11 @@ public class PhysicsManager : LoadBalancedTask
  					tickables.Add(result);
  				}
  			}
@@ -204,7 +198,7 @@ index 2c2605d..92a6071 100644
  			{
  				tickables.Remove(result2);
  			}
-@@ -287,30 +377,81 @@ public class PhysicsManager : LoadBalancedTask
+@@ -287,30 +371,70 @@ public class PhysicsManager : LoadBalancedTask
  				ServerMain.Logger.Warning("Over 400ms tick. Skipping {0} physics ticks.", num);
  			}
  			physicsTickAccum %= 0.4f;
@@ -274,24 +268,13 @@ index 2c2605d..92a6071 100644
  			stateChanges.Clear();
 -			if (tickables.Count > 800 && maxPhysicsThreads > 1)
 +			bool stratumGoParallel = tickables.Count > StratumRuntime.Config.Performance.Physics.ParallelThreshold && maxPhysicsThreads > 1;
-+			if (stratumGoParallel) stratumParallelHits++; else stratumSerialHits++;
-+			{
-+				long stratumNowMs = Environment.TickCount64;
-+				if (stratumLastTickablesLogMs == 0L || stratumNowMs - stratumLastTickablesLogMs > 30000L)
-+				{
-+					stratumLastTickablesLogMs = stratumNowMs;
-+					ServerMain.Logger.Notification("[Stratum] PhysicsManager tickables=" + tickables.Count + " threshold=" + StratumRuntime.Config.Performance.Physics.ParallelThreshold + " maxThreads=" + maxPhysicsThreads + " parallel/serial last30s=" + stratumParallelHits + "/" + stratumSerialHits);
-+					stratumParallelHits = 0;
-+					stratumSerialHits = 0;
-+				}
-+			}
 +			if (stratumGoParallel)
  			{
  				num3 = maxPhysicsThreads;
  				loadBalancer.SynchroniseWorkToMainThread(this);
  				loadBalancer.AwaitCompletionOnAllThreads(num3);
  				ServerMain.FrameProfiler.Mark("physicsmanager-waitingForSlowestThread");
-@@ -341,26 +482,31 @@ public class PhysicsManager : LoadBalancedTask
+@@ -341,26 +465,31 @@ public class PhysicsManager : LoadBalancedTask
  				{
  					ServerMain.Logger.Error(e);
  				}
@@ -329,7 +312,7 @@ index 2c2605d..92a6071 100644
  		lock (server.EntitySpawnSendQueue)
  		{
  			List<Entity> entitySpawnSendQueue = server.EntitySpawnSendQueue;
-@@ -398,16 +544,31 @@ public class PhysicsManager : LoadBalancedTask
+@@ -398,16 +527,31 @@ public class PhysicsManager : LoadBalancedTask
  					ServerMain.spawnSendQueue--;
  				});
  			}
@@ -362,7 +345,7 @@ index 2c2605d..92a6071 100644
  			if (value.State.ConnectedOrPlaying() && value.Entityplayer != null)
  			{
  				list.Add(value);
-@@ -462,10 +623,25 @@ public class PhysicsManager : LoadBalancedTask
+@@ -462,10 +606,25 @@ public class PhysicsManager : LoadBalancedTask
  		UpdateTrackedEntityLists(client, 1);
  	}
  
@@ -388,7 +371,7 @@ index 2c2605d..92a6071 100644
  		double y = pos.Y;
  		double z = pos.Z;
  		double num = double.MaxValue;
-@@ -536,10 +712,15 @@ public class PhysicsManager : LoadBalancedTask
+@@ -536,10 +695,15 @@ public class PhysicsManager : LoadBalancedTask
  		List<long> list2 = alreadyTracked;
  		list2.EnsureCapacity(trackedEntities.Count);
  		List<Entity> list3 = newlyTracked;
@@ -404,7 +387,7 @@ index 2c2605d..92a6071 100644
  			{
  				list2.Add(entityId);
  			}
-@@ -550,10 +731,15 @@ public class PhysicsManager : LoadBalancedTask
+@@ -550,10 +714,15 @@ public class PhysicsManager : LoadBalancedTask
  		}
  		for (int i = 1; i < threadCount; i++)
  		{
@@ -420,7 +403,7 @@ index 2c2605d..92a6071 100644
  				{
  					list2.Add(entityId);
  				}
-@@ -593,60 +779,150 @@ public class PhysicsManager : LoadBalancedTask
+@@ -593,60 +762,150 @@ public class PhysicsManager : LoadBalancedTask
  		list3.Clear();
  	}
  
@@ -486,11 +469,11 @@ index 2c2605d..92a6071 100644
 +								}
 +								server.SendPreparedPacket(client, preparedPacket.PacketBytes, preparedPacket.Compressed);
 +							}
-+						}
+ 						}
 +						if (stratumRecordSectionTimings)
 +						{
 +							stratumPlayerPacketTicks += StratumRuntime.Timings.GetTimestamp() - stratumSectionStart;
- 						}
++						}
 +					}
 +					long entityIdForPacket = entity.EntityId;
 +					if (!entityPacketCache.TryGetValue(entityIdForPacket, out Packet_Entity entityPacket))
@@ -503,10 +486,11 @@ index 2c2605d..92a6071 100644
 +						entityPacket = ServerPackets.GetEntityPacket(entity, fastMemoryStream, writer);
 +						entityPacketCache[entityIdForPacket] = entityPacket;
 +						if (stratumRecordSectionTimings)
-+						{
+ 						{
+-							list.Add(new AnimationPacket(entity));
 +							stratumFullEntityBuildTicks += StratumRuntime.Timings.GetTimestamp() - stratumSectionStart;
-+						}
-+					}
+ 						}
+ 					}
 +					entityPackets.Add(entityPacket);
 +					if (entity.AnimManager != null)
 +					{
@@ -531,12 +515,11 @@ index 2c2605d..92a6071 100644
 +					{
 +						Id = 40,
 +						Entities = new Packet_Entities
- 						{
--							list.Add(new AnimationPacket(entity));
++						{
 +							Entities = entityPackets.ToArray(),
 +							EntitiesCount = entityPackets.Count,
 +							EntitiesLength = entityPackets.Count
- 						}
++						}
 +					};
 +					if (client.IsSinglePlayerClient)
 +					{
@@ -547,7 +530,7 @@ index 2c2605d..92a6071 100644
 +						stateChangeSerializedPacket.Serialize(packet);
 +						byte[] packetBytes = client.Socket.PreparePacketForSending(stateChangeSerializedPacket, server.Config.CompressPackets, out bool compressed);
 +						server.SendPreparedPacket(client, packetBytes, compressed);
- 					}
++					}
 +					if (stratumRecordSectionTimings)
 +					{
 +						stratumFullEntitySendTicks += StratumRuntime.Timings.GetTimestamp() - stratumSectionStart;
@@ -598,7 +581,7 @@ index 2c2605d..92a6071 100644
  
  	public void GatherUpdatePacketsFromAllThreads()
  	{
-@@ -729,13 +1005,26 @@ public class PhysicsManager : LoadBalancedTask
+@@ -729,13 +988,26 @@ public class PhysicsManager : LoadBalancedTask
  		if (entity is EntityPlayer)
  		{
  			return;
@@ -627,7 +610,7 @@ index 2c2605d..92a6071 100644
  		if (forceUpdate || !entity.Pos.BasicallySameAs(entity.PreviousServerPos) || (entityAgent != null && entityAgent.Controls.Dirty) || entity.tagsDirty)
  		{
  			int intAndIncrement = entity.Attributes.GetIntAndIncrement("tick");
-@@ -747,10 +1036,106 @@ public class PhysicsManager : LoadBalancedTask
+@@ -747,10 +1019,106 @@ public class PhysicsManager : LoadBalancedTask
  			entity.tagsDirty = false;
  		}
  		CompletePositionUpdate(entity);
@@ -734,7 +717,7 @@ index 2c2605d..92a6071 100644
  		EntityTagPacket result = null;
  		SyncedTreeAttribute watchedAttributes = entity.WatchedAttributes;
  		if (watchedAttributes.AllDirty)
-@@ -781,14 +1166,24 @@ public class PhysicsManager : LoadBalancedTask
+@@ -781,14 +1149,24 @@ public class PhysicsManager : LoadBalancedTask
  		return result;
  	}
  
@@ -762,7 +745,7 @@ index 2c2605d..92a6071 100644
  			list.Clear();
  			list2.Clear();
  			list3.Clear();
-@@ -796,41 +1191,45 @@ public class PhysicsManager : LoadBalancedTask
+@@ -796,41 +1174,45 @@ public class PhysicsManager : LoadBalancedTask
  			{
  				List<Entity> list4 = client.threadedTrackedEntities[zeroBasedThreadNum];
  				foreach (Entity item in list4)
@@ -815,7 +798,7 @@ index 2c2605d..92a6071 100644
  					}
  				}
  			}
-@@ -872,35 +1271,65 @@ public class PhysicsManager : LoadBalancedTask
+@@ -872,35 +1254,65 @@ public class PhysicsManager : LoadBalancedTask
  				AnimationsAndTagsChannel.SendPacket(item2, client.Player);
  			}
  		}
@@ -883,7 +866,7 @@ index 2c2605d..92a6071 100644
  					flag = true;
  				}
  			}
-@@ -990,11 +1419,14 @@ public class PhysicsManager : LoadBalancedTask
+@@ -990,11 +1402,14 @@ public class PhysicsManager : LoadBalancedTask
  		return ServerPackets.getEntityPositionPacket(entity.Pos, entity, 1);
  	}
  
@@ -899,7 +882,7 @@ index 2c2605d..92a6071 100644
  		{
  			Id = 80,
  			EntityPosition = entityPosition
-@@ -1026,16 +1458,29 @@ public class PhysicsManager : LoadBalancedTask
+@@ -1026,16 +1441,29 @@ public class PhysicsManager : LoadBalancedTask
  		if (threadNumber == 0)
  		{
  			threadNumber = 1;
@@ -934,7 +917,7 @@ index 2c2605d..92a6071 100644
  		Dictionary<long, AnimationPacket> dictionary2 = entitiesAnimPackets[threadNumber - 1];
  		dictionary.Clear();
  		dictionary2.Clear();
-@@ -1097,10 +1542,19 @@ public class PhysicsManager : LoadBalancedTask
+@@ -1097,10 +1525,19 @@ public class PhysicsManager : LoadBalancedTask
  		try
  		{
  			int num5 = -1;
@@ -954,7 +937,7 @@ index 2c2605d..92a6071 100644
  				int num6 = (ticksToDo - num5 + 1) % 2;
  				num5 += num6;
  				bool flag2 = num5 == ticksToDo - 1;
-@@ -1108,20 +1562,113 @@ public class PhysicsManager : LoadBalancedTask
+@@ -1108,20 +1545,113 @@ public class PhysicsManager : LoadBalancedTask
  				bool forceUpdate = (num5 + currentTick) % 30 <= num6;
  				for (int j = num3; j < num4; j++)
  				{
@@ -1071,7 +1054,7 @@ index 2c2605d..92a6071 100644
  						{
  							entity.PositionTicked = true;
  						}
-@@ -1196,49 +1743,153 @@ public class PhysicsManager : LoadBalancedTask
+@@ -1196,49 +1726,153 @@ public class PhysicsManager : LoadBalancedTask
  		if (doBuildAttributes)
  		{
  			eFullUpdate = entitiesFullUpdate[0];
@@ -1232,7 +1215,7 @@ index 2c2605d..92a6071 100644
  			SendPositionsAndAnimations(dictionary, dictionary2, 0, doBuildAttributes);
  		}
  		dictionary.Clear();
-@@ -1262,11 +1913,25 @@ public class PhysicsManager : LoadBalancedTask
+@@ -1262,11 +1896,25 @@ public class PhysicsManager : LoadBalancedTask
  
  	public void StartWorkerThread(int threadNum)
  	{

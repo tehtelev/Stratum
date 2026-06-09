@@ -109,7 +109,7 @@ internal class ServerSystemStratum : ServerSystem
 		StratumConfig config = StratumRuntime.Config;
 		StratumRuntime.LogInfo($"{StratumInfo.FullName} for Vintage Story {StratumInfo.BaseGameVersion}");
 		StratumRuntime.LogInfo($"config {(loaded ? "ready" : "using defaults")}: {message} ({StratumRuntime.ConfigPath})");
-		StratumRuntime.LogInfo($"hardening: packets={OnOff(config.Hardening.PacketMonitoring)} blockBreak={OnOff(config.Hardening.BlockBreakGuards)} inventory={OnOff(config.Hardening.InventoryGuards)} entities={OnOff(config.Hardening.EntityGuards)}");
+		//StratumRuntime.LogInfo($"hardening: packets={OnOff(config.Hardening.PacketMonitoring)} blockBreak={OnOff(config.Hardening.BlockBreakGuards)} inventory={OnOff(config.Hardening.InventoryGuards)} entities={OnOff(config.Hardening.EntityGuards)}");
 		if (config.ClientModPolicy.LogPolicyOnStartup)
 		{
 			StratumRuntime.LogInfo($"client mod policy: enabled={OnOff(config.ClientModPolicy.Enabled)} strictWhitelist={OnOff(config.ClientModPolicy.StrictWhitelist)} allowExtras={config.ClientModPolicy.AllowModIds.Count}");
@@ -118,8 +118,8 @@ internal class ServerSystemStratum : ServerSystem
 		{
 			StratumRuntime.LogWarning($"load testing auth bypass enabled for names starting '{config.LoadTesting.RequiredPlayerNamePrefix}' and UIDs starting '{config.LoadTesting.RequiredPlayerUidPrefix}'");
 		}
-		StratumRuntime.LogInfo($"performance: chunkSend={OnOff(config.Performance.ChunkSending.Enabled)} chunkGen={OnOff(config.Performance.ChunkGeneration.Enabled)} pregen={OnOff(config.Performance.Pregen.Enabled)} entityTick={OnOff(config.Performance.EntityTicking.Enabled)} autosave={OnOff(config.Performance.AutoSave.Enabled)} blockTicks={OnOff(config.Performance.BlockTicks.Enabled)} timings={(config.Performance.Timings.EnabledOnStartup ? "startup" : "manual")}");
-		StratumRuntime.LogInfo($"commands: /stratum health, investigation={OnOff(config.Commands.Enabled)}, playerQoL={OnOff(config.Commands.Enabled)}");
+		//StratumRuntime.LogInfo($"performance: chunkSend={OnOff(config.Performance.ChunkSending.Enabled)} chunkGen={OnOff(config.Performance.ChunkGeneration.Enabled)} pregen={OnOff(config.Performance.Pregen.Enabled)} entityTick={OnOff(config.Performance.EntityTicking.Enabled)} autosave={OnOff(config.Performance.AutoSave.Enabled)} blockTicks={OnOff(config.Performance.BlockTicks.Enabled)} timings={(config.Performance.Timings.EnabledOnStartup ? "startup" : "manual")}");
+		//StratumRuntime.LogInfo($"commands: /stratum health, investigation={OnOff(config.Commands.Enabled)}, playerQoL={OnOff(config.Commands.Enabled)}");
 	}
 
 	private static string OnOff(bool enabled)

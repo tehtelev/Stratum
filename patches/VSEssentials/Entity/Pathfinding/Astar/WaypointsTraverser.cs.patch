@@ -1,8 +1,87 @@
 diff --git a/VSEssentials/Entity/Pathfinding/Astar/WaypointsTraverser.cs b/VSEssentials/Entity/Pathfinding/Astar/WaypointsTraverser.cs
-index 365cdfa..e3cd85b 100644
+index 365cdfa..5144597 100644
 --- a/VSEssentials/Entity/Pathfinding/Astar/WaypointsTraverser.cs
 +++ b/VSEssentials/Entity/Pathfinding/Astar/WaypointsTraverser.cs
-@@ -212,11 +212,11 @@ namespace Vintagestory.Essentials
+@@ -18,10 +18,16 @@ namespace Vintagestory.Essentials
+         Vec3f targetVec = new Vec3f();
+ 
+         List<Vec3d> waypoints;
+         List<Vec3d> newWaypoints;
+         private PathfinderTask asyncSearchObject;
++        private BlockPos stratumAsyncTargetBlockPos;
++        private float stratumAsyncModeMinFleeDistance;
++        private int stratumConsecutivePathFailures;
++        private long stratumPathCooldownUntilMs;
++        private int stratumFailureCooldownAfterFailures = 3;
++        private int stratumFailureCooldownMs = 1500;
+ 
+         int waypointToReachIndex = 0;
+         long lastWaypointIncTotalMs;
+         Vec3d desiredTarget;
+ 
+@@ -72,10 +78,11 @@ namespace Vintagestory.Essentials
+             }
+ 
+             psys = entity.World.Api.ModLoader.GetModSystem<PathfindSystem>();
+             asyncPathfinder = entity.World.Api.ModLoader.GetModSystem<PathfindingAsync>();
+             this.creatureType = creatureType;
++            StratumReadPathfindingConfig();
+         }
+ 
+         public void FollowRoute(List<Vec3d> swoopPath, float movingSpeed, float targetDistance, Action OnGoalReached, Action OnStuck)
+         {
+             waypoints = swoopPath;
+@@ -130,11 +137,12 @@ namespace Vintagestory.Essentials
+ 
+ 
+ 
+         public override bool NavigateTo_Async(Vec3d target, float movingSpeed, float targetDistance, Action OnGoalReached, Action OnStuck, Action onNoPath = null, int searchDepth = 999, int mhdistanceTolerance = 0, EnumAICreatureType? creatureType = null)
+         {
+-            if (this.asyncSearchObject != null) return false;  // Allow the one in progress to finish before trying another - maybe more than one AI task in the same tick tries to find a path?
++            BlockPos targetBlockPos = target.AsBlockPos;
++            if (!StratumPrepareAsyncSearch(targetBlockPos, 0)) return false;
+ 
+             this.desiredTarget = target;
+             if (creatureType != null) this.creatureType = (EnumAICreatureType)creatureType;
+ 
+             // these all have to be saved because they are local parameters, but not used until we call AfterFoundPath()
+@@ -149,19 +157,20 @@ namespace Vintagestory.Essentials
+             {
+                 HandleNoPath();
+                 return false;
+             }
+ 
+-            FindPath_Async(startBlockPos, target.AsBlockPos, 0, searchDepth, mhdistanceTolerance);
++            FindPath_Async(startBlockPos, targetBlockPos, 0, searchDepth, mhdistanceTolerance);
+ 
+             return true;
+         }
+ 
+ 
+         public override bool Flee_Async(Vec3d fleeFromPos, float fleeDistance, float movingSpeed, Action OnGoalReached, Action OnStuck, Action onNoPath = null, int searchDepth = 999, EnumAICreatureType? creatureType = null)
+         {
+-            if (this.asyncSearchObject != null) return false;  // Allow the one in progress to finish before trying another - maybe more than one AI task in the same tick tries to find a path?
++            BlockPos targetBlockPos = fleeFromPos.AsBlockPos;
++            if (!StratumPrepareAsyncSearch(targetBlockPos, fleeDistance)) return false;
+ 
+             this.desiredTarget = null;
+             if (creatureType != null) this.creatureType = (EnumAICreatureType)creatureType;
+ 
+             // these all have to be saved because they are local parameters, but not used until we call AfterFoundPath()
+@@ -176,11 +185,11 @@ namespace Vintagestory.Essentials
+             {
+                 HandleNoPath();
+                 return false;
+             }
+ 
+-            FindPath_Async(startBlockPos, fleeFromPos.AsBlockPos, fleeDistance, searchDepth, 0);
++            FindPath_Async(startBlockPos, targetBlockPos, fleeDistance, searchDepth, 0);
+ 
+             return true;
+         }
+ 
+ 
+@@ -212,36 +221,41 @@ namespace Vintagestory.Essentials
              var bh = entity.GetBehavior<EntityBehaviorControlledPhysics>();
              float stepHeight = bh == null ? 0.6f : bh.StepHeight;
              bool avoidFall = entity.Properties.FallDamage && entity.Properties.Attributes?["reckless"].AsBool(false) != true;
@@ -15,3 +94,134 @@ index 365cdfa..e3cd85b 100644
  
          private void FindPath_Async(BlockPos startBlockPos, BlockPos targetBlockPos, float modeMinFleeDistance, int searchDepth, int mhdistanceTolerance = 0)
          {
+             waypointToReachIndex = 0;
+             asyncSearchObject = PreparePathfinderTask(startBlockPos, targetBlockPos, modeMinFleeDistance, searchDepth, mhdistanceTolerance, creatureType);
++            stratumAsyncTargetBlockPos = targetBlockPos.Copy();
++            stratumAsyncModeMinFleeDistance = modeMinFleeDistance;
+             asyncPathfinder.EnqueuePathfinderTask(asyncSearchObject);
+         }
+ 
+ 
+         public bool AfterFoundPath()
+         {
+             if (asyncSearchObject != null)
+             {
+                 newWaypoints = asyncSearchObject.waypoints;
+                 asyncSearchObject = null;
++                stratumAsyncTargetBlockPos = null;
+             }
+ 
+             if (newWaypoints == null /*|| newWaypoints.Count == 0 - uh no. this is a successful search*/)
+             {
++                StratumRecordPathFailure();
+                 HandleNoPath();
+                 return false;
+             }
+ 
++            StratumResetPathFailures();
+             waypoints = newWaypoints;
+ 
+             // Debug visualization
+             if (PathFindDebug)
+             {
+@@ -308,10 +322,100 @@ namespace Vintagestory.Essentials
+                 Active = false;
+                 OnNoPath.Invoke();
+             }
+         }
+ 
++        private bool StratumPrepareAsyncSearch(BlockPos targetBlockPos, float modeMinFleeDistance)
++        {
++            long nowMs = entity.World.ElapsedMilliseconds;
++            if (stratumPathCooldownUntilMs > nowMs)
++            {
++                return false;
++            }
++
++            if (asyncSearchObject == null)
++            {
++                return true;
++            }
++
++            if (!asyncSearchObject.Finished && StratumSameAsyncGoal(targetBlockPos, modeMinFleeDistance))
++            {
++                return false;
++            }
++
++            StratumCancelAsyncSearch();
++            return true;
++        }
++
++        private bool StratumSameAsyncGoal(BlockPos targetBlockPos, float modeMinFleeDistance)
++        {
++            return stratumAsyncTargetBlockPos != null
++                && stratumAsyncTargetBlockPos.X == targetBlockPos.X
++                && stratumAsyncTargetBlockPos.Y == targetBlockPos.Y
++                && stratumAsyncTargetBlockPos.Z == targetBlockPos.Z
++                && Math.Abs(stratumAsyncModeMinFleeDistance - modeMinFleeDistance) < 0.001f;
++        }
++
++        private void StratumCancelAsyncSearch()
++        {
++            if (asyncSearchObject != null)
++            {
++                asyncSearchObject.waypoints = null;
++                asyncSearchObject.Finished = true;
++                asyncSearchObject = null;
++            }
++
++            stratumAsyncTargetBlockPos = null;
++        }
++
++        private void StratumRecordPathFailure()
++        {
++            stratumConsecutivePathFailures++;
++            if (stratumFailureCooldownAfterFailures > 0 && stratumConsecutivePathFailures >= stratumFailureCooldownAfterFailures)
++            {
++                stratumPathCooldownUntilMs = entity.World.ElapsedMilliseconds + stratumFailureCooldownMs;
++                stratumConsecutivePathFailures = 0;
++            }
++        }
++
++        private void StratumResetPathFailures()
++        {
++            stratumConsecutivePathFailures = 0;
++            stratumPathCooldownUntilMs = 0;
++        }
++
++        private void StratumReadPathfindingConfig()
++        {
++            try
++            {
++                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
++                {
++                    if (assembly.GetName().Name != "VintagestoryLib")
++                    {
++                        continue;
++                    }
++
++                    Type runtimeT = assembly.GetType("Vintagestory.Server.StratumRuntime");
++                    object cfg = runtimeT?.GetProperty("Config", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?.GetValue(null);
++                    object perf = cfg?.GetType().GetProperty("Performance")?.GetValue(cfg);
++                    object pf = perf?.GetType().GetProperty("Pathfinding")?.GetValue(perf);
++                    if (pf == null)
++                    {
++                        return;
++                    }
++
++                    stratumFailureCooldownAfterFailures = Math.Max(0, (int)(pf.GetType().GetProperty("FailureCooldownAfterFailures")?.GetValue(pf) ?? stratumFailureCooldownAfterFailures));
++                    stratumFailureCooldownMs = Math.Max(0, (int)(pf.GetType().GetProperty("FailureCooldownMs")?.GetValue(pf) ?? stratumFailureCooldownMs));
++                    return;
++                }
++            }
++            catch
++            {
++                // Keep defaults if the Stratum config is not available.
++            }
++        }
++
+ 
+         public override bool WalkTowards(Vec3d target, float movingSpeed, float targetDistance, Action OnGoalReached, Action OnStuck, EnumAICreatureType creatureType = EnumAICreatureType.Default)
+         {
+             waypoints = new List<Vec3d>();
+             waypoints.Add(target);

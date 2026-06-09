@@ -12,6 +12,11 @@ internal sealed class StratumPerformanceStats
 	private long totalCancelledColumnRequests;
 	private long totalPrioritizedChunkRings;
 	private long totalGenerationDeferredClients;
+	private long totalSkippedClientChunkCap;
+	private long totalSkippedServerChunkCap;
+	private long totalSkippedOutboundPressure;
+	private long totalNearRingChunkSends;
+	private long totalFarRingChunkSends;
 	private long totalEntityTicks;
 	private long totalEntitiesSeen;
 	private long totalEntitiesTicked;
@@ -46,6 +51,15 @@ internal sealed class StratumPerformanceStats
 	private int lastGenerationDeferredClients;
 	private int lastPendingColumnRequests;
 	private int lastWorkerColumnRequests;
+	private int lastSkippedClientChunkCap;
+	private int lastSkippedServerChunkCap;
+	private int lastSkippedOutboundPressure;
+	private int lastNearRingChunkSends;
+	private int lastFarRingChunkSends;
+	private int lastTrackedColumnRequests;
+	private int lastWantedByColumnLinks;
+	private int lastSharedColumnRequests;
+	private int lastWorkerTrackedColumnRequests;
 	private int peakChunksSent;
 	private int peakDeferredClients;
 	private int peakColumnRequests;
@@ -53,6 +67,8 @@ internal sealed class StratumPerformanceStats
 	private int peakGenerationDeferredClients;
 	private int peakPendingColumnRequests;
 	private int peakWorkerColumnRequests;
+	private int peakTrackedColumnRequests;
+	private int peakSharedColumnRequests;
 	private int lastEntitiesSeen;
 	private int lastEntitiesTicked;
 	private int lastEntitiesThrottled;
@@ -94,7 +110,7 @@ internal sealed class StratumPerformanceStats
 	private int peakQueuedBlockTicksAfter;
 	private int peakBlockGameTickListenersSkipped;
 
-	public void RecordChunkSendTick(int chunkBudget, int chunksSent, int deferredClients, int columnRequestBudget, int columnRequests, int generationDeferredClients, int pendingColumnRequests, int workerColumnRequests, int cancelledColumnRequests, int prioritizedChunkRings)
+	public void RecordChunkSendTick(int chunkBudget, int chunksSent, int deferredClients, int columnRequestBudget, int columnRequests, int generationDeferredClients, int pendingColumnRequests, int workerColumnRequests, int cancelledColumnRequests, int prioritizedChunkRings, int skippedClientChunkCap, int skippedServerChunkCap, int skippedOutboundPressure, int nearRingChunkSends, int farRingChunkSends, int trackedColumnRequests, int wantedByColumnLinks, int sharedColumnRequests, int workerTrackedColumnRequests)
 	{
 		lock (gate)
 		{
@@ -105,6 +121,11 @@ internal sealed class StratumPerformanceStats
 			totalCancelledColumnRequests += cancelledColumnRequests;
 			totalPrioritizedChunkRings += prioritizedChunkRings;
 			totalGenerationDeferredClients += generationDeferredClients;
+			totalSkippedClientChunkCap += skippedClientChunkCap;
+			totalSkippedServerChunkCap += skippedServerChunkCap;
+			totalSkippedOutboundPressure += skippedOutboundPressure;
+			totalNearRingChunkSends += nearRingChunkSends;
+			totalFarRingChunkSends += farRingChunkSends;
 			lastChunkBudget = chunkBudget;
 			lastChunksSent = chunksSent;
 			lastDeferredClients = deferredClients;
@@ -115,6 +136,15 @@ internal sealed class StratumPerformanceStats
 			lastGenerationDeferredClients = generationDeferredClients;
 			lastPendingColumnRequests = pendingColumnRequests;
 			lastWorkerColumnRequests = workerColumnRequests;
+			lastSkippedClientChunkCap = skippedClientChunkCap;
+			lastSkippedServerChunkCap = skippedServerChunkCap;
+			lastSkippedOutboundPressure = skippedOutboundPressure;
+			lastNearRingChunkSends = nearRingChunkSends;
+			lastFarRingChunkSends = farRingChunkSends;
+			lastTrackedColumnRequests = trackedColumnRequests;
+			lastWantedByColumnLinks = wantedByColumnLinks;
+			lastSharedColumnRequests = sharedColumnRequests;
+			lastWorkerTrackedColumnRequests = workerTrackedColumnRequests;
 			peakChunksSent = Math.Max(peakChunksSent, chunksSent);
 			peakDeferredClients = Math.Max(peakDeferredClients, deferredClients);
 			peakColumnRequests = Math.Max(peakColumnRequests, columnRequests);
@@ -122,6 +152,8 @@ internal sealed class StratumPerformanceStats
 			peakGenerationDeferredClients = Math.Max(peakGenerationDeferredClients, generationDeferredClients);
 			peakPendingColumnRequests = Math.Max(peakPendingColumnRequests, pendingColumnRequests);
 			peakWorkerColumnRequests = Math.Max(peakWorkerColumnRequests, workerColumnRequests);
+			peakTrackedColumnRequests = Math.Max(peakTrackedColumnRequests, trackedColumnRequests);
+			peakSharedColumnRequests = Math.Max(peakSharedColumnRequests, sharedColumnRequests);
 		}
 	}
 
@@ -283,11 +315,13 @@ internal sealed class StratumPerformanceStats
 				"\nChunk Pipeline\n" +
 				$"  Send: {(chunkSending.Enabled ? "on" : "off")} server={chunkSending.MaxChunksPerServerTick} client={chunkSending.MaxChunksPerClientTick} local={(chunkSending.IncludeLocalClients ? "yes" : "no")} adaptive={(chunkSending.AdaptiveUnderOverload ? "yes" : "no")} overload={chunkSending.OverloadTickMs}ms scale={chunkSending.OverloadScale:0.##}\n" +
 				$"  Last: budget={lastChunkBudget} sent={lastChunksSent} deferredClients={lastDeferredClients}\n" +
-				$"  Totals: ticks={totalChunkSendTicks} sent={totalChunksSent} avg={averageChunks} peak={peakChunksSent}\n" +
+				$"  Fairness: lastNearFar={lastNearRingChunkSends}/{lastFarRingChunkSends} totalNearFar={totalNearRingChunkSends}/{totalFarRingChunkSends} skippedClient={lastSkippedClientChunkCap} skippedServer={lastSkippedServerChunkCap} skippedPressure={lastSkippedOutboundPressure}\n" +
+				$"  Totals: ticks={totalChunkSendTicks} sent={totalChunksSent} avg={averageChunks} peak={peakChunksSent} skippedClient={totalSkippedClientChunkCap} skippedServer={totalSkippedServerChunkCap} skippedPressure={totalSkippedOutboundPressure}\n" +
 				$"  Generation: {(chunkGeneration.Enabled ? "on" : "off")} server={chunkGeneration.MaxColumnRequestsPerServerTick} client={chunkGeneration.MaxColumnRequestsPerClientTick} local={(chunkGeneration.IncludeLocalClients ? "yes" : "no")} adaptive={(chunkGeneration.AdaptiveUnderOverload ? "yes" : "no")} overload={chunkGeneration.OverloadTickMs}ms scale={chunkGeneration.OverloadScale:0.##}\n" +
 				$"  Last gen: budget={lastColumnRequestBudget} requested={lastColumnRequests} queues={lastPendingColumnRequests}/{lastWorkerColumnRequests}\n" +
 				$"  Gen totals: requested={totalColumnRequests} avg={averageColumnRequests} deferredClients={totalGenerationDeferredClients} peak={peakColumnRequests}\n" +
 				$"  Requests: {(chunkRequestManagement.Enabled ? "on" : "off")} staleCancel={(chunkRequestManagement.CancelStalePendingRequests ? "yes" : "no")} forward={(chunkRequestManagement.PrioritizeMovingDirection ? "yes" : "no")} lastCancel={lastCancelledColumnRequests} peakCancel={peakCancelledColumnRequests} totalCancel={totalCancelledColumnRequests} prioritizedRings={totalPrioritizedChunkRings} lastPrioritized={lastPrioritizedChunkRings}\n" +
+				$"  Wanted: tracked={lastTrackedColumnRequests} wantedBy={lastWantedByColumnLinks} shared={lastSharedColumnRequests} workerTracked={lastWorkerTrackedColumnRequests} peaks={peakTrackedColumnRequests}/{peakSharedColumnRequests}\n" +
 				$"  Pregen: {(pregen.Enabled ? "on" : "off")} rate={pregen.MaxColumnsPerSecond}/s queues={pregen.MaxPendingColumnQueue}/{pregen.MaxWorkerColumnQueue} status={StratumRuntime.Pregen.ShortStatus}\n" +
 				"\nEntity Ticking\n" +
 				$"  Mode: {(entityTicking.Enabled ? "on" : "off")} far={entityTicking.FarEntityDistanceBlocks} interval={entityTicking.FarEntityTickInterval} movingExempt={(entityTicking.SkipMovingEntities ? "yes" : "no")}\n" +

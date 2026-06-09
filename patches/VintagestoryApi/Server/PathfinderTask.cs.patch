@@ -1,8 +1,8 @@
 diff --git a/VintagestoryApi/Server/PathfinderTask.cs b/VintagestoryApi/Server/PathfinderTask.cs
-index cc21075..b48973d 100644
+index cc21075..5c84f72 100644
 --- a/VintagestoryApi/Server/PathfinderTask.cs
 +++ b/VintagestoryApi/Server/PathfinderTask.cs
-@@ -16,22 +16,25 @@ namespace Vintagestory.API.Server
+@@ -16,22 +16,27 @@ namespace Vintagestory.API.Server
          public int searchDepth;
          public int mhdistanceTolerance = 0;
          public List<Vec3d> waypoints;
@@ -10,6 +10,8 @@ index cc21075..b48973d 100644
          public float modeMinFleeDistance;
 +        public long SourceEntityId;
 +        public long EnqueuedMilliseconds;
++        public double StratumNearestPlayerDistanceSq = double.MaxValue;
++        public bool StratumDropWhenFarUnderPressure;
  
          public bool Finished;
  

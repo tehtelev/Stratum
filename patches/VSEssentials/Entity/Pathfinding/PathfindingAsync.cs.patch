@@ -1,8 +1,8 @@
 diff --git a/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs b/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
-index 48a886b..b0ddb62 100644
+index 48a886b..7b443ba 100644
 --- a/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
 +++ b/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
-@@ -1,15 +1,45 @@
+@@ -1,15 +1,46 @@
  using System;
  using System.Collections.Concurrent;
 +using System.Collections.Generic;
@@ -11,13 +11,14 @@ index 48a886b..b0ddb62 100644
 +using System.Reflection;
  using Vintagestory.API.Common;
 +using Vintagestory.API.Common.Entities;
++using Vintagestory.API.MathTools;
  using Vintagestory.API.Server;
  
  #nullable disable
  
  namespace Vintagestory.Essentials
  {
-+    // Satellite worker ΓÇö each instance owns its own AStar and pulls from the shared queue.
++    // Extra worker; each instance owns its own AStar and pulls from the shared queue.
 +    internal class PathfindingAsyncWorker : IAsyncServerSystem
 +    {
 +        private readonly PathfindingAsync owner;
@@ -48,7 +49,7 @@ index 48a886b..b0ddb62 100644
          protected ICoreServerAPI api;
          // This system has its own AStar classes to avoid potential cross-thread issues with others (e.g. Essentials.PathfindSystem)
          protected AStar astar_offthread;
-@@ -17,10 +47,18 @@ namespace Vintagestory.Essentials
+@@ -17,10 +48,23 @@ namespace Vintagestory.Essentials
          protected bool isShuttingDown;
          public ConcurrentQueue<PathfinderTask> PathfinderTasks = new ConcurrentQueue<PathfinderTask>();
          protected readonly Stopwatch totalTime = new Stopwatch();
@@ -59,15 +60,20 @@ index 48a886b..b0ddb62 100644
 +        private readonly object stratumQueueTrimLock = new object();
 +        private int stratumMaxQueued;
 +        private int stratumMaxTaskAgeMs;
++        private bool stratumPriorityEnabled;
++        private int stratumPriorityQueueThreshold;
++        private int stratumFarTaskDistanceBlocks;
++        private bool stratumDropFarTasksUnderPressure;
 +        private long stratumDroppedQueuedTasks;
 +        private long stratumDroppedStaleTasks;
++        private long stratumDroppedFarTasks;
 +
          public override bool ShouldLoad(EnumAppSide forSide)
          {
              return forSide == EnumAppSide.Server;
          }
  
-@@ -33,10 +71,56 @@ namespace Vintagestory.Essentials
+@@ -33,10 +77,68 @@ namespace Vintagestory.Essentials
  
              api.Event.ServerRunPhase(EnumServerRunPhase.Shutdown, () => isShuttingDown = true);
              api.Event.RegisterGameTickListener(OnMainThreadTick, 20);
@@ -83,6 +89,10 @@ index 48a886b..b0ddb62 100644
 +            int extra = 0;
 +            int maxQueued = 0;
 +            int maxTaskAgeMs = 2000;
++            bool priorityEnabled = true;
++            int priorityQueueThreshold = 64;
++            int farTaskDistanceBlocks = 160;
++            bool dropFarTasksUnderPressure = true;
 +            bool asyncEnabled = true;
 +            try
 +            {
@@ -101,6 +111,10 @@ index 48a886b..b0ddb62 100644
 +                    extra = Math.Max(0, workers - 1);
 +                    maxQueued = (int)(pf.GetType().GetProperty("MaxQueued")?.GetValue(pf) ?? 0);
 +                    maxTaskAgeMs = (int)(pf.GetType().GetProperty("MaxTaskAgeMs")?.GetValue(pf) ?? maxTaskAgeMs);
++                    priorityEnabled = (bool)(pf.GetType().GetProperty("PriorityEnabled")?.GetValue(pf) ?? priorityEnabled);
++                    priorityQueueThreshold = (int)(pf.GetType().GetProperty("PriorityQueueThreshold")?.GetValue(pf) ?? priorityQueueThreshold);
++                    farTaskDistanceBlocks = (int)(pf.GetType().GetProperty("FarTaskDistanceBlocks")?.GetValue(pf) ?? farTaskDistanceBlocks);
++                    dropFarTasksUnderPressure = (bool)(pf.GetType().GetProperty("DropFarTasksUnderPressure")?.GetValue(pf) ?? dropFarTasksUnderPressure);
 +                }
 +            }
 +            catch (Exception e)
@@ -110,6 +124,10 @@ index 48a886b..b0ddb62 100644
 +
 +            stratumMaxQueued = maxQueued;
 +            stratumMaxTaskAgeMs = Math.Max(0, maxTaskAgeMs);
++            stratumPriorityEnabled = priorityEnabled;
++            stratumPriorityQueueThreshold = Math.Max(0, priorityQueueThreshold);
++            stratumFarTaskDistanceBlocks = Math.Max(0, farTaskDistanceBlocks);
++            stratumDropFarTasksUnderPressure = dropFarTasksUnderPressure;
 +            if (!asyncEnabled || extra <= 0) return;
 +
 +            for (int i = 0; i < extra; i++)
@@ -124,7 +142,7 @@ index 48a886b..b0ddb62 100644
  
          public int OffThreadInterval()
          {
-@@ -103,20 +187,123 @@ namespace Vintagestory.Essentials
+@@ -103,20 +205,230 @@ namespace Vintagestory.Essentials
          /// <summary>
          /// Threadsafe way of dequeueing next task
          /// </summary>
@@ -152,11 +170,24 @@ index 48a886b..b0ddb62 100644
 +            if (task != null)
 +            {
 +                task.EnqueuedMilliseconds = api?.World?.ElapsedMilliseconds ?? 0;
++                StratumScoreTask(task);
 +            }
 +
-+            if (stratumMaxQueued > 0 && PathfinderTasks.Count >= stratumMaxQueued)
++            int queueDepth = PathfinderTasks.Count;
++            bool underPressure = StratumIsQueueUnderPressure(queueDepth);
++            if (underPressure && StratumShouldDropFarTask(task))
++            {
++                StratumMarkDropped(task);
++                stratumDroppedFarTasks++;
++                return;
++            }
++
++            if (stratumMaxQueued > 0 && queueDepth >= stratumMaxQueued)
 +            {
 +                StratumPrunePathfinderQueue(forceOneFreeSlot: true);
++            } else if (underPressure)
++            {
++                StratumPrunePathfinderQueue(forceOneFreeSlot: false);
 +            }
              PathfinderTasks.Enqueue(task);
          }
@@ -176,8 +207,9 @@ index 48a886b..b0ddb62 100644
 +                    return;
 +                }
 +
-+                int targetKeep = forceOneFreeSlot ? Math.Max(0, stratumMaxQueued - 1) : stratumMaxQueued;
-+                List<PathfinderTask> keep = new List<PathfinderTask>(Math.Min(count, stratumMaxQueued));
++                int targetKeep = stratumMaxQueued > 0 ? (forceOneFreeSlot ? Math.Max(0, stratumMaxQueued - 1) : stratumMaxQueued) : count;
++                bool underPressure = StratumIsQueueUnderPressure(count);
++                List<PathfinderTask> keep = new List<PathfinderTask>(stratumMaxQueued > 0 ? Math.Min(count, stratumMaxQueued) : count);
 +                for (int i = 0; i < count && PathfinderTasks.TryDequeue(out PathfinderTask queued); i++)
 +                {
 +                    if (StratumIsObsoleteTask(queued, out _))
@@ -187,22 +219,115 @@ index 48a886b..b0ddb62 100644
 +                        continue;
 +                    }
 +
-+                    keep.Add(queued);
-+                }
-+
-+                int overflow = Math.Max(0, keep.Count - targetKeep);
-+                for (int i = 0; i < keep.Count; i++)
-+                {
-+                    if (i < overflow)
++                    if (underPressure && StratumShouldDropFarTask(queued))
 +                    {
-+                        StratumMarkDropped(keep[i]);
-+                        stratumDroppedQueuedTasks++;
++                        StratumMarkDropped(queued);
++                        stratumDroppedFarTasks++;
 +                        continue;
 +                    }
 +
++                    StratumScoreTask(queued);
++                    keep.Add(queued);
++                }
++
++                if (stratumPriorityEnabled && underPressure)
++                {
++                    keep.Sort(StratumCompareTasks);
++                }
++
++                int overflow = Math.Max(0, keep.Count - targetKeep);
++                for (int i = keep.Count - 1; i >= 0 && overflow > 0; i--, overflow--)
++                {
++                    StratumMarkDropped(keep[i]);
++                    stratumDroppedQueuedTasks++;
++                    keep.RemoveAt(i);
++                }
++
++                for (int i = 0; i < keep.Count; i++)
++                {
 +                    PathfinderTasks.Enqueue(keep[i]);
 +                }
 +            }
++        }
++
++        private bool StratumIsQueueUnderPressure(int queueDepth)
++        {
++            if (!stratumPriorityEnabled)
++            {
++                return false;
++            }
++
++            int threshold = stratumPriorityQueueThreshold;
++            if (threshold <= 0 && stratumMaxQueued > 0)
++            {
++                threshold = Math.Max(1, stratumMaxQueued / 2);
++            }
++
++            return threshold > 0 && queueDepth >= threshold;
++        }
++
++        private bool StratumShouldDropFarTask(PathfinderTask task)
++        {
++            if (!stratumDropFarTasksUnderPressure || stratumFarTaskDistanceBlocks <= 0 || task == null)
++            {
++                return false;
++            }
++
++            double maxDistanceSq = (double)stratumFarTaskDistanceBlocks * stratumFarTaskDistanceBlocks;
++            return task.StratumDropWhenFarUnderPressure && task.StratumNearestPlayerDistanceSq > maxDistanceSq;
++        }
++
++        private void StratumScoreTask(PathfinderTask task)
++        {
++            if (task == null)
++            {
++                return;
++            }
++
++            Vec3d taskPos = null;
++            if (task.SourceEntityId > 0)
++            {
++                Entity owner = api?.World?.GetEntityById(task.SourceEntityId);
++                if (owner != null)
++                {
++                    taskPos = owner.ServerPos?.XYZ ?? owner.Pos?.XYZ;
++                }
++            }
++
++            taskPos ??= new Vec3d(task.startBlockPos.X + 0.5, task.startBlockPos.Y + 0.5, task.startBlockPos.Z + 0.5);
++            double nearestSq = double.MaxValue;
++            IPlayer[] players = api?.World?.AllOnlinePlayers;
++            if (players != null)
++            {
++                for (int i = 0; i < players.Length; i++)
++                {
++                    Entity playerEntity = players[i]?.Entity;
++                    if (playerEntity == null)
++                    {
++                        continue;
++                    }
++
++                    double distanceSq = playerEntity.ServerPos.SquareDistanceTo(taskPos);
++                    if (distanceSq < nearestSq)
++                    {
++                        nearestSq = distanceSq;
++                    }
++                }
++            }
++
++            task.StratumNearestPlayerDistanceSq = nearestSq;
++            task.StratumDropWhenFarUnderPressure = nearestSq < double.MaxValue;
++        }
++
++        private static int StratumCompareTasks(PathfinderTask left, PathfinderTask right)
++        {
++            int distance = left.StratumNearestPlayerDistanceSq.CompareTo(right.StratumNearestPlayerDistanceSq);
++            if (distance != 0)
++            {
++                return distance;
++            }
++
++            return left.EnqueuedMilliseconds.CompareTo(right.EnqueuedMilliseconds);
 +        }
 +
 +        private bool StratumIsObsoleteTask(PathfinderTask task, out string reason)

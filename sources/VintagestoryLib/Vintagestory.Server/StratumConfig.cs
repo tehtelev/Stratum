@@ -730,11 +730,33 @@ internal class StratumPathfindingConfig
 	// before useful work is dropped. 0 = never stale by age.
 	public int MaxTaskAgeMs { get; set; } = 2000;
 
+	// Reorders queued work near players first once the queue is backed up.
+	public bool PriorityEnabled { get; set; } = true;
+
+	// Queue depth that enables priority sorting and pressure-only far task drops.
+	public int PriorityQueueThreshold { get; set; } = 64;
+
+	// Queued tasks whose owner is farther than this from all players can be dropped
+	// under queue pressure. 0 disables distance-based dropping.
+	public int FarTaskDistanceBlocks { get; set; } = 160;
+
+	public bool DropFarTasksUnderPressure { get; set; } = true;
+
+	// A short per-traverser cooldown after repeated no-path results. Keeps mobs from
+	// burning worker time on the same impossible goal every tick.
+	public int FailureCooldownAfterFailures { get; set; } = 3;
+
+	public int FailureCooldownMs { get; set; } = 1500;
+
 	public void EnsureSane()
 	{
 		WorkerThreads = Math.Max(0, WorkerThreads);
 		MaxQueued = Math.Max(0, MaxQueued);
 		MaxTaskAgeMs = Math.Max(0, MaxTaskAgeMs);
+		PriorityQueueThreshold = Math.Max(0, PriorityQueueThreshold);
+		FarTaskDistanceBlocks = Math.Max(0, FarTaskDistanceBlocks);
+		FailureCooldownAfterFailures = Math.Max(0, Math.Min(100, FailureCooldownAfterFailures));
+		FailureCooldownMs = Math.Max(0, Math.Min(60000, FailureCooldownMs));
 	}
 }
 
@@ -853,6 +875,26 @@ internal class StratumChunkSendingConfig
 
 	public int OverloadFloorClientTick { get; set; } = 8;
 
+	public bool FairSchedulingEnabled { get; set; } = true;
+
+	public int FairWindowMilliseconds { get; set; } = 5000;
+
+	public int NearRingRadiusChunks { get; set; } = 2;
+
+	public bool OutboundPressureEnabled { get; set; } = true;
+
+	public int OutboundPressurePendingSendsSoftLimit { get; set; } = 8;
+
+	public int OutboundPressurePendingSendsHardLimit { get; set; } = 32;
+
+	public int OutboundPressurePendingBytesSoftLimit { get; set; } = 262144;
+
+	public int OutboundPressurePendingBytesHardLimit { get; set; } = 1048576;
+
+	public float OutboundPressureScale { get; set; } = 0.5f;
+
+	public int OutboundPressureMinimumClientBudget { get; set; } = 2;
+
 	public void EnsureSane()
 	{
 		MaxChunksPerServerTick = Math.Max(1, MaxChunksPerServerTick);
@@ -861,6 +903,14 @@ internal class StratumChunkSendingConfig
 		OverloadScale = Math.Max(0.05f, Math.Min(1f, OverloadScale));
 		OverloadFloorServerTick = Math.Max(1, OverloadFloorServerTick);
 		OverloadFloorClientTick = Math.Max(1, OverloadFloorClientTick);
+		FairWindowMilliseconds = Math.Max(1000, FairWindowMilliseconds);
+		NearRingRadiusChunks = Math.Max(0, NearRingRadiusChunks);
+		OutboundPressurePendingSendsSoftLimit = Math.Max(1, OutboundPressurePendingSendsSoftLimit);
+		OutboundPressurePendingSendsHardLimit = Math.Max(OutboundPressurePendingSendsSoftLimit, OutboundPressurePendingSendsHardLimit);
+		OutboundPressurePendingBytesSoftLimit = Math.Max(1024, OutboundPressurePendingBytesSoftLimit);
+		OutboundPressurePendingBytesHardLimit = Math.Max(OutboundPressurePendingBytesSoftLimit, OutboundPressurePendingBytesHardLimit);
+		OutboundPressureScale = Math.Max(0.05f, Math.Min(1f, OutboundPressureScale));
+		OutboundPressureMinimumClientBudget = Math.Max(0, OutboundPressureMinimumClientBudget);
 	}
 }
 

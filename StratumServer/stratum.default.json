@@ -80,7 +80,17 @@
       "Enabled": true,
       "MaxChunksPerServerTick": 384,
       "MaxChunksPerClientTick": 64,
-      "IncludeLocalClients": false
+      "IncludeLocalClients": false,
+      "FairSchedulingEnabled": true,
+      "FairWindowMilliseconds": 5000,
+      "NearRingRadiusChunks": 2,
+      "OutboundPressureEnabled": true,
+      "OutboundPressurePendingSendsSoftLimit": 8,
+      "OutboundPressurePendingSendsHardLimit": 32,
+      "OutboundPressurePendingBytesSoftLimit": 262144,
+      "OutboundPressurePendingBytesHardLimit": 1048576,
+      "OutboundPressureScale": 0.5,
+      "OutboundPressureMinimumClientBudget": 2
     },
     "ChunkGeneration": {
       "Enabled": true,
@@ -112,6 +122,18 @@
       "PauseWhenPlayersOnline": true,
       "PauseBelowTps": 20.0,
       "ProgressLogIntervalSeconds": 60
+    },
+    "Pathfinding": {
+      "Async": true,
+      "WorkerThreads": 0,
+      "MaxQueued": 512,
+      "MaxTaskAgeMs": 2000,
+      "PriorityEnabled": true,
+      "PriorityQueueThreshold": 64,
+      "FarTaskDistanceBlocks": 160,
+      "DropFarTasksUnderPressure": true,
+      "FailureCooldownAfterFailures": 3,
+      "FailureCooldownMs": 1500
     },
     "SimulationDistance": {
       "Enabled": true,
