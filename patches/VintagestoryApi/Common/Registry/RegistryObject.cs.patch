@@ -1,8 +1,8 @@
 diff --git a/VintagestoryApi/Common/Registry/RegistryObject.cs b/VintagestoryApi/Common/Registry/RegistryObject.cs
-index 505a304..d6def61 100644
+index 505a304..66cc2db 100644
 --- a/VintagestoryApi/Common/Registry/RegistryObject.cs
 +++ b/VintagestoryApi/Common/Registry/RegistryObject.cs
-@@ -299,26 +299,102 @@ namespace Vintagestory.API.Common
+@@ -299,26 +299,106 @@ namespace Vintagestory.API.Common
              }
  
              return input;
@@ -10,6 +10,10 @@ index 505a304..d6def61 100644
  
 +
 +        // Stratum start: a more efficient one-pass implementation without using regular expressions
++        // Affects server startup speed, especially with a large number of mods.
++        // Testing on 36 popular mods revealed:
++        // - Reduction in function time: from 1836 ms to 259 ms;
++        // - Reduction in GC mem allocations: from 25.75 GB to 25.32 GB.
 +
          /// <summary>
          /// Used by the block loader to replace wildcards with their final values
