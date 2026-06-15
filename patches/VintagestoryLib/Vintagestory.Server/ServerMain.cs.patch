@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerMain.cs b/VintagestoryLib/Vintagestory.Server/ServerMain.cs
-index 1017be9..bb2d35a 100644
+index 1017be9..16bfa52 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerMain.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerMain.cs
 @@ -27,10 +27,12 @@ using VintagestoryLib.Server.Systems;
@@ -633,28 +633,7 @@ index 1017be9..bb2d35a 100644
  	public int GetAllowedChunkRadius(ConnectedClient client)
  	{
  		int num = (int)Math.Ceiling((float)((client.WorldData == null) ? 128 : client.WorldData.Viewdistance) / (float)MagicNum.ServerChunkSize);
-@@ -2438,12 +2621,18 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 			block.Sounds = new BlockSounds();
- 		}
- 		if (nextFreeBlockId >= Blocks.Count)
- 		{
- 			FastSmallDictionary<string, CompositeTexture> textures = new FastSmallDictionary<string, CompositeTexture>("all", new CompositeTexture(new AssetLocation("unknown")));
--			(Blocks as BlockList).PreAlloc(nextFreeBlockId + 1);
--			while (Blocks.Count <= nextFreeBlockId)
-+            // Stratum start: reducing the frequency of Array.Resize calls
-+            // Testing on 36 popular mods revealed:
-+            // Reduction in function time: from 423 ms to 231 ms;
-+            // Reduction in GC mem allocations for Block[]: from 1.74 GB to 0.197 GB.
-+            int stratumPeriodUnits = 100; // Pre-allocation call frequency: 100 is the most optimal	
-+            (Blocks as BlockList).PreAlloc(((nextFreeBlockId / stratumPeriodUnits) + 1) * stratumPeriodUnits);   // we grow the array by stratumPeriodUnits units at a time, which reduces the load on the GC
-+            // Stratum end:
-+            while (Blocks.Count <= nextFreeBlockId)
- 			{
- 				Blocks.Add(new Block
- 				{
- 					Textures = textures,
- 					Code = new AssetLocation("unknown"),
-@@ -2994,11 +3183,62 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -2994,11 +3177,62 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		return WorldMap.GetServerChunk(entity.InChunkIndex3d)?.RemoveEntity(entity.EntityId) ?? false;
  	}
  
@@ -718,7 +697,7 @@ index 1017be9..bb2d35a 100644
  	public Entity GetEntityById(long entityId)
  	{
  		LoadedEntities.TryGetValue(entityId, out var value);
-@@ -3289,20 +3529,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3289,20 +3523,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		return result;
  	}
  
@@ -762,7 +741,7 @@ index 1017be9..bb2d35a 100644
  	public IPlayer PlayerByUid(string playerUid)
  	{
  		if (playerUid == null)
-@@ -3427,11 +3685,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3427,11 +3679,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			{
  				Socket = senderConnection
  			});
@@ -775,7 +754,7 @@ index 1017be9..bb2d35a 100644
  		case NetworkMessageType.Data:
  		{
  			ConnectedClient client2 = msg.SenderConnection.client;
-@@ -3446,11 +3704,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3446,11 +3698,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		{
  			ConnectedClient client = msg.SenderConnection.client;
  			if (client != null)
@@ -788,7 +767,7 @@ index 1017be9..bb2d35a 100644
  		}
  		}
  	}
-@@ -3472,13 +3730,54 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3472,13 +3724,54 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			DisconnectedClientsThisTick.Add(client.Id);
  			item = new ReceivedClientPacket(client, (client.Player == null) ? "" : "Network error: invalid client packet");
  		}
@@ -845,7 +824,7 @@ index 1017be9..bb2d35a 100644
  	private void HandleClientPacket_mainthread(ReceivedClientPacket cpk)
  	{
  		ConnectedClient client = cpk.client;
-@@ -3500,15 +3799,42 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3500,15 +3793,42 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			{
  				Logger.Event("Client " + client.Id + " disconnected.");
  				EventManager.TriggerPlayerLeave(client.Player);
@@ -889,7 +868,7 @@ index 1017be9..bb2d35a 100644
  				FrameProfiler.Mark("net-read-", packet.Id);
  			}
  			return;
-@@ -3516,11 +3842,19 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3516,11 +3836,19 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		ClientPacketHandler<Packet_Client, ConnectedClient> clientPacketHandler = PacketHandlers[packet.Id];
  		if (clientPacketHandler != null && (client.Player != null || PacketHandlingOnConnectingAllowed[packet.Id]))
  		{
@@ -910,7 +889,7 @@ index 1017be9..bb2d35a 100644
  					FrameProfiler.Mark("net-read-", packet.Id);
  				}
  			}
-@@ -3557,30 +3891,34 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3557,30 +3885,34 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  						case "missingmptokenv2":
  						case "missingaccount":
  						case "banned":
@@ -949,7 +928,7 @@ index 1017be9..bb2d35a 100644
  			if (!orCreateServerPlayerData.HasPrivilege(Privilege.controlserver, Config.RolesByCode) && !orCreateServerPlayerData.HasPrivilege("ignoremaxclients", Config.RolesByCode))
  			{
  				tryEnqueuePlayer(packet, client, entitlements, maxClients);
-@@ -3635,11 +3973,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3635,11 +3967,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  				Logger.Notification($"Player {packet.Playername} was put into the connection queue at position {count2}");
  				SendPacket(client.Id, packet2);
  				return;
@@ -962,7 +941,7 @@ index 1017be9..bb2d35a 100644
  	private void FinalizePlayerIdentification(Packet_ClientIdentification packet, ConnectedClient client, string entitlements)
  	{
  		client.State = EnumClientState.Admitted;
-@@ -3704,11 +4042,14 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3704,11 +4036,14 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  					{
  						Id = 78
  					};
@@ -978,7 +957,7 @@ index 1017be9..bb2d35a 100644
  				{
  					Logger.Debug($"UDP: Client {client.Id} did send UDP");
  				}
-@@ -3773,10 +4114,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3773,10 +4108,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			SendServerIdentification(client.Player);
  			SpawnPlayerRandomlyAround(client, playername, entityPos, 15);
  			client.IsNewClient = false;
@@ -999,7 +978,7 @@ index 1017be9..bb2d35a 100644
  			SendServerIdentification(client.Player);
  			client.Entityplayer.Pos.SetFrom(entityPos);
  			SpawnEntity(client.Entityplayer);
-@@ -3814,11 +4165,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3814,11 +4159,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  
  	public void LocateRandomPosition(Vec3d centerPos, float radius, int tries, ActionConsumable<BlockPos> testThisPosition, Action<BlockPos> onSearchOver)
  	{
@@ -1012,7 +991,7 @@ index 1017be9..bb2d35a 100644
  		BlockPos asBlockPos = targetPos.AsBlockPos;
  		if (tries <= 0)
  		{
-@@ -3851,10 +4202,21 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3851,10 +4196,21 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	}
  
  	private void SpawnPlayerRandomlyAround(ConnectedClient client, string playername, EntityPos centerPos, int tries)
@@ -1034,7 +1013,7 @@ index 1017be9..bb2d35a 100644
  			EntityPos entityPos = centerPos.Copy();
  			if (pos == null)
  			{
-@@ -3869,10 +4231,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3869,10 +4225,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			}
  			SpawnPlayerHere(client, playername, entityPos);
  		});
@@ -1073,7 +1052,7 @@ index 1017be9..bb2d35a 100644
  		Clients.TryGetValue(client.Id, out var value);
  		if (value != null)
  		{
-@@ -4244,11 +4634,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4244,11 +4628,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  
  	internal void BroadcastArbitraryPacket(byte[] data, params IServerPlayer[] skipPlayers)
  	{
@@ -1086,7 +1065,7 @@ index 1017be9..bb2d35a 100644
  			}
  		}
  	}
-@@ -4258,11 +4648,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4258,11 +4642,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		Serialize_(packet);
  		byte[] array = null;
  		bool compressed = false;
@@ -1099,7 +1078,7 @@ index 1017be9..bb2d35a 100644
  				{
  					array = client.Socket.PreparePacketForSending(reusableBuffer, Config.CompressPackets, out compressed);
  				}
-@@ -4277,17 +4667,35 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4277,17 +4661,35 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  
  	internal void BroadcastArbitraryUdpPacket(Packet_UdpPacket data, params IServerPlayer[] skipPlayers)
  	{
@@ -1136,7 +1115,7 @@ index 1017be9..bb2d35a 100644
  		if (packetBenchmark.ContainsKey(packetId))
  		{
  			packetBenchmark[packetId]++;
-@@ -4425,11 +4833,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4425,11 +4827,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			EnumSendResult result = value.Socket.HiPerformanceSend(box, Logger, Config.CompressPackets);
  			HandleSendingResult(result, box.LengthSent, value);
  		}
@@ -1149,7 +1128,7 @@ index 1017be9..bb2d35a 100644
  		HandleSendingResult(result, packetBytes.Length, client);
  	}
  
-@@ -4694,15 +5102,40 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4694,15 +5096,40 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	}
  
  	private void SendWorldMetaData(IServerPlayer player)
@@ -1190,7 +1169,7 @@ index 1017be9..bb2d35a 100644
  		float[] array = blockLightLevels;
  		Packet_WorldMetaData packet_WorldMetaData = new Packet_WorldMetaData();
  		int[] array2 = new int[array.Length];
-@@ -4755,14 +5188,53 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4755,14 +5182,53 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		{
  			((DummyUdpNetServer)UdpSockets[0]).Client.Player = player;
  		}
@@ -1245,7 +1224,7 @@ index 1017be9..bb2d35a 100644
  		List<Packet_ModId> list = (from mod in api.ModLoader.Mods
  			where mod.Info.Side.IsUniversal()
  			select new Packet_ModId
-@@ -4791,15 +5263,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4791,15 +5257,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			RequireRemapping = ((controlServerPrivilege && requiresRemaps) ? 1 : 0)
  		};
  		Logger.Notification((Config.DisableAutoRemap ? ("Sending server identification with remap " + requiresRemaps) : "Sending server identification") + ". Server control privilege is " + controlServerPrivilege);
@@ -1268,7 +1247,7 @@ index 1017be9..bb2d35a 100644
  		}
  		return new Packet_Server
  		{
-@@ -4843,12 +5320,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4843,12 +5314,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  				array[num] = item.Id;
  				array2[num] = (int)(1000f * item.Player.Ping);
  				num++;
