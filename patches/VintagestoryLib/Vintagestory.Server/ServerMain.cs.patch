@@ -999,19 +999,6 @@ index 1017be9..bb2d35a 100644
  			SendServerIdentification(client.Player);
  			client.Entityplayer.Pos.SetFrom(entityPos);
  			SpawnEntity(client.Entityplayer);
-@@ -3814,11 +4165,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 
- 	public void LocateRandomPosition(Vec3d centerPos, float radius, int tries, ActionConsumable<BlockPos> testThisPosition, Action<BlockPos> onSearchOver)
- 	{
- 		Vec3d targetPos = centerPos.Clone();
- 		float num = (float)Math.PI * 2f * (float)rand.Value.NextDouble();
--		float num2 = GameMath.Sqrt(rand.Value.NextDouble()) * radius;
-+		float num2 = (float)rand.Value.NextDouble() * radius;
- 		targetPos.X += Math.Sin(num) * (double)num2;
- 		targetPos.Z += Math.Cos(num) * (double)num2;
- 		BlockPos asBlockPos = targetPos.AsBlockPos;
- 		if (tries <= 0)
- 		{
 @@ -3851,10 +4202,21 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	}
  
