@@ -15,15 +15,40 @@ Big thanks to everyone supporting Stratum.
 
 ### Supporters
 
-<p align="center">
-	<a href="https://ko-fi.com/imtsubaki">
-		<img src="https://storage.ko-fi.com/cdn/useruploads/2e1bd9ac-27b3-4473-90c5-85715da416d3_c9a1e3e3-4f81-40b0-93b3-9ffd57da54b7.png" width="96" height="96" alt="Ko-fi supporter avatar" style="border-radius: 12px;" />
-	</a>
-	<br />
-	<strong>Algernon</strong>
-	<br />
-	<sub>☕ Thanks for helping keep Stratum moving.</sub>
-</p>
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center" width="140">
+      <a href="https://ko-fi.com/imtsubaki">
+        <img
+          src="https://storage.ko-fi.com/cdn/useruploads/2e1bd9ac-27b3-4473-90c5-85715da416d3_c9a1e3e3-4f81-40b0-93b3-9ffd57da54b7.png"
+          width="96"
+          height="96"
+          alt="Algernon"
+        />
+      </a>
+      <br />
+      <strong>Algernon</strong>
+    </td>
+    <td align="center" width="140">
+      <a href="https://ko-fi.com/imtsubaki">
+        <img
+          src="https://storage.ko-fi.com/cdn/useruploads/08030810-3fe7-497e-a282-001ae6eeca2d_c83f8475-28b8-49b6-82bf-7b2db24edfd7.png"
+          width="96"
+          height="96"
+          alt="PHoenixOPHury"
+        />
+      </a>
+      <br />
+      <strong>PHoenixOPHury</strong>
+    </td>
+  </tr>
+</table>
+
+<sub>☕ Thanks for helping keep Stratum moving.</sub>
+
+</div>
 
 ## Install
 
