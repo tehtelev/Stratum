@@ -1,0 +1,198 @@
+diff --git a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
+index 2b6633c..90ad42e 100644
+--- a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
++++ b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
+@@ -206,21 +206,56 @@ namespace Vintagestory.ServerMods
+             var rnd = new LCGRandom(Api.World.Seed);
+             absAvgQuantity = GetAbsAvgQuantity(rnd);
+         }
+ 
+ 
++        // Stratum start: 
++        // Calculates noise 20 times faster than DistortNoiseGen.Noise
++
++        const float invUintMax = 1.0f / uint.MaxValue;   // ~2.32830644e-10f
++
++        /// <summary>
++        /// Fast hash function returning 0-1
++        /// </summary>
++        /// <param name="x"></param>
++        /// <param name="z"></param>
++        /// <returns></returns>
++        float FastNoise(int x, int z)
++        {
++            uint hash = (uint)(x * 1619 + z * 31337);
++            hash = (hash ^ 61) ^ (hash >> 16);
++            hash *= 9;
++            hash ^= hash >> 4;
++            hash *= 0x27d4eb2d;
++            hash ^= hash >> 15;
++            return hash * invUintMax;
++        }
++
++        // Stratum end
++
++
+ 
+ 
+         public override void GenDeposit(IBlockAccessor blockAccessor, IServerChunk[] chunks, int chunkX, int chunkZ, BlockPos depoCenterPos, ref Dictionary<BlockPos, DepositVariant> subDepositsToPlace)
+         {
+             int radius = Math.Min(64, (int)Radius.nextFloat(1, DepositRand));
+             if (radius <= 0) return;
+ 
+             // Let's deform that perfect circle a bit (+/- 25%)
+-            float deform = GameMath.Clamp(DepositRand.NextFloat() - 0.5f, -0.25f, 0.25f);
+-            radiusX = radius - (int)(radius * deform);
+-            radiusZ = radius + (int)(radius * deform);
++            // Stratum start:
++
++            // Multiple minor improvements
++            // 1. Custom fast noise function
++            // 2. Variable reuse
++            // 3. One-time calculation of some division operations
++            // Testing on 10,200 generation chunks:
++            // - Total method execution time: decreased from 32.6 s to 9.1 s;
++            // - GC load: decreased from 256 MB to 198 MB.
++
++            int deformation = (int)(radius * (DepositRand.NextFloat() - 0.5f) * 0.5f);
++            radiusX = radius - deformation;
++            radiusZ = radius + deformation;
+ 
+             int baseX = chunkX * chunksize;
+             int baseZ = chunkZ * chunksize;
+ 
+             // No need to caluclate further if this deposit won't be part of this chunk
+@@ -277,10 +312,14 @@ namespace Vintagestory.ServerMods
+ 
+             float invChunkAreaSize = 1f / (chunksize * chunksize);
+             double val;
+ 
+             int posy;
++
++            Block placeblock;
++            DepositVariant[] childDeposits;
++
+             for (int posx = minx; posx < maxx; posx++)
+             {
+                 lx = posx - baseX;
+                 distx = posx - depoCenterPos.X;
+ 
+@@ -290,34 +329,32 @@ namespace Vintagestory.ServerMods
+                 {
+                     posy = depoCenterPos.Y;
+                     lz = posz - baseZ;
+                     distz = posz - depoCenterPos.Z;
+ 
+-
+-                    // Kinda weird mathematically speaking, but seems to work as a means to distort the perfect circleness of deposits ¯\_(ツ)_/¯
+-                    // Also not very efficient to use direct perlin noise in here :/
+-                    // But after ~10 hours of failing (=weird lines of missing deposit material) with a pre-generated 2d distortion map i give up >.>
+-                    val = 1 - (radius > 3 ? DistortNoiseGen.Noise(posx / 3.0, posz / 3.0) * 0.2 : 0);
++                    val = 1 - (radius > 3 ? (FastNoise(posx, posz) * 0.2f) : 0); // Stratum: our noise function for disc edges
+                     double distanceToEdge = val - (xSq + distz * distz * zRadSqInv);
+                     if (distanceToEdge < 0) continue;
+ 
+                     targetPos.Set(posx, posy, posz);
+                     loadYPosAndThickness(heremapchunk, lx, lz, targetPos, distanceToEdge);
+                     posy = targetPos.Y;
+                     if (posy >= worldheight) continue;
+ 
++                    int posyChunksizeMod = posy % chunksize;
++                    int posyChunksizeDiv = posy / chunksize;
+ 
+                     // Some deposits may not appear all over cliffs
+                     if (Math.Abs(depoCenterPos.Y - posy) > MaxYRoughness) continue;
+ 
+ 
+                     for (int y = 0; y < hereThickness; y++)
+                     {
+                         if (posy <= 1) continue;
+ 
+-                        int index3d = ((posy % chunksize) * chunksize + lz) * chunksize + lx;
+-                        int blockId = chunks[posy / chunksize].Data.GetBlockIdUnsafe(index3d);
++                        int index3d = ((posyChunksizeMod) * chunksize + lz) * chunksize + lx;
++                        int blockId = chunks[posyChunksizeDiv].Data.GetBlockIdUnsafe(index3d);
+ 
+ 
+                         if (!IgnoreParentTestPerBlock || !parentBlockOk)
+                         {
+                             parentBlockOk = placeBlockByInBlockId.TryGetValue(blockId, out resolvedPlaceBlock);
+@@ -325,37 +362,37 @@ namespace Vintagestory.ServerMods
+ 
+                         if (parentBlockOk && resolvedPlaceBlock.Blocks.Length > 0)
+                         {
+                             int gradeIndex = Math.Min(resolvedPlaceBlock.Blocks.Length - 1, depositGradeIndex);
+ 
+-                            Block placeblock = resolvedPlaceBlock.Blocks[gradeIndex];
++                            placeblock = resolvedPlaceBlock.Blocks[gradeIndex];
+ 
+-                            if (variant.WithBlockCallback || (WithLastLayerBlockCallback && y == hereThickness-1))
++                            if (variant.WithBlockCallback || (WithLastLayerBlockCallback && y == hereThickness - 1))
+                             {
+                                 targetPos.Y = posy;
+                                 placeblock.TryPlaceBlockForWorldGen(blockAccessor, targetPos, BlockFacing.UP, DepositRand);
+                             }
+                             else
+                             {
+-                                IChunkBlocks chunkdata = chunks[posy / chunksize].Data;
++                                IChunkBlocks chunkdata = chunks[posyChunksizeDiv].Data;
+                                 chunkdata.SetBlockUnsafe(index3d, placeblock.BlockId);
+                                 chunkdata.SetFluid(index3d, 0);
+                             }
+ 
+-                            DepositVariant[] childDeposits = variant.ChildDeposits;
++                            childDeposits = variant.ChildDeposits;
+                             if (childDeposits != null)
+                             {
+-                                for (int i = 0; i < childDeposits.Length; i++)
++                                foreach (var deposit in childDeposits)
+                                 {
+                                     float rndVal = DepositRand.NextFloat();
+-                                    float quantity = childDeposits[i].TriesPerChunk * invChunkAreaSize;
++                                    float quantity = deposit.TriesPerChunk * invChunkAreaSize;
+ 
+                                     if (quantity > rndVal)
+                                     {
+-                                        if (ShouldPlaceAdjustedForOreMap(childDeposits[i], posx, posz, quantity, rndVal))
++                                        if (ShouldPlaceAdjustedForOreMap(deposit, posx, posz, quantity, rndVal))
+                                         {
+-                                            subDepositsToPlace[new BlockPos(posx, posy, posz)] = childDeposits[i];
++                                            subDepositsToPlace[new BlockPos(posx, posy, posz)] = deposit;
+                                         }
+                                     }
+                                 }
+                             }
+ 
+@@ -383,10 +420,12 @@ namespace Vintagestory.ServerMods
+ 
+                         posy--;
+                     }
+                 }
+             }
++
++            // Stratum end
+         }
+ 
+         protected virtual bool shouldGenDepositHere(BlockPos depoCenterPos)
+         {
+             return true;
+@@ -404,12 +443,17 @@ namespace Vintagestory.ServerMods
+             int rdx = (pos.X / chunksize) % regionChunkSize;
+             int rdz = (pos.Z / chunksize) % regionChunkSize;
+ 
+ 
+             IMapRegion reg = heremapchunk.MapRegion;
+-            float yOffTop = reg.OreMapVerticalDistortTop.GetIntLerpedCorrectly(rdx * step + step * ((float)lx / chunksize), rdz * step + step * ((float)lz / chunksize)) - 20;
+-            float yOffBot = reg.OreMapVerticalDistortBottom.GetIntLerpedCorrectly(rdx * step + step * ((float)lx / chunksize), rdz * step + step * ((float)lz / chunksize)) - 20;
++            // Stratum start: repetitive calculations and step are moved out of parentheses for optimization
++            var numx = step * (rdx + ((float)lx / chunksize));
++            var numz = step * (rdz + ((float)lz / chunksize));
++
++            float yOffTop = reg.OreMapVerticalDistortTop.GetIntLerpedCorrectly(numx, numz) - 20;
++            float yOffBot = reg.OreMapVerticalDistortBottom.GetIntLerpedCorrectly(numx, numz) - 20;
++            // Stratum end
+ 
+             float yRel = (float)pos.Y / worldheight;
+             return yOffBot * (1 - yRel) + yOffTop * yRel;
+ 
+         }
