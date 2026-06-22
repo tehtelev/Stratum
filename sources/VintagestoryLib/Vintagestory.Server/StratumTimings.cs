@@ -175,6 +175,33 @@ internal sealed class StratumTimings
 			AppendTimingRow(output, row.Name, row.Calls, row.TotalTicks, row.MaxTicks, row.LastTicks, row.SlowCalls);
 		}
 
+		// Stratum start: hierarchical % breakdown (#7)
+		long grandTotalTicks = snapshot.Sum(row => row.TotalTicks);
+		if (grandTotalTicks > 0)
+		{
+			output.Append("\nHierarchy (% of total)\n");
+			Dictionary<string, long> groups = new Dictionary<string, long>(StringComparer.Ordinal);
+			foreach (var row in snapshot)
+			{
+				int dot = row.Name.IndexOf('.');
+				string prefix = dot > 0 ? row.Name.Substring(0, dot) : row.Name;
+				if (!groups.TryGetValue(prefix, out long existing)) existing = 0L;
+				groups[prefix] = existing + row.TotalTicks;
+			}
+			foreach (KeyValuePair<string, long> group in groups.OrderByDescending(g => g.Value))
+			{
+				double pct = (double)group.Value / grandTotalTicks * 100.0;
+				output.Append("  ").Append(group.Key).Append(" ").Append(TicksToMilliseconds(group.Value).ToString("0.#")).Append("ms (").Append(pct.ToString("0.#")).Append("%)\n");
+				List<(string Name, long TotalTicks)> children = snapshot.Where(row => row.Name.StartsWith(group.Key + ".", StringComparison.Ordinal)).OrderByDescending(row => row.TotalTicks).Take(5).Select(row => (row.Name, row.TotalTicks)).ToList();
+				foreach (var child in children)
+				{
+					double childPct = (double)child.TotalTicks / group.Value * 100.0;
+					output.Append("    ").Append(child.Name).Append(" ").Append(TicksToMilliseconds(child.TotalTicks).ToString("0.#")).Append("ms (").Append(childPct.ToString("0.#")).Append("%)\n");
+				}
+			}
+		}
+		// Stratum end
+
 		return output.ToString();
 	}
 
