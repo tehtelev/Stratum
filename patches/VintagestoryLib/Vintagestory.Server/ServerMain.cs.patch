@@ -79,7 +79,10 @@ index 1017be9..bb2d35a 100644
  		client.State = EnumClientState.Connected;
  		client.MillisecsAtConnect = totalUnpausedTime.ElapsedMilliseconds;
 -		joinLeaveDeathMessage(Lang.Get("player-joined", player.PlayerName), EnumChatType.JoinLeave, player);
-+		joinLeaveDeathMessage(StratumServerTheme.PlayerJoined(player.PlayerName) ?? Lang.Get("player-joined", player.PlayerName), EnumChatType.JoinLeave, player);
++		if (StratumRuntime.Config.Chat.ShowJoinMessages)
++		{
++			joinLeaveDeathMessage(StratumServerTheme.PlayerJoined(player.PlayerName) ?? Lang.Get("player-joined", player.PlayerName), EnumChatType.JoinLeave, player);
++		}
  		Logger.Event($"{player.PlayerName} {client.Socket.RemoteEndPoint()} joins.");
  		string text = Config.WelcomeMessage.Replace("{playername}", "{0}");
  		string message;
@@ -532,7 +535,11 @@ index 1017be9..bb2d35a 100644
 -				Logger.Event(othersKickmessage);
 +				string logMessage = ((originalOthersKickMessage != null) ? string.Format(Lang.Get("Player {0} got removed. Reason: {1}", playerName, originalOthersKickMessage), default(ReadOnlySpan<object>)) : string.Format(Lang.Get("Player {0} left.", playerName), default(ReadOnlySpan<object>)));
 +				string themedMessage = originalOthersKickMessage != null ? StratumServerTheme.PlayerRemoved(playerName, originalOthersKickMessage) : StratumServerTheme.PlayerLeft(playerName);
-+				joinLeaveDeathMessage(themedMessage ?? logMessage, EnumChatType.JoinLeave, player);
++				bool showMessage = originalOthersKickMessage != null ? StratumRuntime.Config.Chat.ShowDisconnectMessages : StratumRuntime.Config.Chat.ShowLeaveMessages; // Stratum: connection message toggles
++				if (showMessage)
++				{
++					joinLeaveDeathMessage(themedMessage ?? logMessage, EnumChatType.JoinLeave, player);
++				}
 +				Logger.Event(logMessage);
  			}
  			client.CloseConnection();

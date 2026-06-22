@@ -1646,6 +1646,14 @@ internal class StratumChatConfig
 
 	public bool LinkifyUrls { get; set; } = true;
 
+	// Stratum start: connection message toggles
+	public bool ShowJoinMessages { get; set; } = true;
+
+	public bool ShowLeaveMessages { get; set; } = true;
+
+	public bool ShowDisconnectMessages { get; set; } = true;
+	// Stratum end
+
 	// Minimum milliseconds between consecutive non-command chat lines from the same client.
 	// Messages sent faster than this are silently dropped server-side.
 	public int MinIntervalMs { get; set; } = 750;
