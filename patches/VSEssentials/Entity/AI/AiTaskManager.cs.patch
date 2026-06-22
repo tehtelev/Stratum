@@ -1,5 +1,5 @@
 diff --git a/VSEssentials/Entity/AI/AiTaskManager.cs b/VSEssentials/Entity/AI/AiTaskManager.cs
-index 86955cb..c8c8c7c 100644
+index 86955cb..de8723c 100644
 --- a/VSEssentials/Entity/AI/AiTaskManager.cs
 +++ b/VSEssentials/Entity/AI/AiTaskManager.cs
 @@ -76,10 +76,21 @@ public static class AiTaskRegistry
@@ -67,8 +67,7 @@ index 86955cb..c8c8c7c 100644
 +            {
 +                tasks.Shuffle(entity.World.Rand);
 +            }
- 
--        ProcessRunningTasks(dt);
++
 +            if (StratumEntityBehaviorTimings.Enabled)
 +            {
 +                long stratumStartScanStart = StratumEntityBehaviorTimings.GetTimestamp();
@@ -86,7 +85,8 @@ index 86955cb..c8c8c7c 100644
 +                StartNewTasks();
 +            }
 +        }
-+
+ 
+-        ProcessRunningTasks(dt);
 +        if (StratumEntityBehaviorTimings.Enabled)
 +        {
 +            long stratumTaskContinueStart = StratumEntityBehaviorTimings.GetTimestamp();
@@ -139,3 +139,31 @@ index 86955cb..c8c8c7c 100644
      {
          foreach (IAiTask task in tasks)
          {
+@@ -491,16 +571,27 @@ public sealed class AiTaskManager(Entity entity)
+         {
+             IAiTask? task = activeTasksBySlot[index];
+             if (task == null) continue;
+             if (!task.CanContinueExecute()) continue;
+ 
++            // Stratum start: per-AI-task-type timing (#7)
++            long stratumTaskStart = StratumEntityBehaviorTimings.GetTimestamp();
++            // Stratum end
+             if (!task.ContinueExecute(dt))
+             {
+                 task.FinishExecute(false);
+                 OnTaskStopped?.Invoke(task);
+                 activeTasksBySlot[index] = null;
+             }
++            // Stratum start: per-AI-task-type timing (#7)
++            if (stratumTaskStart != 0L)
++            {
++                string stratumCategory = entity is EntityPlayer ? "players" : entity.IsCreature ? "creatures" : "inanimate";
++                AiTaskRegistry.TaskCodes.TryGetValue(task.GetType(), out string taskCode);
++                StratumEntityBehaviorTimings.RecordNamed("entity.ai." + stratumCategory + ".task." + (taskCode ?? "unknown"), stratumTaskStart);
++            }
++            // Stratum end
+ 
+             if (entity.World.FrameProfiler.Enabled)
+             {
+                 entity.World.FrameProfiler.Mark("task-continueexec-", AiTaskRegistry.TaskCodes[task.GetType()]);
+             }
