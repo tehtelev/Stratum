@@ -112,8 +112,16 @@ try {
     }
 
     if (-not (Get-Command ilspycmd -ErrorAction SilentlyContinue)) {
-        Write-Host "Installing ilspycmd"
-        dotnet tool install -g ilspycmd | Out-Null
+        $manifest = Join-Path $PSScriptRoot "../.config/dotnet-tools.json"
+        if (Test-Path $manifest) {
+            $json = Get-Content $manifest -Raw | ConvertFrom-Json
+            $pinnedVersion = $json.tools.ilspycmd.version
+            Write-Host "Installing ilspycmd $pinnedVersion (from tool manifest)"
+            dotnet tool install -g ilspycmd --version $pinnedVersion | Out-Null
+        } else {
+            Write-Host "Installing ilspycmd (no manifest found, using latest)"
+            dotnet tool install -g ilspycmd | Out-Null
+        }
         $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
     }
 
