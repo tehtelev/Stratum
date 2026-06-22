@@ -22,7 +22,7 @@ internal class CmdStratum
 		server.api.commandapi.Create(StratumInfo.Id)
 			.WithAlias("serverinfo")
 			.WithDesc("Show Stratum server information")
-			.WithArgs(server.api.commandapi.Parsers.OptionalWord("status|version|update|health|reload|preflight|packets|performance|perf|timings|players|player|chunks|entities|queues|pathfinding|doctor|violations|access|chat|pregen|get|set|save"), server.api.commandapi.Parsers.OptionalWord("argument"), server.api.commandapi.Parsers.OptionalWord("detail"), server.api.commandapi.Parsers.OptionalWord("value1"), server.api.commandapi.Parsers.OptionalWord("value2"), server.api.commandapi.Parsers.OptionalWord("value3"), server.api.commandapi.Parsers.OptionalWord("value4"))
+			.WithArgs(server.api.commandapi.Parsers.OptionalWord("status|version|update|health|reload|preflight|packets|performance|perf|timings|players|player|chunks|entities|queues|pathfinding|doctor|regions|violations|access|chat|pregen|get|set|save"), server.api.commandapi.Parsers.OptionalWord("argument"), server.api.commandapi.Parsers.OptionalWord("detail"), server.api.commandapi.Parsers.OptionalWord("value1"), server.api.commandapi.Parsers.OptionalWord("value2"), server.api.commandapi.Parsers.OptionalWord("value3"), server.api.commandapi.Parsers.OptionalWord("value4"))
 			.RequiresPrivilege(Privilege.controlserver)
 			.HandleWith(HandleStratum);
 	}
@@ -100,6 +100,11 @@ internal class CmdStratum
 			return HandleEntities();
 		}
 
+		if (string.Equals(action, "regions", StringComparison.OrdinalIgnoreCase))
+		{
+			return HandleRegions();
+		}
+
 		if (string.Equals(action, "queues", StringComparison.OrdinalIgnoreCase))
 		{
 			return HandleQueues();
@@ -137,7 +142,7 @@ internal class CmdStratum
 
 		if (action != null && action.Length > 0 && !string.Equals(action, "status", StringComparison.OrdinalIgnoreCase))
 		{
-			return TextCommandResult.Error("Usage: /stratum [status|version|update|health|reload|preflight|packets|performance|timings|players|player|chunks|entities|queues|pathfinding|doctor|violations|access|chat|pregen|get|set|save]");
+			return TextCommandResult.Error("Usage: /stratum [status|version|update|health|reload|preflight|packets|performance|timings|players|player|chunks|entities|queues|pathfinding|doctor|regions|violations|access|chat|pregen|get|set|save]");
 		}
 
 		return HandleStatus();
@@ -514,6 +519,27 @@ internal class CmdStratum
 		output.Append(StratumCommandText.Row("Loaded", "total=" + server.LoadedEntities.Count + " active=" + activeEntities));
 		output.Append(StratumCommandText.Row("Throttling", (StratumRuntime.Config.Performance.EntityTicking.Enabled ? "on" : "off") + " far=" + StratumRuntime.Config.Performance.EntityTicking.FarEntityDistanceBlocks + " interval=" + StratumRuntime.Config.Performance.EntityTicking.FarEntityTickInterval));
 		output.Append(StratumCommandText.Row("Top types", topTypes.Length == 0 ? "none" : topTypes));
+		return TextCommandResult.Success(output.ToString());
+	}
+
+	private TextCommandResult HandleRegions()
+	{
+		var sim = server.Systems.OfType<ServerSystemEntitySimulation>().FirstOrDefault();
+		if (sim == null)
+		{
+			return TextCommandResult.Success(StratumCommandText.Title("Stratum Regions") + StratumCommandText.Row("Status", "entity simulation not loaded"));
+		}
+
+		string report = sim.StratumBuildRegionReport();
+		StringBuilder output = new StringBuilder(StratumCommandText.Title("Stratum Regions"));
+		foreach (string line in report.Split('\n'))
+		{
+			int eq = line.IndexOf('=');
+			if (eq > 0)
+			{
+				output.Append(StratumCommandText.Row(line.Substring(0, eq), line.Substring(eq + 1)));
+			}
+		}
 		return TextCommandResult.Success(output.ToString());
 	}
 

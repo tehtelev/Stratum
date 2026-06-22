@@ -1,13 +1,14 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
-index 750557a..337640d 100644
+index 750557a..5265f5f 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
-@@ -1,8 +1,11 @@
+@@ -1,8 +1,12 @@
  using System;
 +using System.Collections.Concurrent;
  using System.Collections.Generic;
 -using System.Linq;
 +using System.Diagnostics;
++using System.Text;
 +using System.Threading;
 +using System.Threading.Tasks;
  using Vintagestory.API.Client;
@@ -15,7 +16,7 @@ index 750557a..337640d 100644
  using Vintagestory.API.Common.Entities;
  using Vintagestory.API.Config;
  using Vintagestory.API.Datastructures;
-@@ -22,13 +25,96 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -22,13 +26,106 @@ public class ServerSystemEntitySimulation : ServerSystem
  
  	private Dictionary<string, List<string>> deathMessagesCache;
  
@@ -28,6 +29,16 @@ index 750557a..337640d 100644
 +	private long stratumParallelTickFailures;
 +	private long stratumParallelTickFailuresLastReportMs;
 +	private string stratumParallelTickFailureSample;
++
++	// Stratum start: region ticking diagnostics (#9)
++	private int stratumLastRegionCount;
++	private int stratumLastParallelRegions;
++	private int stratumLastSerialRegions;
++	private int stratumLastParallelEntities;
++	private int stratumLastSerialEntities;
++	private int stratumLastPlayersTicked;
++	private int stratumPeakRegionEntities;
++	// Stratum end
 +
 +	private List<EntityPos> stratumPlayerPositions = new List<EntityPos>();
 +
@@ -112,7 +123,7 @@ index 750557a..337640d 100644
  		server.RegisterGameTickListener(UpdateEvery100ms, 100);
  		server.clientAwarenessEvents[EnumClientAwarenessEvent.ChunkTransition].Add(OnPlayerLeaveChunk);
  		server.PacketHandlers[17] = HandleEntityInteraction;
-@@ -43,26 +129,33 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -43,26 +140,33 @@ public class ServerSystemEntitySimulation : ServerSystem
  		player.Player.ItemCollectMode = packet.RuntimeSetting.ItemCollectMode;
  	}
  
@@ -149,7 +160,7 @@ index 750557a..337640d 100644
  	private void EventManager_OnGameWorldBeingSaved()
  	{
  		if (server.RunPhase != EnumServerRunPhase.Shutdown)
-@@ -77,66 +170,249 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -77,66 +181,254 @@ public class ServerSystemEntitySimulation : ServerSystem
  	}
  
  	public override void OnBeginModsAndConfigReady()
@@ -157,6 +168,11 @@ index 750557a..337640d 100644
  		server.EventManager.OnPlayerRespawn += OnPlayerRespawn;
 -		new ShapeTesselatorManager(server).LoadEntityShapes(server.EntityTypes, server.api);
 +		StratumLoadPlayerEntityShapes();
++		// Stratum: warn operators when experimental region ticking is active
++		if (StratumRuntime.Config.Performance.RegionTicking.Enabled)
++		{
++			ServerMain.Logger.Warning("[Stratum] Region ticking is ENABLED (experimental). Not all entity behaviors are thread-safe. Monitor with /stratum regions.");
++		}
  	}
  
  	public override void OnPlayerJoin(ServerPlayer player)
@@ -419,7 +435,7 @@ index 750557a..337640d 100644
  		SendEntityDespawns();
  		int count = server.DelayedSpawnQueue.Count;
  		if (count <= 0)
-@@ -185,19 +461,145 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -185,19 +477,145 @@ public class ServerSystemEntitySimulation : ServerSystem
  		}
  	}
  
@@ -568,7 +584,7 @@ index 750557a..337640d 100644
  				{
  					if (value is EntityPlayer entityPlayer)
  					{
-@@ -209,12 +611,17 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -209,12 +627,17 @@ public class ServerSystemEntitySimulation : ServerSystem
  						ServerMain.Logger.Warning("Exception while ticking entity {0} ({1}) at {2}: ", value.GetName(), value.Properties?.Class, value.Pos);
  						ServerMain.Logger.Error(e);
  					}
@@ -586,7 +602,7 @@ index 750557a..337640d 100644
  		}
  		ServerMain.FrameProfiler.Enter("despawning");
  		foreach (KeyValuePair<Entity, EntityDespawnData> item in list)
-@@ -222,27 +629,553 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -222,27 +645,596 @@ public class ServerSystemEntitySimulation : ServerSystem
  			server.DespawnEntity(item.Key, item.Value);
  			ServerMain.FrameProfiler.Mark("despawned-", item.Key.Code.Path);
  		}
@@ -795,6 +811,23 @@ index 750557a..337640d 100644
 +
 +		ServerMain.FrameProfiler.Leave();
 +
++		// Stratum start: record region diagnostics (#9)
++		stratumLastRegionCount = regions.Count;
++		stratumLastParallelRegions = regionList.Count;
++		stratumLastSerialRegions = regions.Count - regionList.Count;
++		int parallelEntityCount = 0;
++		for (int ri = 0; ri < regionList.Count; ri++) parallelEntityCount += regionList[ri].Count;
++		stratumLastParallelEntities = parallelEntityCount;
++		stratumLastSerialEntities = serialList.Count;
++		stratumLastPlayersTicked = players.Count;
++		int peakBucket = 0;
++		for (int ri = 0; ri < regionList.Count; ri++)
++		{
++			if (regionList[ri].Count > peakBucket) peakBucket = regionList[ri].Count;
++		}
++		stratumPeakRegionEntities = peakBucket;
++		// Stratum end
++
 +		// Periodic summary of suppressed parallel-tick exceptions.
 +		long failuresNow = Interlocked.Read(ref stratumParallelTickFailures);
 +		if (failuresNow > 0)
@@ -823,6 +856,32 @@ index 750557a..337640d 100644
 +			}
 +		}
 +	}
++
++	// Stratum start: region ticking report for /stratum regions (#9)
++	internal string StratumBuildRegionReport()
++	{
++		StratumRegionTickingConfig cfg = StratumRuntime.Config.Performance.RegionTicking;
++		int effectiveWorkers = cfg.WorkerThreads > 0 ? cfg.WorkerThreads : Math.Max(1, Environment.ProcessorCount - 2);
++		StringBuilder sb = new StringBuilder();
++		sb.Append("Enabled=").Append(cfg.Enabled ? "yes" : "no");
++		sb.Append("\nRegionSize=").Append(cfg.RegionSizeChunks).Append("x").Append(cfg.RegionSizeChunks).Append(" chunks (").Append(cfg.RegionSizeChunks * MagicNum.ServerChunkSize).Append("x").Append(cfg.RegionSizeChunks * MagicNum.ServerChunkSize).Append(" blocks)");
++		sb.Append("\nWorkers=").Append(effectiveWorkers).Append(cfg.WorkerThreads == 0 ? " (auto)" : "");
++		sb.Append("\nThreshold=").Append(cfg.MinEntitiesPerRegion).Append(" entities/region");
++		if (!cfg.Enabled)
++		{
++			return sb.ToString();
++		}
++		sb.Append("\nRegions=total=").Append(stratumLastRegionCount).Append(" parallel=").Append(stratumLastParallelRegions).Append(" serial=").Append(stratumLastSerialRegions);
++		sb.Append("\nEntities=parallel=").Append(stratumLastParallelEntities).Append(" serial=").Append(stratumLastSerialEntities).Append(" players=").Append(stratumLastPlayersTicked);
++		sb.Append("\nLargest=").Append(stratumPeakRegionEntities).Append(" entities in one region");
++		long exceptions = Interlocked.Read(ref stratumParallelTickFailures);
++		string sample = stratumParallelTickFailureSample;
++		sb.Append("\nExceptions=").Append(exceptions);
++		sb.Append("\nSample=").Append(string.IsNullOrEmpty(sample) ? "(none)" : sample);
++		sb.Append("\nFallback=not implemented");
++		return sb.ToString();
++	}
++	// Stratum end
 +
 +	private void BuildStratumPlayerPositions()
 +	{
@@ -1144,7 +1203,7 @@ index 750557a..337640d 100644
  		ItemStack itemStack = client.Player.InventoryManager?.ActiveHotbarSlot?.Itemstack;
  		float num = itemStack?.Collectible.GetAttackRange(itemStack) ?? GlobalConstants.DefaultAttackRange;
  		double x = pos.X + client.Entityplayer.LocalEyePos.X;
-@@ -390,11 +1323,20 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -390,11 +1382,20 @@ public class ServerSystemEntitySimulation : ServerSystem
  	{
  		if (deathMessagesCache == null)
  		{
@@ -1166,7 +1225,7 @@ index 750557a..337640d 100644
  			return;
  		}
  		int num = server.SaveGameData?.WorldConfiguration.GetString("playerlives", "-1").ToInt(-1) ?? (-1);
-@@ -428,10 +1370,11 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -428,10 +1429,11 @@ public class ServerSystemEntitySimulation : ServerSystem
  			else
  			{
  				ServerMain.Logger.Audit(Lang.Get("{0} died. Death message: {1}", item.PlayerName, text));
