@@ -27,11 +27,27 @@ internal sealed class StratumBlockBreakGuard
 		}
 
 		BlockSelection selection = player.CurrentBlockSelection;
-		if (!player.Entity.Controls.LeftMouseDown || selection?.Position == null)
+		if (!player.Entity.Controls.LeftMouseDown)
 		{
 			ParkBreak(player.ClientId, server.ElapsedMilliseconds);
 			return;
 		}
+
+		// Stratum start: record left-click hold even when raytrace misses
+		long now = server.ElapsedMilliseconds;
+		if (selection?.Position == null)
+		{
+			lock (gate)
+			{
+				ClientBreakState state = GetOrCreateState(player.ClientId);
+				if (state.LeftMouseHeldSinceMs == 0)
+				{
+					state.LeftMouseHeldSinceMs = now;
+				}
+			}
+			return;
+		}
+		// Stratum end
 
 		Block block = GetBreakBlock(server, selection.Position);
 		if (block == null || block.Id == 0)
@@ -45,7 +61,6 @@ internal sealed class StratumBlockBreakGuard
 		float resistance = Math.Max(0f, block.GetResistance(server.BlockAccessor, selection.Position));
 		float damagePerSecond = CalculateDamagePerSecond(server, player, selection, block, activeSlot);
 		float damage = Math.Max(0f, dt) * damagePerSecond;
-		long now = server.ElapsedMilliseconds;
 
 		lock (gate)
 		{
@@ -57,6 +72,10 @@ internal sealed class StratumBlockBreakGuard
 				state.Start(selection.Position, block.Id, now, config);
 			}
 
+			if (state.LeftMouseHeldSinceMs == 0)
+			{
+				state.LeftMouseHeldSinceMs = now;
+			}
 			state.RequiredResistance = resistance;
 			state.DamagePerSecond = damagePerSecond;
 			state.ObservedDamage += damage;
@@ -109,7 +128,19 @@ internal sealed class StratumBlockBreakGuard
 			}
 			else if (!hasTrackedProgress && rememberedDamage <= 0f)
 			{
-				reason = $"no tracked mining progress for {requestedSelection.Position}";
+				// Stratum start: validate using left-click hold duration
+				// When the server raytrace misses the target block (grass cover, fluid
+				// layer, position sync lag), ObserveMining records the hold start but
+				// accumulates no damage. Use that hold duration as proof of mining intent.
+				float ratio = Math.Max(0.1f, Math.Min(1f, config.RequiredProgressRatio));
+				float requiredSeconds = expectedBreakSeconds * ratio;
+				float heldSeconds = state.LeftMouseHeldSinceMs > 0 ? (now - state.LeftMouseHeldSinceMs) / 1000f : 0f;
+				float heldWithGrace = heldSeconds + Math.Max(0f, config.GraceSeconds);
+				if (heldWithGrace < requiredSeconds)
+				{
+					reason = $"no tracked mining progress for {requestedSelection.Position}";
+				}
+				// Stratum end
 			}
 			else
 			{
@@ -191,6 +222,7 @@ internal sealed class StratumBlockBreakGuard
 			if (clients.TryGetValue(clientId, out ClientBreakState state))
 			{
 				state.ParkCurrent(nowMs, StratumRuntime.Config.BlockBreakGuards);
+				state.LeftMouseHeldSinceMs = 0;
 			}
 		}
 	}
@@ -276,6 +308,8 @@ internal sealed class StratumBlockBreakGuard
 		public float ObservedDamage { get; set; }
 
 		public long LastObservedMs { get; set; }
+
+		public long LeftMouseHeldSinceMs { get; set; } // Stratum: tracks when left-click started regardless of raytrace
 
 		public int ViolationsInWindow { get; private set; }
 
