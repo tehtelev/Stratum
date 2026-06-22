@@ -343,4 +343,12 @@ internal sealed class StratumPerformanceStats
 				$"  Peaks: chunksSeen={peakBlockTickChunksSeen} deferred={peakBlockTickChunksDeferred} queueAfter={peakQueuedBlockTicksAfter}";
 		}
 	}
+
+	public (bool AutoSaveDelayed, int AutoSaveDelaySeconds, int EntitiesThrottled, int SkippedOutboundPressure, int BlockListenersSkipped, int GenerationDeferredClients) DoctorSnapshot()
+	{
+		lock (gate)
+		{
+			return (lastAutoSaveWasDelayed, lastAutoSaveDelaySeconds, lastEntitiesThrottled, lastSkippedOutboundPressure, lastBlockGameTickListenersSkipped, lastGenerationDeferredClients);
+		}
+	}
 }
