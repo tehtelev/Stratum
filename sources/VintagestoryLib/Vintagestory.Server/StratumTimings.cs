@@ -227,4 +227,25 @@ internal sealed class StratumTimings
 			_ => "Id" + packetId
 		};
 	}
+
+	// Stratum start: listener attribution (#14)
+	internal List<(string Name, long Calls, double TotalMs, double MaxMs, long SlowCalls)> GetBucketsByPrefix(string prefix)
+	{
+		List<(string, long, double, double, long)> results = new List<(string, long, double, double, long)>();
+		lock (gate)
+		{
+			foreach (KeyValuePair<string, Bucket> entry in buckets)
+			{
+				if (entry.Key.StartsWith(prefix, StringComparison.Ordinal))
+				{
+					string name = entry.Key.Substring(prefix.Length);
+					double totalMs = TicksToMilliseconds(entry.Value.TotalTicks);
+					double maxMs = TicksToMilliseconds(entry.Value.MaxTicks);
+					results.Add((name, entry.Value.Calls, totalMs, maxMs, entry.Value.SlowCalls));
+				}
+			}
+		}
+		return results;
+	}
+	// Stratum end
 }

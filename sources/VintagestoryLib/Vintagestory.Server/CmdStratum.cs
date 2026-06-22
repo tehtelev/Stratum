@@ -9,6 +9,7 @@ using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
+using Vintagestory.Common;
 
 namespace Vintagestory.Server;
 
@@ -608,13 +609,136 @@ internal class CmdStratum
 			return TextCommandResult.Success(StratumCommandText.Confirm("Timings", message));
 		}
 
+		if (string.Equals(action, "listeners", StringComparison.OrdinalIgnoreCase))
+		{
+			return HandleTimingsListeners();
+		}
+
 		if (action != null && action.Length > 0 && !string.Equals(action, "report", StringComparison.OrdinalIgnoreCase))
 		{
-			return TextCommandResult.Error("Usage: /stratum timings [start|stop|reset|report]");
+			return TextCommandResult.Error("Usage: /stratum timings [start|stop|reset|report|listeners]");
 		}
 
 		return TextCommandResult.Success(StratumRuntime.Timings.BuildReport());
 	}
+
+	private TextCommandResult HandleTimingsListeners()
+	{
+		List<GameTickListener> entityListeners = server.EventManager.GameTickListenersEntity;
+		List<GameTickListenerBlock> blockListeners = server.EventManager.GameTickListenersBlock;
+		StratumEventTickConfig evtCfg = StratumRuntime.Config.Performance.EventTick;
+
+		// Group entity listeners by ProfilerName, count and collect intervals.
+		Dictionary<string, (int Count, HashSet<int> Intervals)> entityGroups = new Dictionary<string, (int, HashSet<int>)>();
+		for (int i = 0; i < entityListeners.Count; i++)
+		{
+			GameTickListener listener = entityListeners[i];
+			if (listener == null) continue;
+			string name = listener.ProfilerName ?? "unknown";
+			if (!entityGroups.TryGetValue(name, out var group))
+			{
+				group = (0, new HashSet<int>());
+				entityGroups[name] = group;
+			}
+			entityGroups[name] = (group.Count + 1, group.Intervals);
+			group.Intervals.Add(listener.Millisecondinterval);
+		}
+
+		// Group block listeners by ProfilerName.
+		Dictionary<string, (int Count, HashSet<int> Intervals)> blockGroups = new Dictionary<string, (int, HashSet<int>)>();
+		for (int i = 0; i < blockListeners.Count; i++)
+		{
+			GameTickListenerBlock listener = blockListeners[i];
+			if (listener == null) continue;
+			string name = listener.ProfilerName ?? "unknown";
+			if (!blockGroups.TryGetValue(name, out var group))
+			{
+				group = (0, new HashSet<int>());
+				blockGroups[name] = group;
+			}
+			blockGroups[name] = (group.Count + 1, group.Intervals);
+			group.Intervals.Add(listener.Millisecondinterval);
+		}
+
+		// Fetch slow-listener timing buckets from StratumTimings.
+		List<(string Name, long Calls, double TotalMs, double MaxMs, long SlowCalls)> slowEntity = StratumRuntime.Timings.GetBucketsByPrefix("eventTick.gtEntity.slow.");
+		List<(string Name, long Calls, double TotalMs, double MaxMs, long SlowCalls)> slowBlock = StratumRuntime.Timings.GetBucketsByPrefix("eventTick.gtBlock.slow.");
+		Dictionary<string, (long Calls, double TotalMs, double MaxMs, long SlowCalls)> slowEntityMap = new Dictionary<string, (long, double, double, long)>();
+		foreach (var entry in slowEntity)
+		{
+			slowEntityMap[entry.Name] = (entry.Calls, entry.TotalMs, entry.MaxMs, entry.SlowCalls);
+		}
+		Dictionary<string, (long Calls, double TotalMs, double MaxMs, long SlowCalls)> slowBlockMap = new Dictionary<string, (long, double, double, long)>();
+		foreach (var entry in slowBlock)
+		{
+			slowBlockMap[entry.Name] = (entry.Calls, entry.TotalMs, entry.MaxMs, entry.SlowCalls);
+		}
+
+		StringBuilder output = new StringBuilder(StratumCommandText.Title("Stratum Listeners"));
+		output.Append(StratumCommandText.Row("Entity listeners", entityListeners.Count.ToString()));
+		output.Append(StratumCommandText.Row("Block listeners", blockListeners.Count.ToString()));
+		output.Append(StratumCommandText.Row("Slow threshold", "entity=" + evtCfg.SlowEntityListenerThresholdMs + "ms block=" + evtCfg.SlowBlockListenerThresholdMs + "ms"));
+		output.Append(StratumCommandText.Row("Adaptive throttle", (evtCfg.AdaptiveThrottleWhenOverloaded ? "on" : "off") + " mul=" + evtCfg.AdaptiveOverloadedMultiplier + " critical<=" + evtCfg.AdaptiveCriticalIntervalMs + "ms overloaded=" + (StratumRuntime.PreviousTickOverloaded ? "yes" : "no")));
+		output.Append(StratumCommandText.Row("Timings", StratumRuntime.Timings.Enabled ? "running (data available)" : "stopped (start with /stratum timings start)"));
+
+		output.Append("\n").Append(StratumCommandText.Title("Entity Listeners (by type)"));
+		foreach (KeyValuePair<string, (int Count, HashSet<int> Intervals)> entry in entityGroups.OrderByDescending(e => e.Value.Count))
+		{
+			string intervals = string.Join(",", entry.Value.Intervals.OrderBy(ms => ms).Select(ms => ms + "ms"));
+			string timing = "";
+			if (slowEntityMap.TryGetValue(entry.Key, out var slow))
+			{
+				double avgMs = slow.Calls > 0 ? slow.TotalMs / slow.Calls : 0;
+				timing = " avg=" + avgMs.ToString("0.##") + "ms max=" + slow.MaxMs.ToString("0.##") + "ms calls=" + slow.Calls + " slow=" + slow.SlowCalls;
+			}
+			output.Append(StratumCommandText.Bullet(entry.Key, "count=" + entry.Value.Count + " intervals=" + intervals + timing));
+		}
+
+		output.Append("\n").Append(StratumCommandText.Title("Block Listeners (by type)"));
+		foreach (KeyValuePair<string, (int Count, HashSet<int> Intervals)> entry in blockGroups.OrderByDescending(e => e.Value.Count))
+		{
+			string intervals = string.Join(",", entry.Value.Intervals.OrderBy(ms => ms).Select(ms => ms + "ms"));
+			string timing = "";
+			if (slowBlockMap.TryGetValue(entry.Key, out var slow))
+			{
+				double avgMs = slow.Calls > 0 ? slow.TotalMs / slow.Calls : 0;
+				timing = " avg=" + avgMs.ToString("0.##") + "ms max=" + slow.MaxMs.ToString("0.##") + "ms calls=" + slow.Calls + " slow=" + slow.SlowCalls;
+			}
+			output.Append(StratumCommandText.Bullet(entry.Key, "count=" + entry.Value.Count + " intervals=" + intervals + timing));
+		}
+
+		// Top offenders summary (same data /stratum doctor will show).
+		string doctorLine = BuildSlowListenersDoctorLine(slowEntity, slowBlock);
+		if (doctorLine != null)
+		{
+			output.Append("\n").Append(StratumCommandText.Row("Doctor", doctorLine));
+		}
+
+		return TextCommandResult.Success(output.ToString());
+	}
+
+	// Stratum start: slow listeners doctor summary (#14)
+	internal static string BuildSlowListenersDoctorLine(
+		List<(string Name, long Calls, double TotalMs, double MaxMs, long SlowCalls)> slowEntity,
+		List<(string Name, long Calls, double TotalMs, double MaxMs, long SlowCalls)> slowBlock)
+	{
+		int totalSlow = 0;
+		string worstName = null;
+		double worstMax = 0;
+		foreach (var entry in slowEntity)
+		{
+			totalSlow += (int)entry.SlowCalls;
+			if (entry.MaxMs > worstMax) { worstMax = entry.MaxMs; worstName = entry.Name; }
+		}
+		foreach (var entry in slowBlock)
+		{
+			totalSlow += (int)entry.SlowCalls;
+			if (entry.MaxMs > worstMax) { worstMax = entry.MaxMs; worstName = entry.Name; }
+		}
+		if (totalSlow == 0) return null;
+		return "slowCalls=" + totalSlow + " worst=" + worstName + " (" + worstMax.ToString("0.#") + "ms); inspect /stratum timings listeners";
+	}
+	// Stratum end
 
 	private TextCommandResult HandleConfigGet(string path)
 	{
