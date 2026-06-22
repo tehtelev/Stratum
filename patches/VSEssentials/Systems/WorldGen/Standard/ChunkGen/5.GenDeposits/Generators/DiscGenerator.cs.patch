@@ -1,5 +1,5 @@
 diff --git a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
-index 2b6633c..90ad42e 100644
+index 2b6633c..3e511cb 100644
 --- a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
 +++ b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
 @@ -206,21 +206,56 @@ namespace Vintagestory.ServerMods
@@ -77,7 +77,7 @@ index 2b6633c..90ad42e 100644
                  lx = posx - baseX;
                  distx = posx - depoCenterPos.X;
  
-@@ -290,34 +329,32 @@ namespace Vintagestory.ServerMods
+@@ -290,34 +329,31 @@ namespace Vintagestory.ServerMods
                  {
                      posy = depoCenterPos.Y;
                      lz = posz - baseZ;
@@ -97,19 +97,21 @@ index 2b6633c..90ad42e 100644
                      posy = targetPos.Y;
                      if (posy >= worldheight) continue;
  
-+                    int posyChunksizeMod = posy % chunksize;
-+                    int posyChunksizeDiv = posy / chunksize;
- 
+-
                      // Some deposits may not appear all over cliffs
                      if (Math.Abs(depoCenterPos.Y - posy) > MaxYRoughness) continue;
- 
- 
+-
+-
++                    
                      for (int y = 0; y < hereThickness; y++)
                      {
                          if (posy <= 1) continue;
  
 -                        int index3d = ((posy % chunksize) * chunksize + lz) * chunksize + lx;
 -                        int blockId = chunks[posy / chunksize].Data.GetBlockIdUnsafe(index3d);
++                        int posyChunksizeMod = posy % chunksize;
++                        int posyChunksizeDiv = posy / chunksize;
++
 +                        int index3d = ((posyChunksizeMod) * chunksize + lz) * chunksize + lx;
 +                        int blockId = chunks[posyChunksizeDiv].Data.GetBlockIdUnsafe(index3d);
  
@@ -117,7 +119,7 @@ index 2b6633c..90ad42e 100644
                          if (!IgnoreParentTestPerBlock || !parentBlockOk)
                          {
                              parentBlockOk = placeBlockByInBlockId.TryGetValue(blockId, out resolvedPlaceBlock);
-@@ -325,37 +362,37 @@ namespace Vintagestory.ServerMods
+@@ -325,37 +361,37 @@ namespace Vintagestory.ServerMods
  
                          if (parentBlockOk && resolvedPlaceBlock.Blocks.Length > 0)
                          {
@@ -163,7 +165,7 @@ index 2b6633c..90ad42e 100644
                                  }
                              }
  
-@@ -383,10 +420,12 @@ namespace Vintagestory.ServerMods
+@@ -383,10 +419,12 @@ namespace Vintagestory.ServerMods
  
                          posy--;
                      }
@@ -176,7 +178,7 @@ index 2b6633c..90ad42e 100644
          protected virtual bool shouldGenDepositHere(BlockPos depoCenterPos)
          {
              return true;
-@@ -404,12 +443,17 @@ namespace Vintagestory.ServerMods
+@@ -404,12 +442,17 @@ namespace Vintagestory.ServerMods
              int rdx = (pos.X / chunksize) % regionChunkSize;
              int rdz = (pos.Z / chunksize) % regionChunkSize;
  
