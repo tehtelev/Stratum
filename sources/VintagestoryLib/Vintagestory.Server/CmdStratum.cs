@@ -675,8 +675,8 @@ internal class CmdStratum
 		}
 
 		StringBuilder output = new StringBuilder(StratumCommandText.Title("Stratum Listeners"));
-		output.Append(StratumCommandText.Row("Entity listeners", entityListeners.Count.ToString()));
-		output.Append(StratumCommandText.Row("Block listeners", blockListeners.Count.ToString()));
+		output.Append(StratumCommandText.Row("Entity listeners", entityGroups.Values.Sum(g => g.Count).ToString()));
+		output.Append(StratumCommandText.Row("Block listeners", blockGroups.Values.Sum(g => g.Count).ToString()));
 		output.Append(StratumCommandText.Row("Slow threshold", "entity=" + evtCfg.SlowEntityListenerThresholdMs + "ms block=" + evtCfg.SlowBlockListenerThresholdMs + "ms"));
 		output.Append(StratumCommandText.Row("Adaptive throttle", (evtCfg.AdaptiveThrottleWhenOverloaded ? "on" : "off") + " mul=" + evtCfg.AdaptiveOverloadedMultiplier + " critical<=" + evtCfg.AdaptiveCriticalIntervalMs + "ms overloaded=" + (StratumRuntime.PreviousTickOverloaded ? "yes" : "no")));
 		output.Append(StratumCommandText.Row("Timings", StratumRuntime.Timings.Enabled ? "running (data available)" : "stopped (start with /stratum timings start)"));
@@ -722,17 +722,17 @@ internal class CmdStratum
 		List<(string Name, long Calls, double TotalMs, double MaxMs, long SlowCalls)> slowEntity,
 		List<(string Name, long Calls, double TotalMs, double MaxMs, long SlowCalls)> slowBlock)
 	{
-		int totalSlow = 0;
+		long totalSlow = 0;
 		string worstName = null;
 		double worstMax = 0;
 		foreach (var entry in slowEntity)
 		{
-			totalSlow += (int)entry.SlowCalls;
+			totalSlow += entry.SlowCalls;
 			if (entry.MaxMs > worstMax) { worstMax = entry.MaxMs; worstName = entry.Name; }
 		}
 		foreach (var entry in slowBlock)
 		{
-			totalSlow += (int)entry.SlowCalls;
+			totalSlow += entry.SlowCalls;
 			if (entry.MaxMs > worstMax) { worstMax = entry.MaxMs; worstName = entry.Name; }
 		}
 		if (totalSlow == 0) return null;
