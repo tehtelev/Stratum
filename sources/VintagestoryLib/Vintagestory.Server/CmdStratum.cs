@@ -22,7 +22,7 @@ internal class CmdStratum
 		server.api.commandapi.Create(StratumInfo.Id)
 			.WithAlias("serverinfo")
 			.WithDesc("Show Stratum server information")
-			.WithArgs(server.api.commandapi.Parsers.OptionalWord("status|version|update|health|reload|preflight|packets|performance|perf|timings|players|player|chunks|entities|queues|doctor|violations|access|chat|pregen|get|set|save"), server.api.commandapi.Parsers.OptionalWord("argument"), server.api.commandapi.Parsers.OptionalWord("detail"), server.api.commandapi.Parsers.OptionalWord("value1"), server.api.commandapi.Parsers.OptionalWord("value2"), server.api.commandapi.Parsers.OptionalWord("value3"), server.api.commandapi.Parsers.OptionalWord("value4"))
+			.WithArgs(server.api.commandapi.Parsers.OptionalWord("status|version|update|health|reload|preflight|packets|performance|perf|timings|players|player|chunks|entities|queues|pathfinding|doctor|violations|access|chat|pregen|get|set|save"), server.api.commandapi.Parsers.OptionalWord("argument"), server.api.commandapi.Parsers.OptionalWord("detail"), server.api.commandapi.Parsers.OptionalWord("value1"), server.api.commandapi.Parsers.OptionalWord("value2"), server.api.commandapi.Parsers.OptionalWord("value3"), server.api.commandapi.Parsers.OptionalWord("value4"))
 			.RequiresPrivilege(Privilege.controlserver)
 			.HandleWith(HandleStratum);
 	}
@@ -105,6 +105,11 @@ internal class CmdStratum
 			return HandleQueues();
 		}
 
+		if (string.Equals(action, "pathfinding", StringComparison.OrdinalIgnoreCase))
+		{
+			return HandlePathfinding();
+		}
+
 		if (string.Equals(action, "performance", StringComparison.OrdinalIgnoreCase) || string.Equals(action, "perf", StringComparison.OrdinalIgnoreCase))
 		{
 			return HandlePerformance();
@@ -132,7 +137,7 @@ internal class CmdStratum
 
 		if (action != null && action.Length > 0 && !string.Equals(action, "status", StringComparison.OrdinalIgnoreCase))
 		{
-			return TextCommandResult.Error("Usage: /stratum [status|version|update|health|doctor|reload|preflight|packets|performance|timings|players|player|chunks|entities|queues|violations|access|chat|pregen|get|set|save]");
+			return TextCommandResult.Error("Usage: /stratum [status|version|update|health|reload|preflight|packets|performance|timings|players|player|chunks|entities|queues|pathfinding|doctor|violations|access|chat|pregen|get|set|save]");
 		}
 
 		return HandleStatus();
@@ -519,6 +524,33 @@ internal class CmdStratum
 		output.Append(StratumCommandText.Row("Chunks", "fastChunk=" + server.fastChunkQueue.Count + " requestedColumns=" + server.ChunkColumnRequested.Count + " simpleLoads=" + server.simpleLoadRequests.Count + " peeks=" + server.peekChunkColumnQueue.Count + " existsChecks=" + server.testChunkExistsQueue.Count));
 		output.Append(StratumCommandText.Row("Cleanup", "unloadedChunks=" + server.unloadedChunks.Count + " deleteColumns=" + server.deleteChunkColumns.Count + " deleteRegions=" + server.deleteMapRegions.Count));
 		output.Append(StratumCommandText.Row("Autosave smoothing", (StratumRuntime.Config.Performance.AutoSave.Enabled ? "on" : "off") + " maxDelay=" + StratumRuntime.Config.Performance.AutoSave.MaxDelaySeconds + "s"));
+		return TextCommandResult.Success(output.ToString());
+	}
+
+	private TextCommandResult HandlePathfinding()
+	{
+		var pf = server.api.ModLoader.GetModSystem("Vintagestory.Essentials.PathfindingAsync");
+		if (pf == null)
+		{
+			return TextCommandResult.Success(StratumCommandText.Title("Stratum Pathfinding") + StratumCommandText.Row("Status", "PathfindingAsync not loaded"));
+		}
+
+		var method = pf.GetType().GetMethod("StratumBuildReport");
+		if (method == null)
+		{
+			return TextCommandResult.Success(StratumCommandText.Title("Stratum Pathfinding") + StratumCommandText.Row("Status", "metrics not available"));
+		}
+
+		string report = method.Invoke(pf, null) as string ?? "";
+		StringBuilder output = new StringBuilder(StratumCommandText.Title("Stratum Pathfinding"));
+		foreach (string line in report.Split('\n'))
+		{
+			int eq = line.IndexOf('=');
+			if (eq > 0)
+			{
+				output.Append(StratumCommandText.Row(line.Substring(0, eq), line.Substring(eq + 1)));
+			}
+		}
 		return TextCommandResult.Success(output.ToString());
 	}
 
