@@ -370,6 +370,19 @@ index 48a886b..7b443ba 100644
 +            task.Finished = true;
 +        }
 +
++        // Stratum: expose queue metrics for /stratum pathfinding.
++        public string StratumBuildReport()
++        {
++            return string.Join("\n",
++                "Workers=" + (1 + stratumExtraWorkers.Count),
++                "Queue=" + PathfinderTasks.Count + "/" + (stratumMaxQueued > 0 ? stratumMaxQueued.ToString() : "unlimited"),
++                "Priority=" + (stratumPriorityEnabled ? "on threshold=" + stratumPriorityQueueThreshold : "off"),
++                "Dropped (overflow)=" + stratumDroppedQueuedTasks,
++                "Dropped (stale)=" + stratumDroppedStaleTasks,
++                "Dropped (far)=" + stratumDroppedFarTasks,
++                "Dropped (total)=" + (stratumDroppedQueuedTasks + stratumDroppedStaleTasks + stratumDroppedFarTasks));
++        }
++
  
          public override void Dispose()
          {
