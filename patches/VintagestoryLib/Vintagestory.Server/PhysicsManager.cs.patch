@@ -403,7 +403,7 @@ index 2c2605d..4a09dd1 100644
  				{
  					list2.Add(entityId);
  				}
-@@ -593,60 +762,150 @@ public class PhysicsManager : LoadBalancedTask
+@@ -593,60 +762,160 @@ public class PhysicsManager : LoadBalancedTask
  		list3.Clear();
  	}
  
@@ -467,7 +467,7 @@ index 2c2605d..4a09dd1 100644
 +									preparedPacket = new PreparedStateChangePacket(packetBytes, compressed);
 +									playerDataPacketCache[entityId] = preparedPacket;
 +								}
-+								server.SendPreparedPacket(client, preparedPacket.PacketBytes, preparedPacket.Compressed);
++								SendPreparedStateChangePacket(client, preparedPacket.PacketBytes, preparedPacket.Compressed);
 +							}
  						}
 +						if (stratumRecordSectionTimings)
@@ -529,7 +529,7 @@ index 2c2605d..4a09dd1 100644
 +					{
 +						stateChangeSerializedPacket.Serialize(packet);
 +						byte[] packetBytes = client.Socket.PreparePacketForSending(stateChangeSerializedPacket, server.Config.CompressPackets, out bool compressed);
-+						server.SendPreparedPacket(client, packetBytes, compressed);
++						SendPreparedStateChangePacket(client, packetBytes, compressed);
 +					}
 +					if (stratumRecordSectionTimings)
 +					{
@@ -579,6 +579,15 @@ index 2c2605d..4a09dd1 100644
  		ServerMain.FrameProfiler.Mark("physicsmanager-sendstatechanged");
  	}
  
++	private void SendPreparedStateChangePacket(ConnectedClient client, byte[] packetBytes, bool compressed)
++	{
++		EnumSendResult result = client.Socket.SendPreparedPacket(packetBytes, compressed, ServerMain.Logger);
++		if (result == EnumSendResult.Disconnected || result == EnumSendResult.Error)
++		{
++			server.DisconnectPlayer(client, "Lost connection");
++		}
++	}
++
  	public void GatherUpdatePacketsFromAllThreads()
  	{
 @@ -729,13 +988,26 @@ public class PhysicsManager : LoadBalancedTask

@@ -119,7 +119,7 @@ index 719a68b..0a3f1f4 100644
 +			return false;
 +		}
 +
-+		if (packet.PositionVersion > serverPositionVersion || player.WorldData.CurrentGameMode == EnumGameMode.Creative || entity.Controls.NoClip)
++		if (packet.PositionVersion > serverPositionVersion || player.WorldData.CurrentGameMode == EnumGameMode.Creative || player.WorldData.NoClip)
 +		{
 +			RememberStratumMovement(entity, stateKey);
 +			return true;
