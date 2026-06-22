@@ -76,7 +76,20 @@ install_ilspycmd_if_missing() {
     return
   fi
 
-  echo "Installing ilspycmd"
+  # Install the pinned version from .config/dotnet-tools.json when available.
+  local manifest="$repo_root/.config/dotnet-tools.json"
+  if [[ -f "$manifest" ]]; then
+    local pinned_version
+    pinned_version=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['tools']['ilspycmd']['version'])" "$manifest" 2>/dev/null)
+    if [[ -n "$pinned_version" ]]; then
+      echo "Installing ilspycmd $pinned_version (from tool manifest)"
+      dotnet tool install -g ilspycmd --version "$pinned_version" >/dev/null
+      export PATH="$dotnet_tools:$PATH"
+      return
+    fi
+  fi
+
+  echo "Installing ilspycmd (no manifest found, using latest)"
   dotnet tool install -g ilspycmd >/dev/null
   export PATH="$dotnet_tools:$PATH"
 }
