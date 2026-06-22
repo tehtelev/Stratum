@@ -1,0 +1,171 @@
+diff --git a/VSSurvivalMod/Systems/TeleporterManager.cs b/VSSurvivalMod/Systems/TeleporterManager.cs
+index b99bc2c..bcdc2a0 100644
+--- a/VSSurvivalMod/Systems/TeleporterManager.cs
++++ b/VSSurvivalMod/Systems/TeleporterManager.cs
+@@ -37,11 +37,15 @@ namespace Vintagestory.GameContent
+     }
+ 
+ 
+     public class TeleporterManager : ModSystem
+     {
++        const double StratumMaxTeleporterConfigDistanceSq = 12 * 12;
++        const int StratumMaxTeleporterNameLength = 64;
++
+         Dictionary<BlockPos, TeleporterLocation> Locations = new Dictionary<BlockPos, TeleporterLocation>();
++        Dictionary<string, BlockPos> stratumOpenConfigSourcesByPlayerUid = new Dictionary<string, BlockPos>();
+         ICoreServerAPI sapi;
+         IServerNetworkChannel serverChannel;
+ 
+         // Client values
+         List<BlockPos> targetPositionsOrdered = new List<BlockPos>();
+@@ -141,19 +145,114 @@ namespace Vintagestory.GameContent
+             return TextCommandResult.Success((bet.tpLocationIsOffset ? "Relative " : "") + "Target position set.");
+         }
+ 
+         private void OnSetLocationReceived(IServerPlayer fromPlayer, TeleporterLocation networkMessage)
+         {
+-            Locations[networkMessage.SourcePos].SourcePos = networkMessage.SourcePos;
+-            Locations[networkMessage.SourcePos].TargetPos = networkMessage.TargetPos;
+-            Locations[networkMessage.SourcePos].SourceName = networkMessage.SourceName;
+-            Locations[networkMessage.SourcePos].TargetName = networkMessage.TargetName;
++            // Stratum: Do not trust client supplied source positions for teleporter editing.
++            if (networkMessage == null || !TryGetOpenEditableTeleporterSource(fromPlayer, out BlockPos sourcePos, true))
++            {
++                return;
++            }
++
++            if (!Locations.TryGetValue(sourcePos, out TeleporterLocation location))
++            {
++                return;
++            }
++
++            TeleporterLocation targetLocation = null;
++            if (networkMessage.TargetPos != null && !Locations.TryGetValue(networkMessage.TargetPos, out targetLocation))
++            {
++                return;
++            }
++
++            location.SourcePos = sourcePos.Copy();
++            location.SourceName = SanitizeTeleporterName(networkMessage.SourceName, location.SourceName);
++            location.TargetPos = targetLocation?.SourcePos.Copy();
++            location.TargetName = targetLocation?.SourceName ?? "";
+ 
+-            BlockEntityTeleporter be = sapi.World.BlockAccessor.GetBlockEntity(networkMessage.SourcePos) as BlockEntityTeleporter;
++            BlockEntityTeleporter be = sapi.World.BlockAccessor.GetBlockEntity(sourcePos) as BlockEntityTeleporter;
+             if (be != null) be.MarkDirty();
+         }
+ 
++        private bool TryGetOpenEditableTeleporterSource(IServerPlayer player, out BlockPos sourcePos, bool consumeSession = false)
++        {
++            sourcePos = null;
++            if (player == null || player.Entity == null || player.PlayerUID == null)
++            {
++                return false;
++            }
++
++            if (!stratumOpenConfigSourcesByPlayerUid.TryGetValue(player.PlayerUID, out BlockPos openedSource) || openedSource == null)
++            {
++                return false;
++            }
++
++            if (consumeSession)
++            {
++                stratumOpenConfigSourcesByPlayerUid.Remove(player.PlayerUID);
++            }
++
++            if (!IsEditableTeleporter(player, openedSource))
++            {
++                return false;
++            }
++
++            sourcePos = openedSource.Copy();
++            return true;
++        }
++
++        private bool IsEditableTeleporter(IServerPlayer player, BlockPos sourcePos)
++        {
++            if (player == null || player.Entity == null || sourcePos == null)
++            {
++                return false;
++            }
++
++            if (player.WorldData.CurrentGameMode != EnumGameMode.Creative)
++            {
++                return false;
++            }
++
++            bool canManageServer = player.HasPrivilege(Privilege.controlserver);
++            if (!canManageServer && !player.HasPrivilege(Privilege.buildblocks) && !player.HasPrivilege(Privilege.buildblockseverywhere))
++            {
++                return false;
++            }
++
++            BlockEntityTeleporter be = sapi.World.BlockAccessor.GetBlockEntity(sourcePos) as BlockEntityTeleporter;
++            if (be == null || !(sapi.World.BlockAccessor.GetBlock(sourcePos) is BlockTeleporter))
++            {
++                return false;
++            }
++
++            if (!canManageServer && !sapi.World.Claims.TryAccess(player, sourcePos, EnumBlockAccessFlags.BuildOrBreak))
++            {
++                return false;
++            }
++
++            double dx = player.Entity.Pos.X - (sourcePos.X + 0.5);
++            double dy = player.Entity.Pos.Y - (sourcePos.InternalY + 0.5);
++            double dz = player.Entity.Pos.Z - (sourcePos.Z + 0.5);
++            return dx * dx + dy * dy + dz * dz <= StratumMaxTeleporterConfigDistanceSq;
++        }
++
++        private static string SanitizeTeleporterName(string name, string fallback)
++        {
++            string cleanName = name?.Trim();
++            if (string.IsNullOrEmpty(cleanName))
++            {
++                return string.IsNullOrEmpty(fallback) ? "Location" : fallback;
++            }
++
++            if (cleanName.Length > StratumMaxTeleporterNameLength)
++            {
++                cleanName = cleanName.Substring(0, StratumMaxTeleporterNameLength);
++            }
++
++            return cleanName;
++        }
++
+         private void OnSaveGame()
+         {
+             sapi.WorldManager.SaveGame.StoreData("tpLocations", SerializerUtil.Serialize(Locations));
+         }
+ 
+@@ -261,13 +360,29 @@ namespace Vintagestory.GameContent
+         }
+ 
+         private void OnConfigEventServer(string eventName, ref EnumHandling handling, IAttribute data)
+         {
+             ITreeAttribute tree = data as ITreeAttribute;
+-            TeleporterLocation forLoc = GetOrCreateLocation(new BlockPos(tree.GetInt("posX"), tree.GetInt("posY"), tree.GetInt("posZ")));
++            if (tree == null)
++            {
++                return;
++            }
+ 
+             IServerPlayer player = sapi.World.PlayerByUid(tree.GetString("playerUid")) as IServerPlayer;
++            if (player == null)
++            {
++                return;
++            }
++
++            BlockPos sourcePos = new BlockPos(tree.GetInt("posX"), tree.GetInt("posY"), tree.GetInt("posZ"));
++            if (!IsEditableTeleporter(player, sourcePos))
++            {
++                return;
++            }
++
++            TeleporterLocation forLoc = GetOrCreateLocation(sourcePos);
++            stratumOpenConfigSourcesByPlayerUid[player.PlayerUID] = forLoc.SourcePos.Copy();
+ 
+             serverChannel.SendPacket(new TpLocations()
+             {
+                 ForLocation = forLoc,
+                 Locations = Locations

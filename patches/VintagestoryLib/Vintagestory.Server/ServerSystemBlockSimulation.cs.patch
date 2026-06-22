@@ -1,21 +1,22 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
-index 5b0cc42..1dcd1f3 100644
+index 5b0cc42..325d431 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
-@@ -14,10 +14,12 @@ using Vintagestory.Common.Database;
+@@ -14,10 +14,13 @@ using Vintagestory.Common.Database;
  
  namespace Vintagestory.Server;
  
  public class ServerSystemBlockSimulation : ServerSystem
  {
 +	private const int DevCommandBlockUsePacketId = 24112;
++	private const double StratumBlockEntityPacketRangeSlack = 4;
 +
  	private class BlockPosWithExtraObject
  	{
  		public BlockPos pos;
  
  		public object extra;
-@@ -52,10 +54,12 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -52,10 +55,12 @@ public class ServerSystemBlockSimulation : ServerSystem
  
  	private BlockPos tmpPos = new BlockPos(0);
  
@@ -28,22 +29,122 @@ index 5b0cc42..1dcd1f3 100644
  	{
  		server.RegisterGameTickListener(UpdateEvery100ms, 100);
  		server.PacketHandlers[3] = HandleBlockPlaceOrBreak;
-@@ -319,13 +323,95 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -319,11 +324,222 @@ public class ServerSystemBlockSimulation : ServerSystem
  	}
  
  	private void HandleBlockEntityPacket(Packet_Client packet, ConnectedClient client)
  	{
  		Packet_BlockEntityPacket blockEntityPacket = packet.BlockEntityPacket;
+-		server.WorldMap.GetBlockEntity(new BlockPos(blockEntityPacket.X, blockEntityPacket.Y, blockEntityPacket.Z))?.OnReceivedClientPacket(client.Player, blockEntityPacket.Packetid, blockEntityPacket.Data);
 +		if (blockEntityPacket?.Packetid == DevCommandBlockUsePacketId && TryHandleDevCommandBlockUse(blockEntityPacket, client))
 +		{
 +			return;
 +		}
- 		server.WorldMap.GetBlockEntity(new BlockPos(blockEntityPacket.X, blockEntityPacket.Y, blockEntityPacket.Z))?.OnReceivedClientPacket(client.Player, blockEntityPacket.Packetid, blockEntityPacket.Data);
- 	}
- 
++		// Stratum: centralize basic block-entity packet checks before individual BE handlers run.
++		if (!TryGetAccessibleBlockEntityPacketTarget(blockEntityPacket, client, out BlockEntity blockEntity))
++		{
++			return;
++		}
++		blockEntity.OnReceivedClientPacket(client.Player, blockEntityPacket.Packetid, blockEntityPacket.Data);
++	}
++
++	private bool TryGetAccessibleBlockEntityPacketTarget(Packet_BlockEntityPacket packet, ConnectedClient client, out BlockEntity blockEntity)
++	{
++		blockEntity = null;
++		ServerPlayer player = client?.Player;
++		if (packet == null || player == null || player.Entity == null)
++		{
++			return false;
++		}
++
++		BlockPos pos = new BlockPos(packet.X, packet.Y, packet.Z);
++		if (!server.WorldMap.IsValidPos(pos) || server.WorldMap.GetChunk(pos) == null)
++		{
++			return false;
++		}
++
++		blockEntity = server.WorldMap.GetBlockEntity(pos);
++		if (blockEntity == null)
++		{
++			return false;
++		}
++
++		if (!HasOpenInventorySessionForBlockEntityPacket(blockEntity, player, packet.Packetid))
++		{
++			return false;
++		}
++
++		if (!IsBlockEntityPacketInRange(player, pos))
++		{
++			ServerMain.Logger.Audit("{0} tried to send a block entity packet out of range at {1}", player.PlayerName, pos);
++			return false;
++		}
++
++		BlockSelection blockSelection = new BlockSelection
++		{
++			Position = pos,
++			Face = BlockFacing.UP,
++			HitPosition = new Vec3d(0.5, 0.5, 0.5),
++			SelectionBoxIndex = 0
++		};
++
++		if (server.WorldMap.TestBlockAccess(player, blockSelection, EnumBlockAccessFlags.Use) == EnumWorldAccessResponse.Granted)
++		{
++			return true;
++		}
++
++		if (server.WorldMap.TestBlockAccess(player, blockSelection, EnumBlockAccessFlags.BuildOrBreak) == EnumWorldAccessResponse.Granted)
++		{
++			return true;
++		}
++
++		blockEntity = null;
++		return false;
++	}
++
++	private static bool HasOpenInventorySessionForBlockEntityPacket(BlockEntity blockEntity, ServerPlayer player, int packetId)
++	{
++		if (packetId == (int)EnumBlockEntityPacketId.Open || packetId == (int)EnumBlockEntityPacketId.Close)
++		{
++			return true;
++		}
++
++		if (!(blockEntity is IBlockEntityContainer container))
++		{
++			return true;
++		}
++
++		IInventory inventory;
++		try
++		{
++			inventory = container.Inventory;
++		}
++		catch
++		{
++			return false;
++		}
++
++		return inventory != null && inventory.HasOpened(player);
++	}
++
++	private static bool IsBlockEntityPacketInRange(ServerPlayer player, BlockPos pos)
++	{
++		double maxRange = player.WorldData.PickingRange + StratumBlockEntityPacketRangeSlack;
++		FastVec3d eyes = player.Entity.Pos.XYZFast.Add(player.Entity.LocalEyePos);
++		double dx = eyes.X - (pos.X + 0.5);
++		double dy = eyes.Y - (pos.InternalY + 0.5);
++		double dz = eyes.Z - (pos.Z + 0.5);
++		return dx * dx + dy * dy + dz * dz <= maxRange * maxRange;
++	}
++
 +	private bool TryHandleDevCommandBlockUse(Packet_BlockEntityPacket packet, ConnectedClient client)
 +	{
 +		BlockPos pos = new BlockPos(packet.X, packet.Y, packet.Z);
++		if (!TryAllowDevCommandBlockUse(pos, client))
++		{
++			return true;
++		}
++
 +		BlockEntity be = server.WorldMap.GetBlockEntity(pos);
 +		if (be == null || !IsDevCommandBlockTarget(be)) return true;
 +
@@ -67,6 +168,36 @@ index 5b0cc42..1dcd1f3 100644
 +			SelectionBoxIndex = 0
 +		});
 +		return true;
++	}
++
++	private bool TryAllowDevCommandBlockUse(BlockPos pos, ConnectedClient client)
++	{
++		ServerPlayer player = client?.Player;
++		if (player == null || player.Entity == null || !server.WorldMap.IsValidPos(pos) || server.WorldMap.GetChunk(pos) == null)
++		{
++			return false;
++		}
++
++		if (player.HasPrivilege(Privilege.controlserver))
++		{
++			return true;
++		}
++
++		if (!IsBlockEntityPacketInRange(player, pos))
++		{
++			ServerMain.Logger.Audit("{0} tried to trigger a dev command block out of range at {1}", player.PlayerName, pos);
++			return false;
++		}
++
++		BlockSelection blockSelection = new BlockSelection
++		{
++			Position = pos,
++			Face = BlockFacing.UP,
++			HitPosition = new Vec3d(0.5, 0.5, 0.5),
++			SelectionBoxIndex = 0
++		};
++
++		return server.WorldMap.TestBlockAccess(player, blockSelection, EnumBlockAccessFlags.BuildOrBreak) == EnumWorldAccessResponse.Granted;
 +	}
 +
 +	private void FireTickerAdjacent(BlockPos pos)
@@ -117,14 +248,12 @@ index 5b0cc42..1dcd1f3 100644
 +			if (cur.FullName == fullName) return true;
 +		}
 +		return false;
-+	}
-+
+ 	}
+ 
  	internal void HandleBlockPlaceOrBreak(Packet_Client packet, ConnectedClient client)
  	{
  		Packet_ClientBlockPlaceOrBreak blockPlaceOrBreak = packet.BlockPlaceOrBreak;
- 		BlockSelection blockSelection = new BlockSelection
- 		{
-@@ -363,10 +449,21 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -363,10 +579,21 @@ public class ServerSystemBlockSimulation : ServerSystem
  				worldChunk.BreakDecor(server, blockSelection.Position, blockSelection.Face);
  				worldChunk.MarkModified();
  			}
@@ -146,7 +275,7 @@ index 5b0cc42..1dcd1f3 100644
  		ItemStack withItemStack = client.Player.inventoryMgr.ActiveHotbarSlot?.Itemstack;
  		if (!TryModifyBlockInWorld(client.Player, blockPlaceOrBreak))
  		{
-@@ -791,12 +888,20 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -791,12 +1018,20 @@ public class ServerSystemBlockSimulation : ServerSystem
  	{
  		if (server.RunPhase != EnumServerRunPhase.RunGame)
  		{
@@ -169,7 +298,7 @@ index 5b0cc42..1dcd1f3 100644
  			{
  				continue;
  			}
-@@ -825,22 +930,32 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -825,22 +1060,32 @@ public class ServerSystemBlockSimulation : ServerSystem
  			catch (Exception e)
  			{
  				ServerMain.Logger.Error("Exception thrown in block.OnServerGameTick() for block code '{0}':", block?.Code);
@@ -203,7 +332,7 @@ index 5b0cc42..1dcd1f3 100644
  			foreach (int clientId in clientIds)
  			{
  				if (!server.Clients.TryGetValue(clientId, out var value) || value.State != EnumClientState.Playing)
-@@ -875,34 +990,107 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -875,34 +1120,107 @@ public class ServerSystemBlockSimulation : ServerSystem
  						}
  					}
  				}
@@ -314,7 +443,7 @@ index 5b0cc42..1dcd1f3 100644
  		{
  			int num6 = rand.Next(32);
  			int num7 = rand.Next(32);
-@@ -918,10 +1106,11 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -918,10 +1236,11 @@ public class ServerSystemBlockSimulation : ServerSystem
  			if (fluid != 0)
  			{
  				tryTickBlock(server.WorldMap.Blocks[fluid], tmpPos.Set(num + num6, num2 + num8, num3 + num7));

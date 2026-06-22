@@ -36,6 +36,7 @@ build_output.txt
 /ModMaker/
 /VsNpc/
 /VSCreativeMod/
+/website/
 
 # Local-only assets (logos, etc.)
 /Assets/
@@ -58,6 +59,7 @@ Thumbs.db
 
 # Local-only docs scratch
 /wiki/
+/.wiki-push/
 
 # Local secrets / per-machine config
 *.local.json
