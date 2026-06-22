@@ -1,8 +1,34 @@
 diff --git a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-index 719a68b..e6adcda 100644
+index 719a68b..0a3f1f4 100644
 --- a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
 +++ b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-@@ -51,10 +51,12 @@ public class ServerUdpNetwork : ServerSystem
+@@ -13,10 +13,25 @@ using Vintagestory.Common.Network.Packets;
+ namespace Vintagestory.Server.Systems;
+ 
+ public class ServerUdpNetwork : ServerSystem
+ {
+ 	public readonly Dictionary<string, ConnectedClient> connectingClients = new Dictionary<string, ConnectedClient>();
++	private readonly Dictionary<string, StratumMovementState> stratumMovementByPlayerUid = new Dictionary<string, StratumMovementState>();
++	private const double StratumMaxHorizontalBlocksPerSecond = 36;
++	private const double StratumMaxVerticalUpBlocksPerSecond = 18;
++	private const double StratumMaxCumulativeBlocksPerSecond = 64;
++	private const double StratumMovementSlackBlocks = 2.5;
++
++	private sealed class StratumMovementState
++	{
++		public double X;
++		public double Y;
++		public double Z;
++		public long LastMs;
++		public long WindowStartMs;
++		public double WindowDistance;
++	}
+ 
+ 	public PhysicsManager physicsManager;
+ 
+ 	internal ServerUdpQueue ImmediateUdpQueue;
+ 
+@@ -51,10 +66,12 @@ public class ServerUdpNetwork : ServerSystem
  			UdpPacket[] array2 = array;
  			for (int j = 0; j < array2.Length; j++)
  			{
@@ -15,7 +41,44 @@ index 719a68b..e6adcda 100644
  				case 1:
  					HandleConnectionRequest(udpPacket, uNetServer);
  					break;
-@@ -196,22 +198,32 @@ public class ServerUdpNetwork : ServerSystem
+@@ -80,10 +97,20 @@ public class ServerUdpNetwork : ServerSystem
+ 		physicsManager.Init();
+ 	}
+ 
+ 	public override void OnPlayerDisconnect(ServerPlayer player)
+ 	{
++		if (player?.PlayerUID != null)
++		{
++			stratumMovementByPlayerUid.Remove(player.PlayerUID);
++			string mountPrefix = player.PlayerUID + ":mount:";
++			foreach (string key in stratumMovementByPlayerUid.Keys.Where(key => key.StartsWith(mountPrefix)).ToArray())
++			{
++				stratumMovementByPlayerUid.Remove(key);
++			}
++		}
++
+ 		KeyValuePair<string, ConnectedClient> keyValuePair = connectingClients.FirstOrDefault((KeyValuePair<string, ConnectedClient> c) => c.Value.Player?.Equals(player) ?? false);
+ 		if (keyValuePair.Key != null)
+ 		{
+ 			connectingClients.Remove(keyValuePair.Key);
+ 		}
+@@ -167,10 +194,15 @@ public class ServerUdpNetwork : ServerSystem
+ 		}
+ 		player.LastReceivedClientPosition = server.ElapsedMilliseconds;
+ 		int num2 = entity.Attributes.GetInt("tick");
+ 		num2++;
+ 		entity.Attributes.SetInt("tick", num2);
++		if (!TryAcceptStratumMovementPacket(player, entity, packet, num, num2, player.PlayerUID))
++		{
++			return;
++		}
++
+ 		if (!entity.Pos.SetFromPacket(packet, entity))
+ 		{
+ 			entity.Api.Logger.Audit("Rejected player position update for " + player.PlayerName + ". Client sent " + packet.X / 16384 + "," + packet.Y / 16384 + "," + packet.Z / 16384 + ", server pos was " + entity.Pos);
+ 			SendSinglePositionPacket(player, entity, num2);
+ 			return;
+@@ -196,22 +228,118 @@ public class ServerUdpNetwork : ServerSystem
  		if (flag)
  		{
  			message = new AnimationPacket(entity);
@@ -46,8 +109,123 @@ index 719a68b..e6adcda 100644
 +		{
 +			physicsManager.AnimationsAndTagsChannel.SendPacket(message, stratumAnimViewers.ToArray());
 +		}
++		RememberStratumMovement(entity, player.PlayerUID);
++	}
++
++	private bool TryAcceptStratumMovementPacket(ServerPlayer player, Entity entity, Packet_EntityPosition packet, int serverPositionVersion, int currentTick, string stateKey)
++	{
++		if (player == null || entity == null || packet == null || string.IsNullOrEmpty(stateKey))
++		{
++			return false;
++		}
++
++		if (packet.PositionVersion > serverPositionVersion || player.WorldData.CurrentGameMode == EnumGameMode.Creative || entity.Controls.NoClip)
++		{
++			RememberStratumMovement(entity, stateKey);
++			return true;
++		}
++
++		double packetX = packet.X / 16384.0;
++		double packetY = packet.Y / 16384.0;
++		double packetZ = packet.Z / 16384.0;
++		long now = server.ElapsedMilliseconds;
++
++		if (!stratumMovementByPlayerUid.TryGetValue(stateKey, out StratumMovementState state))
++		{
++			stratumMovementByPlayerUid[stateKey] = new StratumMovementState
++			{
++				X = entity.Pos.X,
++				Y = entity.Pos.InternalY,
++				Z = entity.Pos.Z,
++				LastMs = now,
++				WindowStartMs = now
++			};
++			return true;
++		}
++
++		double elapsedSeconds = Math.Max(0.05, (now - state.LastMs) / 1000.0);
++		double dx = packetX - state.X;
++		double dy = packetY - state.Y;
++		double dz = packetZ - state.Z;
++		double horizontal = Math.Sqrt(dx * dx + dz * dz);
++		double total = Math.Sqrt(dx * dx + dy * dy + dz * dz);
++
++		if (now - state.WindowStartMs > 1000)
++		{
++			state.WindowStartMs = now;
++			state.WindowDistance = 0;
++		}
++		state.WindowDistance += total;
++
++		double maxHorizontal = StratumMaxHorizontalBlocksPerSecond * elapsedSeconds + StratumMovementSlackBlocks;
++		double maxVerticalUp = StratumMaxVerticalUpBlocksPerSecond * elapsedSeconds + StratumMovementSlackBlocks;
++		if (horizontal > maxHorizontal || dy > maxVerticalUp || state.WindowDistance > StratumMaxCumulativeBlocksPerSecond)
++		{
++			server.api.Logger.Audit("Rejected suspicious player movement for {0}. Delta={1:0.00}/{2:0.00}/{3:0.00}, window={4:0.00}", player.PlayerName, dx, dy, dz, state.WindowDistance);
++			SendSinglePositionPacket(player, entity, currentTick);
++			state.X = entity.Pos.X;
++			state.Y = entity.Pos.InternalY;
++			state.Z = entity.Pos.Z;
++			state.LastMs = now;
++			state.WindowStartMs = now;
++			state.WindowDistance = 0;
++			return false;
++		}
++
++		state.X = packetX;
++		state.Y = packetY;
++		state.Z = packetZ;
++		state.LastMs = now;
++		return true;
++	}
++
++	private void RememberStratumMovement(Entity entity, string stateKey)
++	{
++		if (entity == null || string.IsNullOrEmpty(stateKey))
++		{
++			return;
++		}
++
++		long now = server.ElapsedMilliseconds;
++		stratumMovementByPlayerUid[stateKey] = new StratumMovementState
++		{
++			X = entity.Pos.X,
++			Y = entity.Pos.InternalY,
++			Z = entity.Pos.Z,
++			LastMs = now,
++			WindowStartMs = now
++		};
  	}
  
  	private void SendSinglePositionPacket(ServerPlayer player, Entity entity, int currentTick)
+ 	{
+ 		Packet_UdpPacket packet = new Packet_UdpPacket
+@@ -240,10 +368,16 @@ public class ServerUdpNetwork : ServerSystem
+ 			return;
+ 		}
+ 		int num2 = entityById.Attributes.GetInt("tick");
+ 		num2++;
+ 		entityById.Attributes.SetInt("tick", num2);
++		string stratumMountMovementKey = player.PlayerUID + ":mount:" + entityById.EntityId;
++		if (!TryAcceptStratumMovementPacket(player, entityById, packet, num, num2, stratumMountMovementKey))
++		{
++			return;
++		}
++
+ 		if (!entityById.Pos.SetFromPacket(packet, entityById))
+ 		{
+ 			entityById.Api.Logger.Audit("Rejected mount position update for " + player.PlayerName + ". Client sent " + packet.X / 16384 + "," + packet.Y / 16384 + "," + packet.Z / 16384 + ", server pos was " + entityById.Pos);
+ 			SendSinglePositionPacket(player, entityById, num2);
+ 			return;
+@@ -299,10 +433,11 @@ public class ServerUdpNetwork : ServerSystem
+ 			IServerNetworkChannel animationsAndTagsChannel = physicsManager.AnimationsAndTagsChannel;
+ 			AnimationPacket message = animationPacket;
+ 			IServerPlayer[] players = list.ToArray();
+ 			animationsAndTagsChannel.SendPacket(message, players);
+ 		}
++		RememberStratumMovement(entityById, stratumMountMovementKey);
+ 	}
+ 
+ 	public void SendPacket_Threadsafe(ConnectedClient client, Packet_BulkEntityPosition contentPacket)
  	{
  		Packet_UdpPacket packet = new Packet_UdpPacket

@@ -1,0 +1,37 @@
+diff --git a/VSEssentials/Entity/Behavior/BehaviorOpenableContainer.cs b/VSEssentials/Entity/Behavior/BehaviorOpenableContainer.cs
+index ad692c2..7f70f73 100644
+--- a/VSEssentials/Entity/Behavior/BehaviorOpenableContainer.cs
++++ b/VSEssentials/Entity/Behavior/BehaviorOpenableContainer.cs
+@@ -98,18 +98,32 @@ namespace Vintagestory.GameContent
+ 
+         public override void OnReceivedClientPacket(IServerPlayer player, int packetid, byte[] data, ref EnumHandling handled)
+         {
+             if (packetid < 1000)
+             {
++                // Stratum: inventory packets are only valid after this entity inventory was opened server-side.
++                if (!inv.HasOpened(player))
++                {
++                    handled = EnumHandling.PreventSubsequent;
++                    return;
++                }
++
+                 inv.InvNetworkUtil.HandleClientPacket(player, packetid, data);
+                 handled = EnumHandling.PreventSubsequent;
+                 return;
+             }
+ 
+             if (packetid == 1012)
+             {
++                if (player?.Entity == null || player.Entity.Pos.SquareDistanceTo(entity.Pos) > 14 || !player.Entity.Controls.ShiftKey)
++                {
++                    handled = EnumHandling.PreventSubsequent;
++                    return;
++                }
++
+                 player.InventoryManager.OpenInventory(inv);
++                handled = EnumHandling.PreventSubsequent;
+             }
+         }
+ 
+ 
+ 
