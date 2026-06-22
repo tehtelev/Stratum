@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace StratumServer;
 
@@ -18,16 +20,18 @@ internal static class EmbeddedOverlay
 	internal static int Apply(string installDir, string overlayStamp)
 	{
 		string markerPath = Path.Combine(installDir, ".stratum-overlay");
-		bool stampMatches = File.Exists(markerPath) && File.ReadAllText(markerPath).Trim() == overlayStamp;
-		if (stampMatches)
+		string manifestPath = Path.Combine(installDir, ".stratum-overlay-manifest");
+		Assembly self = typeof(EmbeddedOverlay).Assembly;
+		string[] names = GetOverlayResourceNames(self);
+		string expectedManifest = BuildManifest(self, overlayStamp, names);
+		bool overlayMatches = File.Exists(markerPath)
+			&& File.ReadAllText(markerPath).Trim() == overlayStamp
+			&& File.Exists(manifestPath)
+			&& string.Equals(File.ReadAllText(manifestPath), expectedManifest, StringComparison.Ordinal);
+		if (overlayMatches)
 		{
 			return 0;
 		}
-
-		Assembly self = typeof(EmbeddedOverlay).Assembly;
-		string[] names = self.GetManifestResourceNames()
-			.Where(n => n.StartsWith(RootPrefix, StringComparison.Ordinal) || n.StartsWith(ModsPrefix, StringComparison.Ordinal))
-			.ToArray();
 
 		int written = 0;
 		foreach (string name in names)
@@ -67,6 +71,7 @@ internal static class EmbeddedOverlay
 		}
 
 		File.WriteAllText(markerPath, overlayStamp);
+		File.WriteAllText(manifestPath, expectedManifest);
 		return written;
 	}
 
@@ -75,5 +80,33 @@ internal static class EmbeddedOverlay
 		return typeof(EmbeddedOverlay).Assembly
 			.GetManifestResourceNames()
 			.Any(n => n.StartsWith(RootPrefix, StringComparison.Ordinal) || n.StartsWith(ModsPrefix, StringComparison.Ordinal));
+	}
+
+	private static string[] GetOverlayResourceNames(Assembly assembly)
+	{
+		return assembly.GetManifestResourceNames()
+			.Where(n => n.StartsWith(RootPrefix, StringComparison.Ordinal) || n.StartsWith(ModsPrefix, StringComparison.Ordinal))
+			.OrderBy(n => n, StringComparer.Ordinal)
+			.ToArray();
+	}
+
+	private static string BuildManifest(Assembly assembly, string overlayStamp, string[] names)
+	{
+		StringBuilder manifest = new StringBuilder();
+		manifest.Append("stamp=").Append(overlayStamp).Append('\n');
+		foreach (string name in names)
+		{
+			using Stream resource = assembly.GetManifestResourceStream(name)
+				?? throw new InvalidOperationException($"Embedded resource missing: {name}");
+			manifest.Append(name).Append('|').Append(resource.Length).Append('|').Append(HashResource(resource)).Append('\n');
+		}
+		return manifest.ToString();
+	}
+
+	private static string HashResource(Stream stream)
+	{
+		using SHA256 sha = SHA256.Create();
+		byte[] hash = sha.ComputeHash(stream);
+		return Convert.ToHexString(hash);
 	}
 }

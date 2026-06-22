@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Text;
 using Vintagestory.API.Common;
 
@@ -28,7 +29,7 @@ internal static class StratumConsole
 	{
 		lock (SyncRoot)
 		{
-			interactive = !Console.IsInputRedirected && !Console.IsOutputRedirected;
+			interactive = ShouldUseInteractivePrompt();
 			inputLineActive = interactive;
 			CurrentInput.Clear();
 			RenderPromptLocked();
@@ -220,6 +221,25 @@ internal static class StratumConsole
 			default:
 				return fallback;
 		}
+	}
+
+	private static bool ShouldUseInteractivePrompt()
+	{
+		if (Console.IsInputRedirected || Console.IsOutputRedirected)
+		{
+			return false;
+		}
+
+		string overrideValue = Environment.GetEnvironmentVariable("STRATUM_INTERACTIVE_CONSOLE");
+		if (string.Equals(overrideValue, "1", StringComparison.OrdinalIgnoreCase)
+			|| string.Equals(overrideValue, "true", StringComparison.OrdinalIgnoreCase))
+		{
+			return true;
+		}
+
+		// Stratum: keep the ReadKey based prompt on Windows. Linux terminals, tmux,
+		// docker attach, and systemd consoles can break when we switch to key mode.
+		return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 	}
 
 	private static void RenderPromptLocked()
