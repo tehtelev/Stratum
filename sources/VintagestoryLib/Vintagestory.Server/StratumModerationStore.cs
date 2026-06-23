@@ -238,6 +238,10 @@ internal static class StratumReportStore
 	private static readonly object StoreLock = new object();
 	private static StratumReportState state;
 
+	// Bound the report store. Save keeps the most recent MaxRetainedClosedReports closed
+	// reports and drops the rest. It never prunes open or claimed reports.
+	private const int MaxRetainedClosedReports = 200;
+
 	public static StratumReportEntry AddReport(string reporterUid, string reporterName, string targetUid, string targetName, string reason)
 	{
 		lock (StoreLock)
@@ -354,8 +358,41 @@ internal static class StratumReportStore
 
 	private static void Save()
 	{
+		PruneClosedReports();
 		GamePaths.EnsurePathExists(GamePaths.Config);
 		File.WriteAllText(StorePath, JsonConvert.SerializeObject(state, Formatting.Indented));
+	}
+
+	private static void PruneClosedReports()
+	{
+		int closedCount = 0;
+		for (int i = 0; i < state.Reports.Count; i++)
+		{
+			if (string.Equals(state.Reports[i].Status, "closed", StringComparison.OrdinalIgnoreCase))
+			{
+				closedCount++;
+			}
+		}
+
+		int toDrop = closedCount - MaxRetainedClosedReports;
+		if (toDrop <= 0)
+		{
+			return;
+		}
+
+		int index = 0;
+		while (index < state.Reports.Count && toDrop > 0)
+		{
+			if (string.Equals(state.Reports[index].Status, "closed", StringComparison.OrdinalIgnoreCase))
+			{
+				state.Reports.RemoveAt(index);
+				toDrop--;
+			}
+			else
+			{
+				index++;
+			}
+		}
 	}
 
 	private static string StorePath => Path.Combine(GamePaths.Config, "stratum.reports.json");
