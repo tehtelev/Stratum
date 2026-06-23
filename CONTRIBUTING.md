@@ -9,21 +9,30 @@ Stratum is a patch set over the vanilla Vintage Story server. The repo does not 
 - `patches/` is unified diffs against the decompiled vanilla baseline.
 - `sources/` is files that exist only in Stratum. No vanilla equivalent.
 - `StratumServer/` is the launcher and the first-run vanilla downloader.
-- `scripts/` holds `bootstrap.ps1` (rebuilds the working tree from `patches` and `sources`) and `extract-patches.ps1` (writes your changes back out).
-- `VintageStory.slnx` is the solution. It only opens after `bootstrap.ps1` has run.
+- `scripts/` holds `bootstrap.ps1` / `bootstrap.sh` (rebuilds the working tree from `patches` and `sources`) and `extract-patches.ps1` / `extract-patches.sh` (writes your changes back out). Use `.ps1` on Windows, `.sh` on Linux/macOS.
+- `VintageStory.slnx` is the solution. It only opens after bootstrap has run.
 
 The working tree itself is gitignored. Only `patches/` and `sources/` are tracked.
 
 ## Setting up
 
-You need the .NET 10 SDK and Windows PowerShell.
+You need the .NET 10 SDK and `git`. On Windows, PowerShell 5.1+ runs the `.ps1` scripts. On Linux/macOS, `bash` runs the `.sh` equivalents (also needs `curl`, `perl`, `python3`). macOS ships bash 3.2; the scripts require bash 4+ and GNU `coreutils` (`realpath`), both available via `brew install bash coreutils`.
+
+**Windows:**
 
 ```powershell
 .\scripts\bootstrap.ps1
 dotnet build VintageStory.slnx -c Release
 ```
 
-`bootstrap.ps1` downloads the matching vanilla server zip, decompiles the assemblies into the working tree, applies every patch, then copies `sources/` on top. After that you have a normal C# solution to edit.
+**Linux / macOS:**
+
+```bash
+./scripts/bootstrap.sh
+dotnet build VintageStory.slnx -c Release
+```
+
+`bootstrap` downloads the matching vanilla server archive, decompiles the assemblies into the working tree, applies every patch, then copies `sources/` on top. After that you have a normal C# solution to edit.
 
 If a patch fails to apply you usually want to delete the working tree and rerun bootstrap, not hand-edit the rejected hunk.
 
@@ -31,7 +40,7 @@ If a patch fails to apply you usually want to delete the working tree and rerun 
 
 1. Edit files in the working tree like any other repo.
 2. Build and test locally on a real server start. See "Testing" below.
-3. Run `.\scripts\extract-patches.ps1`. This regenerates `patches/` and `sources/` from your changes.
+3. Run `.\scripts\extract-patches.ps1` (Windows) or `./scripts/extract-patches.sh` (Linux/macOS). This regenerates `patches/` and `sources/` from your changes.
 4. `git add patches sources` and commit. Never commit the working tree itself.
 
 If you started a branch before the latest vanilla bump, rerun bootstrap against the new baseline before extracting patches. Patches that no longer apply cleanly are your problem to fix.
