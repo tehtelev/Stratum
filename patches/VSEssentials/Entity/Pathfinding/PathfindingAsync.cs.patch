@@ -142,7 +142,7 @@ index 48a886b..7b443ba 100644
  
          public int OffThreadInterval()
          {
-@@ -103,20 +205,230 @@ namespace Vintagestory.Essentials
+@@ -103,20 +205,243 @@ namespace Vintagestory.Essentials
          /// <summary>
          /// Threadsafe way of dequeueing next task
          /// </summary>

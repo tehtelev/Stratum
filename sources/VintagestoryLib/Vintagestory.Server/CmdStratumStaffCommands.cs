@@ -21,6 +21,7 @@ internal class CmdStratumStaffCommands
 	private readonly Dictionary<string, string> lastMessagePartnerByUid = new Dictionary<string, string>(StringComparer.Ordinal);
 	private readonly Dictionary<string, long> lastVanishIndicatorMsByUid = new Dictionary<string, long>(StringComparer.Ordinal);
 	private readonly HashSet<string> stratumActiveJailUids = new HashSet<string>(StringComparer.Ordinal); // Stratum: skip per-tick JSON deserialization in EnforceJailedPlayers
+	private readonly Dictionary<string, DateTime> stratumMuteExpiryByUid = new Dictionary<string, DateTime>(StringComparer.Ordinal); // Stratum: skip per-message JSON deserialization in OnPlayerChat
 
 	public CmdStratumStaffCommands(ServerMain server)
 	{
@@ -968,6 +969,7 @@ internal class CmdStratumStaffCommands
 	private TextCommandResult MuteSingleTarget(ServerPlayerData targetData, ConnectedClient onlineTarget, Caller caller, string reason, DateTime? expiresUtc)
 	{
 		StratumModerationRecord mute = StratumModerationStore.AddMute(server, targetData, caller, reason, expiresUtc);
+		stratumMuteExpiryByUid[targetData.PlayerUID] = expiresUtc ?? DateTime.MaxValue; // Stratum: cache for chat-path
 		string expiry = StratumModerationStore.FormatExpiry(mute);
 		if (onlineTarget?.Player != null)
 		{
@@ -997,6 +999,8 @@ internal class CmdStratumStaffCommands
 		{
 			return TextCommandResult.Error(targetData.LastKnownPlayername + " has no active mute.");
 		}
+
+		stratumMuteExpiryByUid.Remove(targetData.PlayerUID); // Stratum: clear cached mute
 
 		if (onlineTarget?.Player != null)
 		{
@@ -1230,6 +1234,7 @@ internal class CmdStratumStaffCommands
 	{
 		StratumStaffCommandState.MarkSeen(server, player, "online");
 		ApplyJailOnJoin(player);
+		CacheMuteStateOnJoin(player);
 	}
 
 	private void OnPlayerDisconnect(IServerPlayer player)
@@ -1238,6 +1243,7 @@ internal class CmdStratumStaffCommands
 		StratumStaffCommandState.ClearSessionState(player.PlayerUID);
 		lastVanishIndicatorMsByUid.Remove(player.PlayerUID);
 		stratumActiveJailUids.Remove(player.PlayerUID); // Stratum: re-populated on next join via ApplyJailOnJoin
+		stratumMuteExpiryByUid.Remove(player.PlayerUID); // Stratum: re-populated on next join
 	}
 
 	private void OnPlayerDeath(IServerPlayer player, DamageSource damageSource)
@@ -1252,33 +1258,39 @@ internal class CmdStratumStaffCommands
 			return;
 		}
 
-		ServerPlayerData playerData = server.PlayerDataManager.GetOrCreateServerPlayerData(player.PlayerUID, player.PlayerName);
-		if (!StratumModerationStore.TryGetActiveMute(server, playerData, out StratumModerationRecord mute))
+		// Stratum start: cached mute check (zero alloc on the chat hot path)
+		if (stratumMuteExpiryByUid.TryGetValue(player.PlayerUID, out DateTime muteExpiry))
 		{
-			if (StratumCommandAccessCatalog.PlayerHasAccess(player, StratumRuntime.Config.Commands.ChatControl))
+			if (DateTime.UtcNow < muteExpiry)
 			{
+				consumed.value = true;
+				string expiryText = muteExpiry == DateTime.MaxValue ? "permanent" : muteExpiry.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", System.Globalization.CultureInfo.InvariantCulture);
+				player.SendMessage(channelId, "You are muted until " + expiryText + ".", EnumChatType.CommandError);
 				return;
 			}
 
-			if (StratumStaffCommandState.IsChatLocked)
-			{
-				consumed.value = true;
-				string suffix = string.IsNullOrWhiteSpace(StratumStaffCommandState.ChatLockReason) ? string.Empty : " Reason: " + StratumStaffCommandState.ChatLockReason;
-				player.SendMessage(channelId, "Chat is currently locked by staff." + suffix, EnumChatType.CommandError);
-				return;
-			}
+			stratumMuteExpiryByUid.Remove(player.PlayerUID);
+		}
+		// Stratum end
 
-			if (StratumStaffCommandState.TryRejectBySlowmode(player, DateTime.UtcNow, out TimeSpan remaining))
-			{
-				consumed.value = true;
-				player.SendMessage(channelId, "Chat slowmode is enabled. Wait " + Math.Ceiling(remaining.TotalSeconds).ToString(GlobalConstants.DefaultCultureInfo) + " more seconds.", EnumChatType.CommandError);
-			}
-
+		if (StratumCommandAccessCatalog.PlayerHasAccess(player, StratumRuntime.Config.Commands.ChatControl))
+		{
 			return;
 		}
 
-		consumed.value = true;
-		player.SendMessage(channelId, "You are muted until " + StratumModerationStore.FormatExpiry(mute) + ". Reason: " + mute.Text, EnumChatType.CommandError);
+		if (StratumStaffCommandState.IsChatLocked)
+		{
+			consumed.value = true;
+			string suffix = string.IsNullOrWhiteSpace(StratumStaffCommandState.ChatLockReason) ? string.Empty : " Reason: " + StratumStaffCommandState.ChatLockReason;
+			player.SendMessage(channelId, "Chat is currently locked by staff." + suffix, EnumChatType.CommandError);
+			return;
+		}
+
+		if (StratumStaffCommandState.TryRejectBySlowmode(player, DateTime.UtcNow, out TimeSpan remaining))
+		{
+			consumed.value = true;
+			player.SendMessage(channelId, "Chat slowmode is enabled. Wait " + Math.Ceiling(remaining.TotalSeconds).ToString(GlobalConstants.DefaultCultureInfo) + " more seconds.", EnumChatType.CommandError);
+		}
 	}
 
 	private bool CheckAccess(TextCommandCallingArgs args, StratumCommandAccessConfig access, string command, out TextCommandResult failure)
@@ -1368,6 +1380,20 @@ internal class CmdStratumStaffCommands
 		stratumActiveJailUids.Add(player.PlayerUID); // Stratum: track in-memory for tick-path
 		player.Entity.TeleportTo(jailPosition);
 		Send(player, "You are jailed." + FormatOptionalReason(status.Reason), EnumChatType.CommandError);
+	}
+
+	private void CacheMuteStateOnJoin(IServerPlayer player)
+	{
+		if (player == null)
+		{
+			return;
+		}
+
+		ServerPlayerData playerData = server.PlayerDataManager.GetOrCreateServerPlayerData(player.PlayerUID, player.PlayerName);
+		if (StratumModerationStore.TryGetActiveMute(server, playerData, out StratumModerationRecord mute))
+		{
+			stratumMuteExpiryByUid[player.PlayerUID] = mute.ExpiresUtc ?? DateTime.MaxValue;
+		}
 	}
 
 	private void EnforceJailedPlayers()

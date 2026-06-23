@@ -51,8 +51,7 @@ internal sealed class StratumLoginProtection
 		{
 			StartX = player.Entity.Pos.X,
 			StartZ = player.Entity.Pos.Z,
-			ExpiresAtMs = server.ElapsedMilliseconds + durationMs,
-			RemainingSeconds = cfg.ProtectionSeconds
+			ExpiresAtMs = server.ElapsedMilliseconds + durationMs
 		};
 
 		if (cfg.AnnounceOnStart)
@@ -151,6 +150,5 @@ internal sealed class StratumLoginProtection
 		public double StartX;
 		public double StartZ;
 		public long ExpiresAtMs;
-		public int RemainingSeconds;
 	}
 }
