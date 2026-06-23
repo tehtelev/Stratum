@@ -86,14 +86,13 @@ namespace Vintagestory.API.Common.Entities
             List<Measurement> measurements = new List<Measurement>(buckets.Count);
             foreach (KeyValuePair<string, Bucket> entry in buckets)
             {
-                long elapsedTicks = Interlocked.Read(ref entry.Value.ElapsedTicks);
+                long elapsedTicks = Interlocked.Exchange(ref entry.Value.ElapsedTicks, 0);
                 if (elapsedTicks > 0L)
                 {
                     measurements.Add(new Measurement(entry.Key, elapsedTicks));
                 }
             }
 
-            buckets.Clear();
             return measurements;
         }
     }
