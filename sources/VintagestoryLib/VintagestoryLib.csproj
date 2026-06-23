@@ -9,105 +9,110 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
   </PropertyGroup>
-  <PropertyGroup Condition="!Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/OpenTK.Graphics.dll') Or !Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/csogg.dll') Or !Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/csvorbis.dll')">
+  <PropertyGroup />
+  <PropertyGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\OpenTK.Graphics.dll') Or !Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csogg.dll') Or !Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csvorbis.dll')">
     <DefineConstants>$(DefineConstants);STRATUM_CLIENT_REF_FALLBACKS</DefineConstants>
   </PropertyGroup>
-  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/OpenTK.Graphics.dll')">
+  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\OpenTK.Graphics.dll')">
     <PackageReference Include="OpenTK.Graphics" Version="4.9.4" />
+  </ItemGroup>
+  <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
   </ItemGroup>
   <!-- Nimbus integration is optional. When the Nimbus.Shared project is checked
        out, define STRATUM_NIMBUS so the Nimbus/* folder and the patched baseline
        files (gated with #if STRATUM_NIMBUS) compile in. Otherwise, exclude the
        folder and skip the project reference so the lib still builds for outside
        contributors and CI. -->
-  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)../../Nimbus/Nimbus.Shared/Nimbus.Shared.csproj')">
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\Nimbus\Nimbus.Shared\Nimbus.Shared.csproj')">
     <DefineConstants>$(DefineConstants);STRATUM_NIMBUS</DefineConstants>
   </PropertyGroup>
-  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)../../Nimbus/Nimbus.Shared/Nimbus.Shared.csproj')">
-    <Compile Remove="Vintagestory.Server/Nimbus/**/*.cs" />
+  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\Nimbus\Nimbus.Shared\Nimbus.Shared.csproj')">
+    <Compile Remove="Vintagestory.Server\Nimbus\**\*.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../VintagestoryApi/VintagestoryAPI.csproj" />
-    <ProjectReference Include="../../Nimbus/Nimbus.Shared/Nimbus.Shared.csproj" Condition="Exists('$(MSBuildThisFileDirectory)../../Nimbus/Nimbus.Shared/Nimbus.Shared.csproj')" />
+    <ProjectReference Include="..\..\VintagestoryApi\VintagestoryAPI.csproj" />
+    <ProjectReference Include="..\..\Nimbus\Nimbus.Shared\Nimbus.Shared.csproj" Condition="Exists('$(MSBuildThisFileDirectory)..\..\Nimbus\Nimbus.Shared\Nimbus.Shared.csproj')" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="cairo-sharp">
-      <HintPath>../../.vanilla/Lib/cairo-sharp.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\cairo-sharp.dll</HintPath>
     </Reference>
     <Reference Include="protobuf-net">
-      <HintPath>../../.vanilla/Lib/protobuf-net.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\protobuf-net.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>../../.vanilla/Lib/Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="CommandLine">
-      <HintPath>../../.vanilla/Lib/CommandLine.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\CommandLine.dll</HintPath>
     </Reference>
     <Reference Include="SkiaSharp">
-      <HintPath>../../.vanilla/Lib/SkiaSharp.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\SkiaSharp.dll</HintPath>
     </Reference>
     <Reference Include="Open.Nat">
-      <HintPath>../../.vanilla/Lib/Open.Nat.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\Open.Nat.dll</HintPath>
     </Reference>
     <Reference Include="Mono.Nat">
-      <HintPath>../../.vanilla/Lib/Mono.Nat.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\Mono.Nat.dll</HintPath>
     </Reference>
     <Reference Include="Mono.Cecil">
-      <HintPath>../../.vanilla/Lib/Mono.Cecil.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\Mono.Cecil.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.CodeAnalysis">
-      <HintPath>../../.vanilla/Lib/Microsoft.CodeAnalysis.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\Microsoft.CodeAnalysis.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.CodeAnalysis.CSharp">
-      <HintPath>../../.vanilla/Lib/Microsoft.CodeAnalysis.CSharp.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\Microsoft.CodeAnalysis.CSharp.dll</HintPath>
     </Reference>
     <Reference Include="ICSharpCode.SharpZipLib">
-      <HintPath>../../.vanilla/Lib/ICSharpCode.SharpZipLib.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\ICSharpCode.SharpZipLib.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Data.Sqlite">
-      <HintPath>../../.vanilla/Lib/Microsoft.Data.Sqlite.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\Microsoft.Data.Sqlite.dll</HintPath>
     </Reference>
     <Reference Include="0Harmony">
-      <HintPath>../../.vanilla/Lib/0Harmony.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="OpenTK.Windowing.Desktop">
-      <HintPath>../../.vanilla/Lib/OpenTK.Windowing.Desktop.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Windowing.Desktop.dll</HintPath>
     </Reference>
     <Reference Include="OpenTK.Audio.OpenAL">
-      <HintPath>../../.vanilla/Lib/OpenTK.Audio.OpenAL.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Audio.OpenAL.dll</HintPath>
     </Reference>
     <Reference Include="OpenTK.Mathematics">
-      <HintPath>../../.vanilla/Lib/OpenTK.Mathematics.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Mathematics.dll</HintPath>
     </Reference>
     <Reference Include="OpenTK.Windowing.Common">
-      <HintPath>../../.vanilla/Lib/OpenTK.Windowing.Common.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Windowing.Common.dll</HintPath>
     </Reference>
     <Reference Include="OpenTK.Windowing.GraphicsLibraryFramework">
-      <HintPath>../../.vanilla/Lib/OpenTK.Windowing.GraphicsLibraryFramework.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Windowing.GraphicsLibraryFramework.dll</HintPath>
     </Reference>
     <Reference Include="DnsClient">
-      <HintPath>../../.vanilla/Lib/DnsClient.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\DnsClient.dll</HintPath>
     </Reference>
-    <Reference Include="OpenTK.Graphics" Condition="Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/OpenTK.Graphics.dll')">
-      <HintPath>../../.vanilla/Lib/OpenTK.Graphics.dll</HintPath>
+    <Reference Include="OpenTK.Graphics" Condition="Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\OpenTK.Graphics.dll')">
+      <HintPath>..\..\.vanilla\Lib\OpenTK.Graphics.dll</HintPath>
     </Reference>
-    <Reference Include="OpenTK.Graphics" Condition="!Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/OpenTK.Graphics.dll') And Exists('$(MSBuildThisFileDirectory)../../.vanilla/OpenTK.Graphics.dll')">
-      <HintPath>../../.vanilla/OpenTK.Graphics.dll</HintPath>
+    <Reference Include="OpenTK.Graphics" Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\OpenTK.Graphics.dll') And Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\OpenTK.Graphics.dll')">
+      <HintPath>..\..\.vanilla\OpenTK.Graphics.dll</HintPath>
     </Reference>
-    <Reference Include="csvorbis" Condition="Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/csvorbis.dll')">
-      <HintPath>../../.vanilla/Lib/csvorbis.dll</HintPath>
+    <Reference Include="csvorbis" Condition="Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csvorbis.dll')">
+      <HintPath>..\..\.vanilla\Lib\csvorbis.dll</HintPath>
     </Reference>
-    <Reference Include="csvorbis" Condition="!Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/csvorbis.dll') And Exists('$(MSBuildThisFileDirectory)../../.vanilla/csvorbis.dll')">
-      <HintPath>../../.vanilla/csvorbis.dll</HintPath>
+    <Reference Include="csvorbis" Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csvorbis.dll') And Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\csvorbis.dll')">
+      <HintPath>..\..\.vanilla\csvorbis.dll</HintPath>
     </Reference>
-    <Reference Include="csogg" Condition="Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/csogg.dll')">
-      <HintPath>../../.vanilla/Lib/csogg.dll</HintPath>
+    <Reference Include="csogg" Condition="Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csogg.dll')">
+      <HintPath>..\..\.vanilla\Lib\csogg.dll</HintPath>
     </Reference>
-    <Reference Include="csogg" Condition="!Exists('$(MSBuildThisFileDirectory)../../.vanilla/Lib/csogg.dll') And Exists('$(MSBuildThisFileDirectory)../../.vanilla/csogg.dll')">
-      <HintPath>../../.vanilla/csogg.dll</HintPath>
+    <Reference Include="csogg" Condition="!Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\Lib\csogg.dll') And Exists('$(MSBuildThisFileDirectory)..\..\.vanilla\csogg.dll')">
+      <HintPath>..\..\.vanilla\csogg.dll</HintPath>
     </Reference>
     <Reference Include="xplatforminterface">
-      <HintPath>../../.vanilla/Lib/xplatforminterface.dll</HintPath>
+      <HintPath>..\..\.vanilla\Lib\xplatforminterface.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
