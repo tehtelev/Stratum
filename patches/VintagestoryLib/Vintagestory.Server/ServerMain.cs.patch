@@ -73,7 +73,7 @@ index 1017be9..643d511 100644
  	{
  		get
  		{
-@@ -516,11 +541,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -516,11 +541,14 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	{
  		ServerPlayer player = client.Player;
  		player.Entity.WatchedAttributes.MarkAllDirty();
@@ -586,7 +586,7 @@ index 1017be9..643d511 100644
  				Logger.Audit("Client {0} got removed: '{1}' ({2})", client.PlayerName, othersKickmessage, hisKickMessage);
  			}
  			else
-@@ -2041,13 +2220,14 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -2041,13 +2220,18 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			string playerName = client.PlayerName;
  			Clients.Remove(client.Id);
  			player.client = null;
