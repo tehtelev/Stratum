@@ -72,7 +72,9 @@ Anything else is forwarded to the server (`--port`, `--dataPath`, ...).
 
 ## Build
 
-Requires the .NET 10 SDK, PowerShell 5.1+, and `git`.
+Requires the .NET 10 SDK and `git`. On Windows you also need PowerShell 5.1+; on Linux/macOS you need `bash` (4+), `curl`, `perl`, and `python3`. macOS users: `brew install bash coreutils` covers the extra dependencies.
+
+**Windows (PowerShell):**
 
 ```powershell
 git clone https://github.com/trevorftp/Stratum.git
@@ -81,14 +83,18 @@ cd Stratum
 dotnet build VintageStory.slnx -c Release
 ```
 
-`bootstrap.ps1` downloads the targeted vanilla server zip, decompiles
-`VintagestoryLib`, `VintagestoryServer` into `baseline/`,
-clones the forks pinned in [forks.json](forks.json), applies every patch in
-`patches/`, and drops Stratum-only files from `sources/` into place.
+**Linux / macOS:**
 
-After bootstrap, every patched file carries a `// Stratum:` marker so edits
-are easy to find. Edit, build, then run `.\scripts\extract-patches.ps1` to
-regenerate the diffs. Full workflow in [CONTRIBUTING.md](CONTRIBUTING.md).
+```bash
+git clone https://github.com/trevorftp/Stratum.git
+cd Stratum
+./scripts/bootstrap.sh
+dotnet build VintageStory.slnx -c Release
+```
+
+Both scripts do the same thing: download the targeted vanilla server archive, decompile `VintagestoryLib` and `VintagestoryServer` into `baseline/`, clone the forks pinned in [forks.json](forks.json), apply every patch in `patches/`, and drop Stratum-only files from `sources/` into place.
+
+After bootstrap, every patched file carries a `// Stratum:` marker so edits are easy to find. Edit, build, then run `scripts\extract-patches.ps1` (Windows) or `scripts/extract-patches.sh` (Linux/macOS) to regenerate the diffs. Full workflow in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 See [SECURITY.md](SECURITY.md) for reporting exploits.
 
