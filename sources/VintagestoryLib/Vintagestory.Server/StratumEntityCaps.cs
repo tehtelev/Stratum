@@ -9,8 +9,8 @@ namespace Vintagestory.Server;
 /// Per-chunk-column entity cap enforcement. Runs every
 /// <see cref="StratumEntityTickingConfig.EntityCapsEnforcementIntervalSeconds"/> seconds and,
 /// for any chunk column that has more loaded creatures or ground items than the configured cap,
-/// flags the oldest excess for despawn. The simulation system's existing per-tick despawn pass
-/// picks them up; we don't call <c>DespawnEntity</c> from here.
+/// despawns the oldest excess by calling <c>server.DespawnEntity</c> with
+/// <see cref="EnumDespawnReason.Unload"/>. Excess is ordered oldest-first by <c>EntityId</c>.
 ///
 /// Creatures honor the same exempt-code-prefix list and named-entity rule as
 /// <see cref="ServerSystemEntitySimulation"/>'s hard-despawn so player livestock and tamed mobs
