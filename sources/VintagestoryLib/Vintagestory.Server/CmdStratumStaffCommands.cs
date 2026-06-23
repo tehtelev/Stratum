@@ -20,6 +20,7 @@ internal class CmdStratumStaffCommands
 	private readonly ServerMain server;
 	private readonly Dictionary<string, string> lastMessagePartnerByUid = new Dictionary<string, string>(StringComparer.Ordinal);
 	private readonly Dictionary<string, long> lastVanishIndicatorMsByUid = new Dictionary<string, long>(StringComparer.Ordinal);
+	private readonly HashSet<string> stratumActiveJailUids = new HashSet<string>(StringComparer.Ordinal); // Stratum: skip per-tick JSON deserialization in EnforceJailedPlayers
 
 	public CmdStratumStaffCommands(ServerMain server)
 	{
@@ -781,6 +782,7 @@ internal class CmdStratumStaffCommands
 	{
 		StratumPositionConfig returnPosition = onlineTarget?.Player?.Entity?.Pos == null ? null : StratumPositionConfig.FromEntityPos(onlineTarget.Player.Entity.Pos);
 		StratumJailStatus status = StratumCustodyStore.JailPlayer(server, targetData, caller, reason, returnPosition);
+		stratumActiveJailUids.Add(targetData.PlayerUID); // Stratum: track in-memory for tick-path
 		if (onlineTarget?.Player?.Entity != null)
 		{
 			StratumStaffCommandState.RecordBackLocation(onlineTarget.Player);
@@ -811,6 +813,8 @@ internal class CmdStratumStaffCommands
 		{
 			return TextCommandResult.Error(targetData.LastKnownPlayername + " is not jailed.");
 		}
+
+		stratumActiveJailUids.Remove(targetData.PlayerUID); // Stratum: clear in-memory tracking
 
 		if (onlineTarget?.Player?.Entity != null)
 		{
@@ -1233,6 +1237,7 @@ internal class CmdStratumStaffCommands
 		StratumStaffCommandState.MarkSeen(server, player, "offline");
 		StratumStaffCommandState.ClearSessionState(player.PlayerUID);
 		lastVanishIndicatorMsByUid.Remove(player.PlayerUID);
+		stratumActiveJailUids.Remove(player.PlayerUID); // Stratum: re-populated on next join via ApplyJailOnJoin
 	}
 
 	private void OnPlayerDeath(IServerPlayer player, DamageSource damageSource)
@@ -1360,13 +1365,14 @@ internal class CmdStratumStaffCommands
 			return;
 		}
 
+		stratumActiveJailUids.Add(player.PlayerUID); // Stratum: track in-memory for tick-path
 		player.Entity.TeleportTo(jailPosition);
 		Send(player, "You are jailed." + FormatOptionalReason(status.Reason), EnumChatType.CommandError);
 	}
 
 	private void EnforceJailedPlayers()
 	{
-		if (!TryGetJailLocation(out EntityPos jailPosition, out _))
+		if (stratumActiveJailUids.Count == 0 || !TryGetJailLocation(out EntityPos jailPosition, out _))
 		{
 			return;
 		}
@@ -1375,7 +1381,7 @@ internal class CmdStratumStaffCommands
 		double maxDistanceSq = maxDistance * maxDistance;
 		foreach (ConnectedClient client in server.Clients.Values)
 		{
-			if (!client.State.IsAdmitted() || client.Player?.Entity?.Pos == null || !StratumCustodyStore.TryGetActiveJail(client.ServerData, out _))
+			if (!client.State.IsAdmitted() || client.Player?.Entity?.Pos == null || !stratumActiveJailUids.Contains(client.Player.PlayerUID))
 			{
 				continue;
 			}
