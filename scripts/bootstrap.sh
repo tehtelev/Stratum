@@ -199,6 +199,53 @@ copy_optional_client_libs() {
   done
 }
 
+# Build-time compatibility: some server archives omit managed client-facing
+# references that VintagestoryLib still compiles against. Download the client
+# archive and extract the missing DLLs when --client-lib-dir is not provided.
+download_missing_client_refs() {
+  local lib_dir="$1"
+  mkdir -p "$lib_dir"
+
+  local required_refs=(OpenTK.Graphics.dll csogg.dll csvorbis.dll)
+  local missing=()
+  for ref in "${required_refs[@]}"; do
+    [[ -f "$lib_dir/$ref" ]] || missing+=("$ref")
+  done
+
+  [[ "${#missing[@]}" -eq 0 ]] && return 0
+
+  echo "Missing managed refs in server archive: ${missing[*]}"
+  mkdir -p "$zip_cache_dir"
+  local client_tar_name="vs_client_linux-x64_${version}.tar.gz"
+  local client_tar_path="$zip_cache_dir/$client_tar_name"
+
+  if [[ ! -f "$client_tar_path" ]]; then
+    local client_url="https://cdn.vintagestory.at/gamefiles/stable/$client_tar_name"
+    echo "Downloading $client_url"
+    curl -L --fail --output "$client_tar_path" "$client_url"
+  else
+    echo "Using cached $client_tar_path"
+  fi
+
+  local tmp_dir="$repo_root/.tmp-client-$version"
+  rm -rf "$tmp_dir"
+  mkdir -p "$tmp_dir"
+  tar -xzf "$client_tar_path" -C "$tmp_dir"
+
+  for ref in "${missing[@]}"; do
+    local found
+    found="$(find "$tmp_dir" -type f -name "$ref" -print -quit)"
+    if [[ -n "$found" ]]; then
+      cp -f "$found" "$lib_dir/"
+      echo "Restored build ref $ref from client archive"
+    else
+      echo "Warning: could not find $ref in $client_tar_name" >&2
+    fi
+  done
+
+  rm -rf "$tmp_dir"
+}
+
 require_cmd dotnet
 require_cmd git
 require_cmd find
@@ -232,6 +279,9 @@ if [[ ! -d "$vanilla_dir" ]]; then
 fi
 
 copy_optional_client_libs "$client_lib_dir" "$vanilla_dir/Lib"
+if [[ -z "$client_lib_dir" ]]; then
+  download_missing_client_refs "$vanilla_dir/Lib"
+fi
 
 install_ilspycmd_if_missing
 
