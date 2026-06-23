@@ -8,8 +8,8 @@
 	<Target Name="DeployToVSInstall" AfterTargets="Build" Condition="'$(SkipDeployToVSInstall)' != 'true' and '$(VSInstall)' != ''">
 		<PropertyGroup>
 			<_DeployRoot>$(VSInstall)</_DeployRoot>
-			<_DeployModsDir>$(VSInstall)\Mods</_DeployModsDir>
-			<_DeployLibDir>$(VSInstall)\Lib</_DeployLibDir>
+			<_DeployModsDir>$(VSInstall)/Mods</_DeployModsDir>
+			<_DeployLibDir>$(VSInstall)/Lib</_DeployLibDir>
 		</PropertyGroup>
 
 		<!-- Server runtime libs -->
