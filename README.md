@@ -43,6 +43,18 @@ Big thanks to everyone supporting Stratum.
       <br />
       <strong>PHoenixOPHury</strong>
     </td>
+    <td align="center" width="140">
+      <a href="https://ko-fi.com/imtsubaki">
+        <img
+          src="https://storage.ko-fi.com/cdn/useruploads/db85e196-0575-44a2-8e23-2610d11753ac_a9cd6dc4-5584-4aa4-89a0-385ffa345451.png"
+          width="96"
+          height="96"
+          alt="PARTIZAN_N"
+        />
+      </a>
+      <br />
+      <strong>PARTIZAN_N</strong>
+    </td>
   </tr>
 </table>
 
