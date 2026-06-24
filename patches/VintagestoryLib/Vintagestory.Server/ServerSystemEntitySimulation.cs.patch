@@ -16,7 +16,7 @@ index 750557a..c899040 100644
  using Vintagestory.API.Common.Entities;
  using Vintagestory.API.Config;
  using Vintagestory.API.Datastructures;
-@@ -22,13 +26,109 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -22,13 +26,110 @@ public class ServerSystemEntitySimulation : ServerSystem
  
  	private Dictionary<string, List<string>> deathMessagesCache;
  
@@ -439,7 +439,7 @@ index 750557a..c899040 100644
  		SendEntityDespawns();
  		int count = server.DelayedSpawnQueue.Count;
  		if (count <= 0)
-@@ -185,19 +480,148 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -185,19 +480,149 @@ public class ServerSystemEntitySimulation : ServerSystem
  		}
  	}
  
@@ -610,7 +610,7 @@ index 750557a..c899040 100644
  		}
  		ServerMain.FrameProfiler.Enter("despawning");
  		foreach (KeyValuePair<Entity, EntityDespawnData> item in list)
-@@ -222,27 +651,599 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -222,27 +651,627 @@ public class ServerSystemEntitySimulation : ServerSystem
  			server.DespawnEntity(item.Key, item.Value);
  			ServerMain.FrameProfiler.Mark("despawned-", item.Key.Code.Path);
  		}
