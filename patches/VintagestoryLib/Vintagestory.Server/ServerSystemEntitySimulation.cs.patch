@@ -23,6 +23,7 @@ index 750557a..5265f5f 100644
  	private int skippedDespawnTicks;
  
 +	private ConcurrentDictionary<long, StratumEntityTickState> stratumEntityTickStates = new ConcurrentDictionary<long, StratumEntityTickState>();
++	private int stratumTicksSinceTickStateReconcile; // Stratum: periodic orphan eviction
 +
 +	// Rate-limited error reporting for parallel region ticking (experimental Folia mode).
 +	// Avoids per-entity NPE spam in the console when worker threads hit unsafe API access.
@@ -459,6 +460,7 @@ index 750557a..5265f5f 100644
 +			}
 +			ServerMain.FrameProfiler.Leave();
 +			list.Clear();
++			StratumMaybeReconcileTickStates(); // Stratum: evict orphan tick-state entries
 +			StratumRuntime.Timings.RecordElapsed("entity.tick", stratumTimingStart);
 +			return;
 +		}
@@ -631,6 +633,7 @@ index 750557a..5265f5f 100644
 +				StratumRuntime.Timings.RecordMeasuredTicks(measurement.Name, measurement.ElapsedTicks);
 +			}
 +		}
++		StratumMaybeReconcileTickStates(); // Stratum: evict orphan tick-state entries
 +		StratumRuntime.Timings.RecordElapsed("entity.tick", stratumTimingStart);
 +	}
 +
@@ -1016,6 +1019,33 @@ index 750557a..5265f5f 100644
 +		entity.DespawnReason = reason;
 +		return true;
 +	}
++
++	// Stratum start: evict tick-state entries for entities removed by external systems
++	// (chunk unload, WorldAPI, temporal storms). Matches the periodic-trim pattern in
++	// EntityPartitioning.StratumMaybeTrimPartitions.
++	private const int StratumTickStateReconcileIntervalTicks = 300;
++	private const int StratumTickStateReconcileMinEntries = 128;
++
++	private void StratumMaybeReconcileTickStates()
++	{
++		if (++stratumTicksSinceTickStateReconcile < StratumTickStateReconcileIntervalTicks) return;
++		stratumTicksSinceTickStateReconcile = 0;
++		if (stratumEntityTickStates.Count < StratumTickStateReconcileMinEntries) return;
++
++		List<long> toRemove = null;
++		foreach (KeyValuePair<long, StratumEntityTickState> kv in stratumEntityTickStates)
++		{
++			if (!server.LoadedEntities.ContainsKey(kv.Key))
++			{
++				(toRemove ??= new List<long>()).Add(kv.Key);
++			}
++		}
++		if (toRemove != null)
++		{
++			for (int i = 0; i < toRemove.Count; i++) stratumEntityTickStates.TryRemove(toRemove[i], out _);
++		}
++	}
++	// Stratum end
 +
 +	private bool ShouldThrottleStratumEntityTick(Entity entity, StratumEntityTickingConfig config, float dt, out float tickDeltaTime)
 +	{
