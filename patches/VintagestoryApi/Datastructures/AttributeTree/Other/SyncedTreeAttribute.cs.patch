@@ -1,0 +1,17 @@
+diff --git a/VintagestoryApi/Datastructures/AttributeTree/Other/SyncedTreeAttribute.cs b/VintagestoryApi/Datastructures/AttributeTree/Other/SyncedTreeAttribute.cs
+index 7faacad..754da93 100644
+--- a/VintagestoryApi/Datastructures/AttributeTree/Other/SyncedTreeAttribute.cs
++++ b/VintagestoryApi/Datastructures/AttributeTree/Other/SyncedTreeAttribute.cs
+@@ -166,11 +166,11 @@ namespace Vintagestory.API.Datastructures
+             MarkPathDirty(key);
+         }
+ 
+         public override void RemoveAttribute(string key)
+         {
+-            base.RemoveAttribute(key);
++            if (!attributes.Remove(key)) return; // Stratum: no-op removal, skip full resync
+             MarkAllDirty();
+         }
+ 
+         #endregion
+ 
