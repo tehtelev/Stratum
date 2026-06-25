@@ -35,70 +35,93 @@ internal class CmdStratumEssentials
 		}
 
 		CommandArgumentParsers parsers = server.api.commandapi.Parsers;
-		server.api.commandapi.Create("spawn")
-			.WithDescription("Teleport to server spawn")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleSpawn);
+		StratumCommandsConfig commands = StratumRuntime.Config.Commands;
+		if (StratumCommandRegistration.ShouldRegister(commands.Spawn, "/spawn", "Commands.Spawn"))
+		{
+			server.api.commandapi.Create("spawn")
+				.WithDescription("Teleport to server spawn")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleSpawn);
+		}
 
-		server.api.commandapi.Create("setspawn")
-			.WithDescription("Set the server spawn to your position")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleSetSpawn);
+		if (StratumCommandRegistration.ShouldRegister(commands.SetSpawn, "/setspawn", "Commands.SetSpawn"))
+		{
+			server.api.commandapi.Create("setspawn")
+				.WithDescription("Set the server spawn to your position")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleSetSpawn);
+		}
 
-		server.api.commandapi.Create("tpa")
-			.WithDescription("Request teleport to another player, or accept/decline a request")
-			.WithArgs(parsers.OptionalWord("player|accept|decline|cancel"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleTpa);
+		if (StratumCommandRegistration.ShouldRegister(commands.TeleportRequests.Request, "/tpa commands", "Commands.TeleportRequests.Request"))
+		{
+			server.api.commandapi.Create("tpa")
+				.WithDescription("Request teleport to another player, or accept/decline a request")
+				.WithArgs(parsers.OptionalWord("player|accept|decline|cancel"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleTpa);
 
-		server.api.commandapi.Create("tpahere")
-			.WithDescription("Request another player to teleport to you")
-			.WithArgs(parsers.OptionalWord("player"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleTpaHere);
+			server.api.commandapi.Create("tpaccept")
+				.WithDescription("Accept a pending teleport request")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleTpAccept);
 
-		server.api.commandapi.Create("tpaccept")
-			.WithDescription("Accept a pending teleport request")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleTpAccept);
+			server.api.commandapi.Create("tpdeny")
+				.WithDescription("Decline a pending teleport request")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleTpDecline);
 
-		server.api.commandapi.Create("tpdeny")
-			.WithDescription("Decline a pending teleport request")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleTpDecline);
+			server.api.commandapi.Create("tpdecline")
+				.WithDescription("Decline a pending teleport request")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleTpDecline);
 
-		server.api.commandapi.Create("tpdecline")
-			.WithDescription("Decline a pending teleport request")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleTpDecline);
+			server.api.commandapi.Create("tpacancel")
+				.WithDescription("Cancel your outgoing teleport request")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleTpCancel);
+		}
 
-		server.api.commandapi.Create("tpacancel")
-			.WithDescription("Cancel your outgoing teleport request")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleTpCancel);
+		if (StratumCommandRegistration.ShouldRegister(commands.TeleportRequests.Here, "/tpahere", "Commands.TeleportRequests.Here")
+			&& StratumCommandRegistration.ShouldRegister(commands.TeleportRequests.AllowTpaHere, "/tpahere", "Commands.TeleportRequests.AllowTpaHere"))
+		{
+			server.api.commandapi.Create("tpahere")
+				.WithDescription("Request another player to teleport to you")
+				.WithArgs(parsers.OptionalWord("player"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleTpaHere);
+		}
 
-		server.api.commandapi.Create("home")
-			.WithDescription("Teleport to one of your homes")
-			.WithArgs(parsers.OptionalWord("name"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleHome);
+		if (StratumCommandRegistration.ShouldRegister(commands.Homes.Home, "/home commands", "Commands.Homes.Home"))
+		{
+			server.api.commandapi.Create("home")
+				.WithDescription("Teleport to one of your homes")
+				.WithArgs(parsers.OptionalWord("name"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleHome);
 
-		server.api.commandapi.Create("sethome")
-			.WithDescription("Set a home at your current position")
-			.WithArgs(parsers.OptionalWord("name"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleSetHome);
+			server.api.commandapi.Create("homes")
+				.WithDescription("List your homes")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleHomes);
+		}
 
-		server.api.commandapi.Create("delhome")
-			.WithDescription("Delete one of your homes")
-			.WithArgs(parsers.OptionalWord("name"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleDeleteHome);
+		if (StratumCommandRegistration.ShouldRegister(commands.Homes.SetHome, "/sethome", "Commands.Homes.SetHome"))
+		{
+			server.api.commandapi.Create("sethome")
+				.WithDescription("Set a home at your current position")
+				.WithArgs(parsers.OptionalWord("name"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleSetHome);
+		}
 
-		server.api.commandapi.Create("homes")
-			.WithDescription("List your homes")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleHomes);
+		if (StratumCommandRegistration.ShouldRegister(commands.Homes.DeleteHome, "/delhome", "Commands.Homes.DeleteHome"))
+		{
+			server.api.commandapi.Create("delhome")
+				.WithDescription("Delete one of your homes")
+				.WithArgs(parsers.OptionalWord("name"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleDeleteHome);
+		}
 	}
 
 	public static void RegisterConfiguredPrivileges(ServerMain server)

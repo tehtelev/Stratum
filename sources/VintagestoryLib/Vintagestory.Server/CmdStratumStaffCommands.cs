@@ -39,198 +39,256 @@ internal class CmdStratumStaffCommands
 		}
 
 		CommandArgumentParsers parsers = server.api.commandapi.Parsers;
-		server.api.commandapi.Create("seen")
-			.WithDescription("Show when a player was last seen")
-			.WithArgs(parsers.Word("player"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleSeen);
+		StratumCommandsConfig commands = StratumRuntime.Config.Commands;
+		if (StratumCommandRegistration.ShouldRegister(commands.Seen, "/seen", "Commands.Seen"))
+		{
+			server.api.commandapi.Create("seen")
+				.WithDescription("Show when a player was last seen")
+				.WithArgs(parsers.Word("player"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleSeen);
+		}
 
-		server.api.commandapi.Create("whois")
-			.WithDescription("Show staff investigation details for a player")
-			.WithArgs(parsers.Word("player"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleWhois);
+		if (StratumCommandRegistration.ShouldRegister(commands.Whois, "/whois", "Commands.Whois"))
+		{
+			server.api.commandapi.Create("whois")
+				.WithDescription("Show staff investigation details for a player")
+				.WithArgs(parsers.Word("player"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleWhois);
+		}
 
-		server.api.commandapi.Create("near")
-			.WithDescription("List nearby players")
-			.WithArgs(parsers.OptionalInt("radius", StratumRuntime.Config.Commands.NearDefaultRadiusBlocks))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleNear);
+		if (StratumCommandRegistration.ShouldRegister(commands.Near, "/near", "Commands.Near"))
+		{
+			server.api.commandapi.Create("near")
+				.WithDescription("List nearby players")
+				.WithArgs(parsers.OptionalInt("radius", StratumRuntime.Config.Commands.NearDefaultRadiusBlocks))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleNear);
+		}
 
-		server.api.commandapi.Create("back")
-			.WithDescription("Teleport back to your previous Stratum teleport or death location")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleBack);
+		if (StratumCommandRegistration.ShouldRegister(commands.Back, "/back", "Commands.Back"))
+		{
+			server.api.commandapi.Create("back")
+				.WithDescription("Teleport back to your previous Stratum teleport or death location")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleBack);
+		}
 
-		RegisterMessageCommand("msg", parsers);
-		RegisterMessageCommand("tell", parsers);
-		RegisterMessageCommand("w", parsers);
+		if (StratumCommandRegistration.ShouldRegister(commands.Message, "/msg commands", "Commands.Message"))
+		{
+			RegisterMessageCommand("msg", parsers);
+			RegisterMessageCommand("tell", parsers);
+			RegisterMessageCommand("w", parsers);
 
-		server.api.commandapi.Create("reply")
-			.WithAlias("r")
-			.WithDescription("Reply to your last private message")
-			.WithArgs(parsers.All("message"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleReply);
+			server.api.commandapi.Create("reply")
+				.WithAlias("r")
+				.WithDescription("Reply to your last private message")
+				.WithArgs(parsers.All("message"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleReply);
+		}
 
-		server.api.commandapi.Create("staffchat")
-			.WithDescription("Send a message to online staff")
-			.WithArgs(parsers.All("message"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleStaffChat);
+		if (StratumCommandRegistration.ShouldRegister(commands.StaffChat, "/staffchat", "Commands.StaffChat"))
+		{
+			server.api.commandapi.Create("staffchat")
+				.WithDescription("Send a message to online staff")
+				.WithArgs(parsers.All("message"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleStaffChat);
+		}
 
-		server.api.commandapi.Create("slowmode")
-			.WithDescription("Set, clear, or inspect global chat slowmode")
-			.WithArgs(parsers.OptionalWord("seconds|off|status"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleSlowmode);
+		if (StratumCommandRegistration.ShouldRegister(commands.ChatControl, "/chat control commands", "Commands.ChatControl"))
+		{
+			server.api.commandapi.Create("slowmode")
+				.WithDescription("Set, clear, or inspect global chat slowmode")
+				.WithArgs(parsers.OptionalWord("seconds|off|status"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleSlowmode);
 
-		server.api.commandapi.Create("lockchat")
-			.WithDescription("Lock or unlock global player chat")
-			.WithArgs(parsers.OptionalWordRange("mode", "on", "off", "toggle", "status"), parsers.OptionalAll("reason"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleLockChat);
+			server.api.commandapi.Create("lockchat")
+				.WithDescription("Lock or unlock global player chat")
+				.WithArgs(parsers.OptionalWordRange("mode", "on", "off", "toggle", "status"), parsers.OptionalAll("reason"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleLockChat);
 
-		server.api.commandapi.Create("chatclear")
-			.WithAlias("clearchat")
-			.WithDescription("Clear visible chat history for online players")
-			.WithArgs(parsers.OptionalInt("lines", StratumRuntime.Config.Commands.ClearChatLines))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleClearChat);
+			server.api.commandapi.Create("chatclear")
+				.WithAlias("clearchat")
+				.WithDescription("Clear visible chat history for online players")
+				.WithArgs(parsers.OptionalInt("lines", StratumRuntime.Config.Commands.ClearChatLines))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleClearChat);
+		}
 
-		server.api.commandapi.Create("staffbroadcast")
-			.WithAlias("sbc")
-			.WithDescription("Broadcast a highlighted staff message to the server")
-			.WithArgs(parsers.All("message"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleStaffBroadcast);
+		if (StratumCommandRegistration.ShouldRegister(commands.StaffBroadcast, "/staffbroadcast", "Commands.StaffBroadcast"))
+		{
+			server.api.commandapi.Create("staffbroadcast")
+				.WithAlias("sbc")
+				.WithDescription("Broadcast a highlighted staff message to the server")
+				.WithArgs(parsers.All("message"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleStaffBroadcast);
+		}
 
-		server.api.commandapi.Create("rules")
-			.WithDescription("Show the server rules")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleRules);
+		if (StratumCommandRegistration.ShouldRegister(commands.InfoCommands, "/info commands", "Commands.InfoCommands"))
+		{
+			server.api.commandapi.Create("rules")
+				.WithDescription("Show the server rules")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleRules);
 
-		server.api.commandapi.Create("discord")
-			.WithDescription("Show the server Discord link")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleDiscord);
+			server.api.commandapi.Create("discord")
+				.WithDescription("Show the server Discord link")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleDiscord);
 
-		server.api.commandapi.Create("website")
-			.WithDescription("Show the server website link")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleWebsite);
+			server.api.commandapi.Create("website")
+				.WithDescription("Show the server website link")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleWebsite);
 
-		server.api.commandapi.Create("motd")
-			.WithDescription("Show the server message of the day")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleMotd);
+			server.api.commandapi.Create("motd")
+				.WithDescription("Show the server message of the day")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleMotd);
+		}
 
-		server.api.commandapi.Create("vanish")
-			.WithDescription("Toggle staff vanish")
-			.WithArgs(parsers.OptionalWordRange("mode", "on", "off", "toggle"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleVanish);
+		if (StratumCommandRegistration.ShouldRegister(commands.Vanish, "/vanish", "Commands.Vanish"))
+		{
+			server.api.commandapi.Create("vanish")
+				.WithDescription("Toggle staff vanish")
+				.WithArgs(parsers.OptionalWordRange("mode", "on", "off", "toggle"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleVanish);
+		}
 
-		server.api.commandapi.Create("pvp")
-			.WithDescription("Show or toggle global PvP")
-			.WithArgs(parsers.OptionalWordRange("mode", "on", "off", "status"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandlePvp);
+		if (StratumCommandRegistration.ShouldRegister(commands.Pvp, "/pvp", "Commands.Pvp"))
+		{
+			server.api.commandapi.Create("pvp")
+				.WithDescription("Show or toggle global PvP")
+				.WithArgs(parsers.OptionalWordRange("mode", "on", "off", "status"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandlePvp);
+		}
 
-		server.api.commandapi.Create("freeze")
-			.WithDescription("Freeze or unfreeze an online player")
-			.WithArgs(parsers.Word("player"), parsers.OptionalWordRange("mode", "on", "off", "toggle"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleFreeze);
+		if (StratumCommandRegistration.ShouldRegister(commands.Freeze, "/freeze", "Commands.Freeze"))
+		{
+			server.api.commandapi.Create("freeze")
+				.WithDescription("Freeze or unfreeze an online player")
+				.WithArgs(parsers.Word("player"), parsers.OptionalWordRange("mode", "on", "off", "toggle"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleFreeze);
+		}
 
-		server.api.commandapi.Create("revive")
-			.WithDescription("Revive a dead online player in place (one-life event recovery)")
-			.WithArgs(parsers.Word("player"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleRevive);
+		if (StratumCommandRegistration.ShouldRegister(commands.Revive, "/revive", "Commands.Revive"))
+		{
+			server.api.commandapi.Create("revive")
+				.WithDescription("Revive a dead online player in place (one-life event recovery)")
+				.WithArgs(parsers.Word("player"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleRevive);
+		}
 
-		server.api.commandapi.Create("setjail")
-			.WithDescription("Set the Stratum jail location to your current position")
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleSetJail);
+		if (StratumCommandRegistration.ShouldRegister(commands.Jail, "/jail commands", "Commands.Jail"))
+		{
+			server.api.commandapi.Create("setjail")
+				.WithDescription("Set the Stratum jail location to your current position")
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleSetJail);
 
-		server.api.commandapi.Create("jail")
-			.WithDescription("Jail a known player")
-			.WithArgs(parsers.Word("player"), parsers.OptionalAll("reason"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleJail);
+			server.api.commandapi.Create("jail")
+				.WithDescription("Jail a known player")
+				.WithArgs(parsers.Word("player"), parsers.OptionalAll("reason"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleJail);
 
-		server.api.commandapi.Create("unjail")
-			.WithDescription("Release a jailed player")
-			.WithArgs(parsers.Word("player"), parsers.OptionalAll("reason"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleUnjail);
+			server.api.commandapi.Create("unjail")
+				.WithDescription("Release a jailed player")
+				.WithArgs(parsers.Word("player"), parsers.OptionalAll("reason"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleUnjail);
 
-		server.api.commandapi.Create("jailstatus")
-			.WithDescription("Show whether a player is jailed")
-			.WithArgs(parsers.Word("player"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleJailStatus);
+			server.api.commandapi.Create("jailstatus")
+				.WithDescription("Show whether a player is jailed")
+				.WithArgs(parsers.Word("player"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleJailStatus);
+		}
 
-		server.api.commandapi.Create("warn")
-			.WithDescription("Warn a player and store the reason in moderation history")
-			.WithArgs(parsers.Word("player"), parsers.All("reason"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleWarn);
+		if (StratumCommandRegistration.ShouldRegister(commands.Warn, "/warn commands", "Commands.Warn"))
+		{
+			server.api.commandapi.Create("warn")
+				.WithDescription("Warn a player and store the reason in moderation history")
+				.WithArgs(parsers.Word("player"), parsers.All("reason"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleWarn);
 
-		server.api.commandapi.Create("warnings")
-			.WithDescription("List active warnings for a player")
-			.WithArgs(parsers.Word("player"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleWarnings);
+			server.api.commandapi.Create("warnings")
+				.WithDescription("List active warnings for a player")
+				.WithArgs(parsers.Word("player"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleWarnings);
 
-		server.api.commandapi.Create("delwarn")
-			.WithDescription("Remove an active warning from a player")
-			.WithArgs(parsers.Word("player"), parsers.Int("warning id"), parsers.OptionalAll("reason"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleDeleteWarning);
+			server.api.commandapi.Create("delwarn")
+				.WithDescription("Remove an active warning from a player")
+				.WithArgs(parsers.Word("player"), parsers.Int("warning id"), parsers.OptionalAll("reason"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleDeleteWarning);
+		}
 
-		server.api.commandapi.Create("mute")
-			.WithDescription("Mute a player for a duration or permanently")
-			.WithArgs(parsers.Word("player"), parsers.Word("duration"), parsers.All("reason"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleMute);
+		if (StratumCommandRegistration.ShouldRegister(commands.Mute, "/mute commands", "Commands.Mute"))
+		{
+			server.api.commandapi.Create("mute")
+				.WithDescription("Mute a player for a duration or permanently")
+				.WithArgs(parsers.Word("player"), parsers.Word("duration"), parsers.All("reason"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleMute);
 
-		server.api.commandapi.Create("unmute")
-			.WithDescription("Remove an active mute from a player")
-			.WithArgs(parsers.Word("player"), parsers.OptionalAll("reason"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleUnmute);
+			server.api.commandapi.Create("unmute")
+				.WithDescription("Remove an active mute from a player")
+				.WithArgs(parsers.Word("player"), parsers.OptionalAll("reason"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleUnmute);
 
-		server.api.commandapi.Create("mutestatus")
-			.WithDescription("Show whether a player is muted")
-			.WithArgs(parsers.Word("player"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleMuteStatus);
+			server.api.commandapi.Create("mutestatus")
+				.WithDescription("Show whether a player is muted")
+				.WithArgs(parsers.Word("player"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleMuteStatus);
+		}
 
-		server.api.commandapi.Create("note")
-			.WithDescription("Add, list, or delete staff notes for a player")
-			.WithArgs(parsers.Word("player"), parsers.WordRange("action", "add", "list", "delete"), parsers.OptionalAll("text or id"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleNote);
+		if (StratumCommandRegistration.ShouldRegister(commands.Notes, "/note commands", "Commands.Notes"))
+		{
+			server.api.commandapi.Create("note")
+				.WithDescription("Add, list, or delete staff notes for a player")
+				.WithArgs(parsers.Word("player"), parsers.WordRange("action", "add", "list", "delete"), parsers.OptionalAll("text or id"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleNote);
 
-		server.api.commandapi.Create("notes")
-			.WithDescription("List staff notes for a player")
-			.WithArgs(parsers.Word("player"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleNotes);
+			server.api.commandapi.Create("notes")
+				.WithDescription("List staff notes for a player")
+				.WithArgs(parsers.Word("player"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleNotes);
+		}
 
-		server.api.commandapi.Create("report")
-			.WithDescription("Report a player to online staff")
-			.WithArgs(parsers.Word("player"), parsers.All("reason"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleReport);
+		if (StratumCommandRegistration.ShouldRegister(commands.Report, "/report", "Commands.Report"))
+		{
+			server.api.commandapi.Create("report")
+				.WithDescription("Report a player to online staff")
+				.WithArgs(parsers.Word("player"), parsers.All("reason"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleReport);
+		}
 
-		server.api.commandapi.Create("reports")
-			.WithDescription("Manage player reports")
-			.WithArgs(parsers.OptionalWordRange("action", "list", "info", "claim", "close"), parsers.OptionalWord("id or status"), parsers.OptionalAll("resolution"))
-			.RequiresPrivilege(Privilege.chat)
-			.HandleWith(HandleReports);
+		if (StratumCommandRegistration.ShouldRegister(commands.ReportManage, "/reports", "Commands.ReportManage"))
+		{
+			server.api.commandapi.Create("reports")
+				.WithDescription("Manage player reports")
+				.WithArgs(parsers.OptionalWordRange("action", "list", "info", "claim", "close"), parsers.OptionalWord("id or status"), parsers.OptionalAll("resolution"))
+				.RequiresPrivilege(Privilege.chat)
+				.HandleWith(HandleReports);
+		}
 
 		StratumTargetCommandOverrides.Register(server);
 	}
