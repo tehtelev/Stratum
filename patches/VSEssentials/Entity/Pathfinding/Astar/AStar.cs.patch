@@ -1,0 +1,112 @@
+diff --git a/VSEssentials/Entity/Pathfinding/Astar/AStar.cs b/VSEssentials/Entity/Pathfinding/Astar/AStar.cs
+index c3fe425..ebcdac1 100644
+--- a/VSEssentials/Entity/Pathfinding/Astar/AStar.cs
++++ b/VSEssentials/Entity/Pathfinding/Astar/AStar.cs
+@@ -21,10 +21,78 @@ namespace Vintagestory.Essentials
+         public double centerOffsetZ = 0.5;
+         public EnumAICreatureType creatureType;
+ 
+         protected CollisionTester collTester;
+ 
++        // Stratum start: node pool. Avoids ~8000 PathNode allocations per search.
++        // Reset at search start. Nodes in returned path are valid until the next search.
++        private PathNode[] stratumNodePool = new PathNode[4096];
++        private int stratumNodePoolIndex;
++
++        private PathNode StratumRentNode(PathNode parent, Cardinal card)
++        {
++            PathNode node;
++            if (stratumNodePoolIndex < stratumNodePool.Length)
++            {
++                node = stratumNodePool[stratumNodePoolIndex];
++                if (node == null)
++                {
++                    node = new PathNode(parent, card);
++                    stratumNodePool[stratumNodePoolIndex] = node;
++                }
++                else
++                {
++                    node.Set(parent.X + card.Normali.X, parent.Y + card.Normali.Y, parent.Z + card.Normali.Z);
++                    node.dimension = parent.dimension;
++                    node.gCost = 0;
++                    node.hCost = 0;
++                    node.Parent = null;
++                    node.pathLength = 0;
++                    node.HeapIndex = 0;
++                    node.Action = EnumTraverseAction.Walk;
++                }
++                stratumNodePoolIndex++;
++            }
++            else
++            {
++                node = new PathNode(parent, card);
++            }
++            return node;
++        }
++
++        private PathNode StratumRentNode(BlockPos pos)
++        {
++            PathNode node;
++            if (stratumNodePoolIndex < stratumNodePool.Length)
++            {
++                node = stratumNodePool[stratumNodePoolIndex];
++                if (node == null)
++                {
++                    node = new PathNode(pos);
++                    stratumNodePool[stratumNodePoolIndex] = node;
++                }
++                else
++                {
++                    node.Set(pos.X, pos.Y, pos.Z);
++                    node.dimension = pos.dimension;
++                    node.gCost = 0;
++                    node.hCost = 0;
++                    node.Parent = null;
++                    node.pathLength = 0;
++                    node.HeapIndex = 0;
++                    node.Action = EnumTraverseAction.Walk;
++                }
++                stratumNodePoolIndex++;
++            }
++            else
++            {
++                node = new PathNode(pos);
++            }
++            return node;
++        }
++        // Stratum end
++
+         public AStar(ICoreServerAPI api)
+         {
+             this.api = api;
+             collTester = new CollisionTester();
+             blockAccess = api.World.GetCachingBlockAccessor(true, true);
+@@ -73,12 +141,13 @@ namespace Vintagestory.Essentials
+             centerOffsetX = 0.3 + api.World.Rand.NextDouble() * 0.4;
+             centerOffsetZ = 0.3 + api.World.Rand.NextDouble() * 0.4;
+ 
+             NodesChecked = 0;
+ 
+-            PathNode startNode = new PathNode(start);
+-            PathNode targetNode = new PathNode(endOrAvoidPos);
++            stratumNodePoolIndex = 0; // Stratum: reset pool for this search
++            PathNode startNode = StratumRentNode(start);
++            PathNode targetNode = StratumRentNode(endOrAvoidPos);
+             
+             var distSq = modeMinFleeDistance * modeMinFleeDistance;
+ 
+             openSet.Clear();
+             closedSet.Clear();
+@@ -112,11 +181,11 @@ namespace Vintagestory.Essentials
+ 
+                 for (int i = 0; i < Cardinal.ALL.Length; i++)
+                 {
+                     Cardinal card = Cardinal.ALL[i];
+ 
+-                    PathNode neighbourNode = new PathNode(nearestNode, card);
++                    PathNode neighbourNode = StratumRentNode(nearestNode, card); // Stratum: pooled
+ 
+                     float extraCost = 0;
+                     PathNode existingNeighbourNode = openSet.TryFindValue(neighbourNode);
+                     if (!(existingNeighbourNode is null))   // we have to do a null check using "is null" due to foibles in PathNode.Equals()
+                     {
