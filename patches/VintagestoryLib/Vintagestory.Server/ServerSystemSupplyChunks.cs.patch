@@ -1,8 +1,33 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemSupplyChunks.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemSupplyChunks.cs
-index d6e727a..3e6e3b0 100644
+index d6e727a..c4adf0a 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemSupplyChunks.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemSupplyChunks.cs
-@@ -105,16 +105,12 @@ internal class ServerSystemSupplyChunks : ServerSystem
+@@ -37,10 +37,24 @@ internal class ServerSystemSupplyChunks : ServerSystem
+ 
+ 	private string[] storyChunkSpawnEvents;
+ 
+ 	private int blockingRequestsRemaining;
+ 
++	// Stratum: priority list built once per OnSeparateThreadTick, shared across all inner
++	// tryLoadOrGenerateChunkColumnsInQueue calls within that tick. The profiler showed that
++	// a time-based 100ms cache was hitting the rebuild branch on virtually every call
++	// (7.4M rebuilds/session at 100 players). Building once per tick drops that to ~14K.
++	private List<ChunkColumnLoadRequest>? stratumPriorityListCache;
++	private int stratumPriorityListCacheIdx;
++	// Reused player-position arrays so TryBuildStratumPriorityList doesn't allocate on each rebuild.
++	private float[] stratumPlayerCx = [];
++	private float[] stratumPlayerCz = [];
++	private int stratumPlayerCount;
++	private Comparison<ChunkColumnLoadRequest>? stratumSortComparison;
++	private readonly List<long> stratumMoveBuffer = new List<long>();
++	private List<ChunkColumnLoadRequest> stratumCandidatesBuffer = new List<ChunkColumnLoadRequest>();
++
+ 	public ServerSystemSupplyChunks(ServerMain server, ChunkServerThread chunkthread)
+ 		: base(server)
+ 	{
+ 		this.chunkthread = chunkthread;
+ 		chunkthread.loadsavechunks = this;
+@@ -105,16 +119,12 @@ internal class ServerSystemSupplyChunks : ServerSystem
  			{
  				PeekChunkAreaLocking(result3.Key, result3.Value.UntilPass, result3.Value.OnGenerated, result3.Value.ChunkGenParams);
  			}
@@ -20,7 +45,7 @@ index d6e727a..3e6e3b0 100644
  			{
  			case EnumChunkType.Chunk:
  				exists = chunkthread.gameDatabase.ChunkExists(val.chunkX, val.chunkY, val.chunkZ);
-@@ -124,15 +120,12 @@ internal class ServerSystemSupplyChunks : ServerSystem
+@@ -124,16 +134,18 @@ internal class ServerSystemSupplyChunks : ServerSystem
  				break;
  			case EnumChunkType.MapRegion:
  				exists = chunkthread.gameDatabase.MapRegionExists(val.chunkX, val.chunkZ);
@@ -34,23 +59,61 @@ index d6e727a..3e6e3b0 100644
 +			val.Exists = exists;
 +			server.EnqueueMainThreadTask(val.Complete);
  		}
++		// Stratum: build priority list once per tick. tryLoadOrGenerateChunkColumnsInQueue is
++		// called up to MagicNum.ChunkColumnsToGeneratePerThreadTick times per tick; the previous
++		// time-based cache was rebuilt on nearly every call due to clock resolution differences.
++		stratumPriorityListCache = TryBuildStratumPriorityList();
++		stratumPriorityListCacheIdx = 0;
  		for (int num = 0; num < MagicNum.ChunkColumnsToGeneratePerThreadTick; num++)
  		{
  			if (!tryLoadOrGenerateChunkColumnsInQueue())
  			{
-@@ -293,10 +286,37 @@ internal class ServerSystemSupplyChunks : ServerSystem
+ 				break;
+@@ -239,21 +251,21 @@ internal class ServerSystemSupplyChunks : ServerSystem
+ 		}
+ 	}
+ 
+ 	private void moveRequestsToGeneratingQueue()
+ 	{
+-		List<long> list = new List<long>();
++		stratumMoveBuffer.Clear();
+ 		lock (server.requestedChunkColumnsLock)
+ 		{
+-			while (server.requestedChunkColumns.Count > 0 && chunkthread.requestedChunkColumns.Capacity - chunkthread.requestedChunkColumns.Count >= list.Count + 200)
++			while (server.requestedChunkColumns.Count > 0 && chunkthread.requestedChunkColumns.Capacity - chunkthread.requestedChunkColumns.Count >= stratumMoveBuffer.Count + 200)
+ 			{
+-				list.Add(server.requestedChunkColumns.Dequeue());
++				stratumMoveBuffer.Add(server.requestedChunkColumns.Dequeue());
+ 			}
+ 		}
+-		for (int i = 0; i < list.Count; i++)
++		for (int i = 0; i < stratumMoveBuffer.Count; i++)
+ 		{
+-			long num = list[i];
++			long num = stratumMoveBuffer[i];
+ 			Vec2i vec2i = server.WorldMap.MapChunkPosFromChunkIndex2D(num);
+ 			chunkthread.addChunkColumnRequest(num, vec2i.X, vec2i.Y, -1);
+ 		}
+ 	}
+ 
+@@ -293,10 +305,43 @@ internal class ServerSystemSupplyChunks : ServerSystem
  		{
  			return false;
  		}
  		CleanupRequestsQueue();
  		int additionalWorldGenThreadsCount = chunkthread.additionalWorldGenThreadsCount;
 +
-+		List<ChunkColumnLoadRequest> stratumPrioritized = TryBuildStratumPriorityList();
++		// Stratum: use the per-tick priority list built in OnSeparateThreadTick. Falls through
++		// to vanilla FIFO when the list is null (priority disabled) or exhausted for this tick.
++		List<ChunkColumnLoadRequest>? stratumPrioritized = (stratumPriorityListCache != null && stratumPriorityListCacheIdx < stratumPriorityListCache.Count)
++			? stratumPriorityListCache
++			: null;
++
 +		if (stratumPrioritized != null)
 +		{
-+			for (int idx = 0; idx < stratumPrioritized.Count; idx++)
++			for (; stratumPriorityListCacheIdx < stratumPrioritized.Count; stratumPriorityListCacheIdx++)
 +			{
-+				ChunkColumnLoadRequest requestedChunkColumn = stratumPrioritized[idx];
++				ChunkColumnLoadRequest requestedChunkColumn = stratumPrioritized[stratumPriorityListCacheIdx];
 +				if (requestedChunkColumn == null || requestedChunkColumn.Disposed)
 +				{
 +					continue;
@@ -64,11 +127,12 @@ index d6e727a..3e6e3b0 100644
 +					}
 +					if (loadOrGenerateChunkColumn_OnChunkThread(requestedChunkColumn, currentIncompletePass_AsInt) && chunkthread.additionalWorldGenThreadsCount == 0)
 +					{
++						stratumPriorityListCacheIdx++;
 +						return true;
 +					}
 +				}
 +			}
-+			return false;
++			// Priority list exhausted for this tick. Fall through to vanilla FIFO.
 +		}
 +
  		foreach (ChunkColumnLoadRequest requestedChunkColumn in chunkthread.requestedChunkColumns)
@@ -76,7 +140,7 @@ index d6e727a..3e6e3b0 100644
  			if (requestedChunkColumn == null || requestedChunkColumn.Disposed)
  			{
  				continue;
-@@ -315,10 +335,81 @@ internal class ServerSystemSupplyChunks : ServerSystem
+@@ -315,10 +360,92 @@ internal class ServerSystemSupplyChunks : ServerSystem
  			}
  		}
  		return false;
@@ -84,23 +148,33 @@ index d6e727a..3e6e3b0 100644
  
 +	// Builds a sorted (by min distance to nearest online player, optionally motion-predicted)
 +	// snapshot of the next StratumChunkPriorityConfig.MaxSortedPerTick pending chunk-column
-+	// requests. Returns null when priority is disabled, there is nobody online, or the queue is
-+	// too small to bother sorting.
++	// requests.
++	// Returns null only when priority is disabled — caller falls through to vanilla.
++	// Returns empty stratumCandidatesBuffer when priority is on but nothing to process — caller
++	// skips vanilla (which would also find nothing). Returns a non-empty sorted list normally.
 +	private List<ChunkColumnLoadRequest> TryBuildStratumPriorityList()
 +	{
 +		StratumChunkPriorityConfig prioCfg = StratumRuntime.Config?.Performance?.ChunkPriority;
 +		if (prioCfg == null || !prioCfg.Enabled) return null;
++
++		// Clear here so every non-null early return below yields an empty (non-null) buffer,
++		// signalling "priority on, nothing to do" rather than "priority off".
++		stratumCandidatesBuffer.Clear();
++
 +		int qcount = chunkthread.requestedChunkColumns.Count;
-+		if (qcount < 2) return null;
++		if (qcount == 0) return stratumCandidatesBuffer;
 +
 +		IPlayer[] players = server.AllOnlinePlayers;
-+		if (players == null || players.Length == 0) return null;
++		if (players == null || players.Length == 0) return stratumCandidatesBuffer;
 +
 +		// Snapshot player chunk-center positions, with optional motion forward-prediction.
 +		// Server tick rate is ~30Hz; Motion is per-tick velocity in blocks.
 +		float pred = prioCfg.PredictionSeconds * 30f;
-+		float[] playerCx = new float[players.Length];
-+		float[] playerCz = new float[players.Length];
++		if (stratumPlayerCx.Length < players.Length)
++		{
++			stratumPlayerCx = new float[players.Length];
++			stratumPlayerCz = new float[players.Length];
++		}
 +		int pi = 0;
 +		for (int p = 0; p < players.Length; p++)
 +		{
@@ -110,32 +184,33 @@ index d6e727a..3e6e3b0 100644
 +			if (pos == null) continue;
 +			double px = pos.X + (pred > 0f ? pos.Motion.X * pred : 0.0);
 +			double pz = pos.Z + (pred > 0f ? pos.Motion.Z * pred : 0.0);
-+			playerCx[pi] = (float)(px / 32.0);
-+			playerCz[pi] = (float)(pz / 32.0);
++			stratumPlayerCx[pi] = (float)(px / 32.0);
++			stratumPlayerCz[pi] = (float)(pz / 32.0);
 +			pi++;
 +		}
-+		if (pi == 0) return null;
-+		int playerCount = pi;
++		if (pi == 0) return stratumCandidatesBuffer;
++		stratumPlayerCount = pi;
 +
 +		int cap = Math.Min(qcount, prioCfg.MaxSortedPerTick);
-+		List<ChunkColumnLoadRequest> candidates = new List<ChunkColumnLoadRequest>(cap);
 +		int picked = 0;
 +		foreach (ChunkColumnLoadRequest r in chunkthread.requestedChunkColumns)
 +		{
 +			if (picked >= cap) break;
 +			if (r == null || r.Disposed) continue;
-+			candidates.Add(r);
++			stratumCandidatesBuffer.Add(r);
 +			picked++;
 +		}
-+		if (candidates.Count < 2) return null;
++		if (stratumCandidatesBuffer.Count == 0) return stratumCandidatesBuffer;
 +
-+		candidates.Sort((a, b) =>
-+		{
-+			float da = StratumMinSqDistToPlayers(a, playerCx, playerCz, playerCount);
-+			float db = StratumMinSqDistToPlayers(b, playerCx, playerCz, playerCount);
-+			return da.CompareTo(db);
-+		});
-+		return candidates;
++		stratumCandidatesBuffer.Sort(stratumSortComparison ??= StratumSortByPlayerDist);
++		return stratumCandidatesBuffer;
++	}
++
++	private int StratumSortByPlayerDist(ChunkColumnLoadRequest a, ChunkColumnLoadRequest b)
++	{
++		float da = StratumMinSqDistToPlayers(a, stratumPlayerCx, stratumPlayerCz, stratumPlayerCount);
++		float db = StratumMinSqDistToPlayers(b, stratumPlayerCx, stratumPlayerCz, stratumPlayerCount);
++		return da.CompareTo(db);
 +	}
 +
 +	private static float StratumMinSqDistToPlayers(ChunkColumnLoadRequest req, float[] px, float[] pz, int count)
@@ -158,7 +233,24 @@ index d6e727a..3e6e3b0 100644
  		int num = 0;
  		ConcurrentIndexedFifoQueue<ChunkColumnLoadRequest> requestedChunkColumns = chunkthread.requestedChunkColumns;
  		while (requestedChunkColumns.Count > 0)
-@@ -931,32 +1022,79 @@ internal class ServerSystemSupplyChunks : ServerSystem
+@@ -836,11 +963,15 @@ internal class ServerSystemSupplyChunks : ServerSystem
+ 		long key = server.api.WorldManager.MapRegionIndex2D(regionX, regionZ);
+ 		if (!dictionary.TryGetValue(key, out var value) || value == null)
+ 		{
+ 			return;
+ 		}
+-		List<GeneratedStructure> generatedStructure = value.Where((GeneratedStructure structure) => !mapRegion.GeneratedStructures.Any((GeneratedStructure s) => s.Location.Start.Equals(structure.Location.Start))).ToList();
++		// Stratum: original code used Where+Any = O(N*M) nested scan. As a region accumulates
++		// structures from many loaded chunks, mapRegion.GeneratedStructures grows and the inner
++		// Any() iterates the whole list for every candidate. HashSet reduces this to O(N+M).
++		HashSet<Vec3i> existingStarts = mapRegion.GeneratedStructures.Select(s => s.Location.Start).ToHashSet();
++		List<GeneratedStructure> generatedStructure = [..value.Where(structure => !existingStarts.Contains(structure.Location.Start))];
+ 		mapRegion.AddGeneratedStructures(generatedStructure);
+ 	}
+ 
+ 	internal ServerMapChunk GetOrCreateMapChunk(ChunkColumnLoadRequest chunkRequest, bool forceCreate = false)
+ 	{
+@@ -931,32 +1062,79 @@ internal class ServerSystemSupplyChunks : ServerSystem
  	internal ServerChunk[] TryLoadChunkColumn(ChunkColumnLoadRequest chunkRequest)
  	{
  		int chunkMapSizeY = server.WorldMap.ChunkMapSizeY;

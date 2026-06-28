@@ -160,11 +160,17 @@ try {
     }
 
     Write-Host "Staging full runtime into $stageDir"
-    Copy-Item '.vanilla' $stageDir -Recurse -Force
-
-    # Write the bootstrap marker so StratumServer does not re-download vanilla files
-    # when launched from this folder. The marker content must match BaseGameVersion exactly.
-    Set-Content -Path (Join-Path $stageDir '.stratum-base') -Value $versionInfo.BaseGameVersion -NoNewline
+    if (Test-Path $stageDir) {
+        # -NoClean: stage dir already exists. Skip the vanilla re-copy (vanilla files never
+        # change between builds) and just overlay fresh Stratum outputs below. This avoids
+        # both a slow full copy and file-lock errors when a server process is still running.
+        Write-Host "  (-NoClean: skipping vanilla copy, overlaying Stratum outputs only)"
+    } else {
+        Copy-Item '.vanilla' $stageDir -Recurse -Force
+        # Write the bootstrap marker so StratumServer does not re-download vanilla files
+        # when launched from this folder. The marker content must match BaseGameVersion exactly.
+        Set-Content -Path (Join-Path $stageDir '.stratum-base') -Value $versionInfo.BaseGameVersion -NoNewline
+    }
 
     $tfm = 'net10.0'
     $binRoot = Join-Path $repoRoot "bin/$Configuration/$tfm"

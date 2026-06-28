@@ -1,5 +1,5 @@
 diff --git a/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs b/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
-index 48a886b..7b443ba 100644
+index 48a886b..3fabd9b 100644
 --- a/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
 +++ b/VSEssentials/Entity/Pathfinding/PathfindingAsync.cs
 @@ -1,15 +1,46 @@

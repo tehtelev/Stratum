@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-index 719a68b..0a3f1f4 100644
+index 719a68b..33c0716 100644
 --- a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
 +++ b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
 @@ -13,10 +13,25 @@ using Vintagestory.Common.Network.Packets;

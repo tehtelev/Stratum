@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerMain.cs b/VintagestoryLib/Vintagestory.Server/ServerMain.cs
-index 1017be9..643d511 100644
+index 1017be9..d5a732b 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerMain.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerMain.cs
 @@ -27,10 +27,13 @@ using VintagestoryLib.Server.Systems;
@@ -89,7 +89,7 @@ index 1017be9..643d511 100644
  		string message;
  		try
  		{
-@@ -529,10 +554,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -529,10 +557,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		catch (Exception)
  		{
  			Logger.Warning("Error formatting welcome message: \"" + text.Replace("{", "{{").Replace("}", "}}") + "\" for player " + player.PlayerName);
@@ -101,7 +101,7 @@ index 1017be9..643d511 100644
  		if (Config.RepairMode)
  		{
  			SendMessage(player, GlobalConstants.GeneralChatGroup, "Server is in repair mode, you are now in spectator mode. If you are not already there, fly to the area that crashes and let the chunks load, then exit the game and run in normal mode.", EnumChatType.Notification);
-@@ -730,13 +756,48 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -730,13 +759,48 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		int num = packet.Chatline.Groupid;
  		if (num < -1)
  		{
@@ -150,7 +150,7 @@ index 1017be9..643d511 100644
  		IServerPlayer[] skipPlayers = ((!skipSelf) ? Array.Empty<IServerPlayer>() : new IServerPlayer[1] { ofPlayer });
  		if (ofPlayer.InventoryManager?.ActiveHotbarSlot == null)
  		{
-@@ -787,16 +848,59 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -787,16 +851,59 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	}
  
  	private void HandleEntityPacket(Packet_Client packet, ConnectedClient client)
@@ -211,7 +211,7 @@ index 1017be9..643d511 100644
  		if (groupid > 0 && !PlayerDataManager.PlayerGroupsById.ContainsKey(groupid))
  		{
  			SendMessage(player, GlobalConstants.ServerInfoChatGroup, "No such group exists on this server.", EnumChatType.CommandError);
-@@ -903,71 +1007,118 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -903,71 +1010,118 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	private void HandlePlayerIdentification(Packet_Client p, ConnectedClient client)
  	{
  		Packet_ClientIdentification identification = p.Identification;
@@ -342,7 +342,7 @@ index 1017be9..643d511 100644
  	}
  
  	public ServerMain(StartServerArgs serverargs, string[] cmdlineArgsRaw, ServerProgramArgs progArgs, bool isDedicatedServer = true)
-@@ -1173,15 +1324,16 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1173,15 +1327,16 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		if (HeartbeatSystem == null)
  		{
  			HeartbeatSystem = new ServerSystemHeartbeat(this);
@@ -360,7 +360,7 @@ index 1017be9..643d511 100644
  			serverSystemModHandler,
  			new ServerySystemPlayerGroups(this),
  			new ServerSystemEntitySimulation(this),
-@@ -1213,14 +1365,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1213,14 +1368,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		if (xPlatInterface == null)
  		{
  			xPlatInterface = XPlatformInterfaces.GetInterface();
@@ -378,7 +378,7 @@ index 1017be9..643d511 100644
  		if (progArgs.AddOrigin != null)
  		{
  			foreach (string item in progArgs.AddOrigin)
-@@ -1311,11 +1464,10 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1311,11 +1467,10 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		{
  			Logger.Notification("Please be aware that as of 1.20, servers default configurations have changed - servers no longer register themselves to the public servers list and are invite-only (whitelisted) out of the box. If you desire so, you can enable server advertising with '/serverconfig advertise on' and disable the whitelist mode with '/serverconfig whitelistmode off'");
  		}
@@ -390,7 +390,7 @@ index 1017be9..643d511 100644
  		RunPhase = runPhase;
  		if (runPhase == EnumServerRunPhase.Start || runPhase == EnumServerRunPhase.Exit)
  		{
-@@ -1482,17 +1634,19 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1482,17 +1637,19 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  					ServerSystem serverSystem = Systems[i];
  					long num = elapsedMilliseconds - serverSystem.millisecondsSinceStart;
  					if (num > serverSystem.GetUpdateInterval())
@@ -411,7 +411,7 @@ index 1017be9..643d511 100644
  				int num2 = 0;
  				while (!FrameProfilerUtil.offThreadProfiles.IsEmpty && num2++ < 25)
  				{
-@@ -1507,18 +1661,22 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1507,18 +1664,22 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  					ServerSystem serverSystem2 = Systems[j];
  					long num = elapsedMilliseconds - serverSystem2.millisecondsSinceStart;
  					if (num > serverSystem2.GetUpdateInterval())
@@ -435,7 +435,7 @@ index 1017be9..643d511 100644
  			{
  				processConnectionQueue();
  				statsupdate = DateTime.UtcNow;
-@@ -1540,11 +1698,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1540,11 +1701,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			statsCollection.ticksTotal++;
  			statsCollection.tickTimes[statsCollection.tickTimeIndex] = elapsedMilliseconds2;
  			statsCollection.tickTimeIndex = (statsCollection.tickTimeIndex + 1) % statsCollection.tickTimes.Length;
@@ -448,7 +448,7 @@ index 1017be9..643d511 100644
  			int num3 = (int)Math.Max(0f, Config.TickTime - (float)elapsedMilliseconds2);
  			if (num3 > 0)
  			{
-@@ -1558,40 +1716,49 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1558,40 +1719,49 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			Logger.Fatal(e);
  		}
  		FrameProfiler.End();
@@ -515,7 +515,7 @@ index 1017be9..643d511 100644
  		TickPosition++;
  		foreach (KeyValuePair<Timer, Timer.Tick> timer in Timers)
  		{
-@@ -1882,10 +2049,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1882,10 +2052,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	}
  
  	public void Dispose()
@@ -531,7 +531,7 @@ index 1017be9..643d511 100644
  		if (Systems != null)
  		{
  			ServerSystem[] systems = Systems;
-@@ -1946,11 +2118,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1946,11 +2121,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  				}
  			});
  		}
@@ -544,7 +544,7 @@ index 1017be9..643d511 100644
  	}
  
  	public string GetSaveFilepath()
-@@ -1970,10 +2142,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1970,10 +2145,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		}
  		return nextClientID++;
  	}
@@ -560,7 +560,7 @@ index 1017be9..643d511 100644
  		{
  			return;
  		}
-@@ -1988,11 +2165,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -1988,11 +2168,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		if (!client.IsNewClient || player != null || !string.IsNullOrEmpty(hisKickMessage))
  		{
  			ignoreDisconnectCalls = true;
@@ -574,7 +574,7 @@ index 1017be9..643d511 100644
  			{
  			}
  			Logger.Notification($"Client {client.Id} disconnected: {hisKickMessage}");
-@@ -2004,10 +2182,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -2004,10 +2185,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			Clients.Remove(client.Id);
  			client.CloseConnection();
  		}
@@ -586,7 +586,7 @@ index 1017be9..643d511 100644
  				Logger.Audit("Client {0} got removed: '{1}' ({2})", client.PlayerName, othersKickmessage, hisKickMessage);
  			}
  			else
-@@ -2041,13 +2220,18 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -2041,13 +2223,18 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			string playerName = client.PlayerName;
  			Clients.Remove(client.Id);
  			player.client = null;
@@ -608,7 +608,7 @@ index 1017be9..643d511 100644
  		}
  		else
  		{
-@@ -2070,10 +2250,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -2070,10 +2257,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		{
  			SendMessageToGeneral(message, chatType, (chatType == EnumChatType.JoinLeave) ? player : null);
  		}
@@ -624,7 +624,7 @@ index 1017be9..643d511 100644
  		if (Config.MaxClientsInQueue <= 0 || stopped)
  		{
  			if (debugProcessConnectionQueue)
-@@ -2095,19 +2280,25 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -2095,19 +2287,25 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			if (count > 0)
  			{
  				int maxClients = Config.MaxClients;
@@ -653,7 +653,7 @@ index 1017be9..643d511 100644
  					}
  					if (debugProcessConnectionQueue)
  					{
-@@ -2154,11 +2345,47 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -2154,11 +2352,47 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		}
  	}
  
@@ -702,7 +702,7 @@ index 1017be9..643d511 100644
  	public int GetAllowedChunkRadius(ConnectedClient client)
  	{
  		int num = (int)Math.Ceiling((float)((client.WorldData == null) ? 128 : client.WorldData.Viewdistance) / (float)MagicNum.ServerChunkSize);
-@@ -2994,11 +3221,62 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -2994,11 +3228,62 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		return WorldMap.GetServerChunk(entity.InChunkIndex3d)?.RemoveEntity(entity.EntityId) ?? false;
  	}
  
@@ -766,7 +766,7 @@ index 1017be9..643d511 100644
  	public Entity GetEntityById(long entityId)
  	{
  		LoadedEntities.TryGetValue(entityId, out var value);
-@@ -3289,20 +3567,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3289,20 +3574,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		return result;
  	}
  
@@ -810,7 +810,7 @@ index 1017be9..643d511 100644
  	public IPlayer PlayerByUid(string playerUid)
  	{
  		if (playerUid == null)
-@@ -3427,11 +3723,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3427,11 +3730,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			{
  				Socket = senderConnection
  			});
@@ -823,7 +823,7 @@ index 1017be9..643d511 100644
  		case NetworkMessageType.Data:
  		{
  			ConnectedClient client2 = msg.SenderConnection.client;
-@@ -3446,11 +3742,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3446,11 +3749,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		{
  			ConnectedClient client = msg.SenderConnection.client;
  			if (client != null)
@@ -836,7 +836,7 @@ index 1017be9..643d511 100644
  		}
  		}
  	}
-@@ -3472,13 +3768,54 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3472,13 +3775,54 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			DisconnectedClientsThisTick.Add(client.Id);
  			item = new ReceivedClientPacket(client, (client.Player == null) ? "" : "Network error: invalid client packet");
  		}
@@ -861,8 +861,7 @@ index 1017be9..643d511 100644
 +		{
 +			DisconnectedClientsThisTick.Add(client.Id);
 +			ClientPackets.Enqueue(new ReceivedClientPacket(client, disconnectReason));
- 		}
--		ClientPackets.Enqueue(item);
++		}
 +	}
 +
 +	private void DispatchClientPacket_mainthread(ReceivedClientPacket pkt)
@@ -879,7 +878,8 @@ index 1017be9..643d511 100644
 +				DisconnectPlayer(pkt.client, "Threw an exception at the server", "An action you (or your client) did caused an unhandled exception");
 +			}
 +			Logger.Error(e);
-+		}
+ 		}
+-		ClientPackets.Enqueue(item);
 +	}
 +
 +	private void KickForBackPressure(ConnectedClient client, string reason)
@@ -893,7 +893,7 @@ index 1017be9..643d511 100644
  	private void HandleClientPacket_mainthread(ReceivedClientPacket cpk)
  	{
  		ConnectedClient client = cpk.client;
-@@ -3500,15 +3837,42 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3500,15 +3844,42 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			{
  				Logger.Event("Client " + client.Id + " disconnected.");
  				EventManager.TriggerPlayerLeave(client.Player);
@@ -937,7 +937,7 @@ index 1017be9..643d511 100644
  				FrameProfiler.Mark("net-read-", packet.Id);
  			}
  			return;
-@@ -3516,11 +3880,19 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3516,11 +3887,19 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		ClientPacketHandler<Packet_Client, ConnectedClient> clientPacketHandler = PacketHandlers[packet.Id];
  		if (clientPacketHandler != null && (client.Player != null || PacketHandlingOnConnectingAllowed[packet.Id]))
  		{
@@ -958,7 +958,7 @@ index 1017be9..643d511 100644
  					FrameProfiler.Mark("net-read-", packet.Id);
  				}
  			}
-@@ -3557,30 +3929,34 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3557,30 +3936,34 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  						case "missingmptokenv2":
  						case "missingaccount":
  						case "banned":
@@ -997,7 +997,7 @@ index 1017be9..643d511 100644
  			if (!orCreateServerPlayerData.HasPrivilege(Privilege.controlserver, Config.RolesByCode) && !orCreateServerPlayerData.HasPrivilege("ignoremaxclients", Config.RolesByCode))
  			{
  				tryEnqueuePlayer(packet, client, entitlements, maxClients);
-@@ -3635,11 +4011,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3635,11 +4018,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  				Logger.Notification($"Player {packet.Playername} was put into the connection queue at position {count2}");
  				SendPacket(client.Id, packet2);
  				return;
@@ -1010,7 +1010,7 @@ index 1017be9..643d511 100644
  	private void FinalizePlayerIdentification(Packet_ClientIdentification packet, ConnectedClient client, string entitlements)
  	{
  		client.State = EnumClientState.Admitted;
-@@ -3704,11 +4080,14 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3704,11 +4087,14 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  					{
  						Id = 78
  					};
@@ -1026,7 +1026,7 @@ index 1017be9..643d511 100644
  				{
  					Logger.Debug($"UDP: Client {client.Id} did send UDP");
  				}
-@@ -3773,10 +4152,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3773,10 +4159,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			SendServerIdentification(client.Player);
  			SpawnPlayerRandomlyAround(client, playername, entityPos, 15);
  			client.IsNewClient = false;
@@ -1047,7 +1047,7 @@ index 1017be9..643d511 100644
  			SendServerIdentification(client.Player);
  			client.Entityplayer.Pos.SetFrom(entityPos);
  			SpawnEntity(client.Entityplayer);
-@@ -3814,11 +4203,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3814,11 +4210,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  
  	public void LocateRandomPosition(Vec3d centerPos, float radius, int tries, ActionConsumable<BlockPos> testThisPosition, Action<BlockPos> onSearchOver)
  	{
@@ -1060,7 +1060,7 @@ index 1017be9..643d511 100644
  		BlockPos asBlockPos = targetPos.AsBlockPos;
  		if (tries <= 0)
  		{
-@@ -3851,10 +4240,21 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3851,10 +4247,21 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	}
  
  	private void SpawnPlayerRandomlyAround(ConnectedClient client, string playername, EntityPos centerPos, int tries)
@@ -1082,7 +1082,7 @@ index 1017be9..643d511 100644
  			EntityPos entityPos = centerPos.Copy();
  			if (pos == null)
  			{
-@@ -3869,10 +4269,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -3869,10 +4276,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			}
  			SpawnPlayerHere(client, playername, entityPos);
  		});
@@ -1121,7 +1121,7 @@ index 1017be9..643d511 100644
  		Clients.TryGetValue(client.Id, out var value);
  		if (value != null)
  		{
-@@ -4244,11 +4672,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4244,11 +4679,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  
  	internal void BroadcastArbitraryPacket(byte[] data, params IServerPlayer[] skipPlayers)
  	{
@@ -1134,7 +1134,7 @@ index 1017be9..643d511 100644
  			}
  		}
  	}
-@@ -4258,11 +4686,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4258,11 +4693,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		Serialize_(packet);
  		byte[] array = null;
  		bool compressed = false;
@@ -1147,7 +1147,7 @@ index 1017be9..643d511 100644
  				{
  					array = client.Socket.PreparePacketForSending(reusableBuffer, Config.CompressPackets, out compressed);
  				}
-@@ -4277,17 +4705,35 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4277,17 +4712,35 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  
  	internal void BroadcastArbitraryUdpPacket(Packet_UdpPacket data, params IServerPlayer[] skipPlayers)
  	{
@@ -1184,7 +1184,7 @@ index 1017be9..643d511 100644
  		if (packetBenchmark.ContainsKey(packetId))
  		{
  			packetBenchmark[packetId]++;
-@@ -4425,11 +4871,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4425,11 +4878,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			EnumSendResult result = value.Socket.HiPerformanceSend(box, Logger, Config.CompressPackets);
  			HandleSendingResult(result, box.LengthSent, value);
  		}
@@ -1197,7 +1197,7 @@ index 1017be9..643d511 100644
  		HandleSendingResult(result, packetBytes.Length, client);
  	}
  
-@@ -4694,13 +5140,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4694,13 +5147,38 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	}
  
  	private void SendWorldMetaData(IServerPlayer player)
@@ -1236,7 +1236,7 @@ index 1017be9..643d511 100644
  	internal Packet_Server WorldMetaDataPacket()
  	{
  		float[] array = blockLightLevels;
-@@ -4755,14 +5226,53 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4755,14 +5233,53 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		{
  			((DummyUdpNetServer)UdpSockets[0]).Client.Player = player;
  		}
@@ -1291,7 +1291,7 @@ index 1017be9..643d511 100644
  		List<Packet_ModId> list = (from mod in api.ModLoader.Mods
  			where mod.Info.Side.IsUniversal()
  			select new Packet_ModId
-@@ -4791,15 +5301,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4791,15 +5308,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			RequireRemapping = ((controlServerPrivilege && requiresRemaps) ? 1 : 0)
  		};
  		Logger.Notification((Config.DisableAutoRemap ? ("Sending server identification with remap " + requiresRemaps) : "Sending server identification") + ". Server control privilege is " + controlServerPrivilege);
@@ -1314,7 +1314,7 @@ index 1017be9..643d511 100644
  		}
  		return new Packet_Server
  		{
-@@ -4843,12 +5358,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4843,12 +5365,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  				array[num] = item.Id;
  				array2[num] = (int)(1000f * item.Player.Ping);
  				num++;

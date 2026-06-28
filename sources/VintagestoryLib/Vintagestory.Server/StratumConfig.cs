@@ -1262,11 +1262,12 @@ internal class StratumChunkIoConfig
 // across the world simultaneously and FIFO would otherwise round-robin them slowly.
 internal class StratumChunkPriorityConfig
 {
-	public bool Enabled { get; set; } = false;
+	public bool Enabled { get; set; } = true;
 
 	// Cap on requests pulled into the sort window each chunk-thread iteration. Keeps the sort
-	// cost bounded regardless of queue size.
-	public int MaxSortedPerTick { get; set; } = 64;
+	// cost bounded regardless of queue size. 512 covers the full pending queue in typical
+	// solo/small-server scenarios and scales well to 100+ players.
+	public int MaxSortedPerTick { get; set; } = 512;
 
 	// Forward-predict each player's chunk position by this many seconds based on .Motion so
 	// chunks ahead of motion are loaded earlier than chunks behind. 0 disables prediction.
