@@ -11,7 +11,4 @@
   <Folder Name="/Stratum/">
     <Project Path="StratumServer/StratumServer.csproj" />
   </Folder>
-  <Folder Name="/Haven/">
-    <Project Path="Haven/Haven.csproj" />
-  </Folder>
 </Solution>
