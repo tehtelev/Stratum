@@ -1,0 +1,13 @@
+diff --git a/VintagestoryApi/Config/GameVersion.cs b/VintagestoryApi/Config/GameVersion.cs
+index 6042bc5..a1b2c3d 100644
+--- a/VintagestoryApi/Config/GameVersion.cs
++++ b/VintagestoryApi/Config/GameVersion.cs
+@@ -38,7 +38,7 @@ namespace Vintagestory.API.Config
+         /// <summary>
+         /// Assembly Info Version number in the format: major.minor.revision-[rc/pre.subrevision]
+         /// </summary>
+-        public const string OverallVersion = OverallMajorMinor + ".2";
++        public const string OverallVersion = OverallMajorMinor + ".3"; // Stratum: upstream vsapi repo stuck at 1.22.2, compiled game ships 1.22.3
+ 
+         /// <summary>
+         /// Whether this is a stable or unstable version
