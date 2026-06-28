@@ -1,0 +1,16 @@
+diff --git a/VSEssentials/Entity/Pathfinding/Astar/PathNode.cs b/VSEssentials/Entity/Pathfinding/Astar/PathNode.cs
+index e53d25c..be326f3 100644
+--- a/VSEssentials/Entity/Pathfinding/Astar/PathNode.cs
++++ b/VSEssentials/Entity/Pathfinding/Astar/PathNode.cs
+@@ -40,10 +40,11 @@ namespace Vintagestory.Essentials
+             dimension = pos.dimension;
+         }
+ 
+         public bool Equals(PathNode other)
+         {
++            if (other is null) return false; // Stratum: pool reuse can surface null in HashSet comparisons
+             return other.X == X && other.Y == Y && other.Z == Z;
+         }
+ 
+         public override bool Equals(object obj)
+         {
