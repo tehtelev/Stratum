@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ConnectedClient.cs b/VintagestoryLib/Vintagestory.Server/ConnectedClient.cs
-index 93feaee..0ad08e6 100644
+index 93feaee..1fc9188 100644
 --- a/VintagestoryLib/Vintagestory.Server/ConnectedClient.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ConnectedClient.cs
 @@ -20,10 +20,16 @@ public class ConnectedClient
@@ -19,26 +19,3 @@ index 93feaee..0ad08e6 100644
  	public int TotalTeleSupicions;
  
  	public string LoginToken;
-@@ -169,10 +175,22 @@ public class ConnectedClient
- 			IsSinglePlayerClient = socket is DummyNetConnection;
- 			IsLocalConnection = ipAddress == "127.0.0.1" || ipAddress.StartsWithFast("::1") || ipAddress.StartsWithFast("::ffff:127.0.0.1");
- 		}
- 	}
- 
-+	/// <summary>
-+	/// Re-stamp the cached client IP with a value forwarded by the Nimbus proxy. Called once
-+	/// during identification after a reservation hand-off succeeds. Also re-evaluates
-+	/// <see cref="IsLocalConnection"/>.
-+	/// </summary>
-+	public void OverrideForwardedIp(string forwardedIp)
-+	{
-+		if (string.IsNullOrEmpty(forwardedIp)) return;
-+		ipAddress = forwardedIp;
-+		IsLocalConnection = ipAddress == "127.0.0.1" || ipAddress.StartsWithFast("::1") || ipAddress.StartsWithFast("::ffff:127.0.0.1");
-+	}
-+
- 	public ConnectedClient(int clientId)
- 	{
- 		Id = clientId;
- 		State = EnumClientState.Connecting;
- 		IsNewClient = true;

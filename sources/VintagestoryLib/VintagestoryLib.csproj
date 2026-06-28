@@ -20,20 +20,8 @@
   </ItemGroup>
   <ItemGroup>
   </ItemGroup>
-  <!-- Nimbus integration is optional. When the Nimbus.Shared project is checked
-       out, define STRATUM_NIMBUS so the Nimbus/* folder and the patched baseline
-       files (gated with #if STRATUM_NIMBUS) compile in. Otherwise, exclude the
-       folder and skip the project reference so the lib still builds for outside
-       contributors and CI. -->
-  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\Nimbus\Nimbus.Shared\Nimbus.Shared.csproj')">
-    <DefineConstants>$(DefineConstants);STRATUM_NIMBUS</DefineConstants>
-  </PropertyGroup>
-  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\Nimbus\Nimbus.Shared\Nimbus.Shared.csproj')">
-    <Compile Remove="Vintagestory.Server\Nimbus\**\*.cs" />
-  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\VintagestoryApi\VintagestoryAPI.csproj" />
-    <ProjectReference Include="..\..\Nimbus\Nimbus.Shared\Nimbus.Shared.csproj" Condition="Exists('$(MSBuildThisFileDirectory)..\..\Nimbus\Nimbus.Shared\Nimbus.Shared.csproj')" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="cairo-sharp">

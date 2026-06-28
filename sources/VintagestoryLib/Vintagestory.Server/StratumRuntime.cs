@@ -184,8 +184,8 @@ internal static class StratumRuntime
 			LastLoadedUtc = DateTime.UtcNow;
 			LastLoadStatus = "failed to load config: " + exception.Message;
 			message = LastLoadStatus;
-			LogError("Failed to load config at " + ConfigPath + ": " + exception.Message);
-			ServerMain.Logger?.Error(exception);
+			LogError("Failed to load config at " + ConfigPath);
+			ServerMain.Logger.Error(exception);
 			return false;
 		}
 	}
@@ -208,11 +208,8 @@ internal static class StratumRuntime
 		CheckDirectory(report, baseDirectory, "Mods");
 		CheckFile(report, baseDirectory, "VintagestoryLib.dll");
 		CheckFile(report, baseDirectory, "VintagestoryAPI.dll");
-		string skiaSharpNative = System.OperatingSystem.IsWindows() ? "libSkiaSharp.dll"
-			: System.OperatingSystem.IsMacOS() ? "libSkiaSharp.dylib"
-			: "libSkiaSharp.so";
-		CheckFile(report, baseDirectory, Path.Combine("Lib", skiaSharpNative));
-		CheckSuspiciousRootNative(report, baseDirectory, skiaSharpNative, 1024 * 1024);
+		CheckFile(report, baseDirectory, Path.Combine("Lib", "libSkiaSharp.dll"));
+		CheckSuspiciousRootNative(report, baseDirectory, "libSkiaSharp.dll", 1024 * 1024);
 		CheckServerConfigShape(report);
 		CheckStratumConfigSafety(report);
 
@@ -236,10 +233,7 @@ internal static class StratumRuntime
 		}
 
 		string serverConfig = File.ReadAllText(serverConfigPath);
-		bool hasRoleData = serverConfig.Contains("\"RolesByCode\"", StringComparison.Ordinal)
-			|| serverConfig.Contains("\"Roles\"", StringComparison.Ordinal)
-			|| serverConfig.Contains("\"DefaultRoleCode\"", StringComparison.Ordinal);
-		if (hasRoleData && !File.Exists(rolesConfigPath))
+		if (serverConfig.Contains("\"RolesByCode\"", StringComparison.Ordinal) || serverConfig.Contains("\"Roles\"", StringComparison.Ordinal) || serverConfig.Contains("\"DefaultRoleCode\"", StringComparison.Ordinal))
 		{
 			report.Warnings.Add("serverconfig.json still contains role data; run --setconfig or /serverconfig once to rewrite it into serverroles.json");
 		}

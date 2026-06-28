@@ -25,8 +25,6 @@ internal class ServerSystemStratum : ServerSystem
 	public override void OnBeginConfiguration()
 	{
 		bool loaded = StratumRuntime.LoadOrCreateConfig(server, out string message);
-		// Always log config path so users can diagnose location issues regardless of LogStartupSummary.
-		StratumRuntime.LogInfo($"config {(loaded ? "ready" : "using defaults")}: {message} ({StratumRuntime.ConfigPath})");
 		if (StratumRuntime.Config.Diagnostics.LogStartupSummary)
 		{
 			LogStartupSummary(loaded, message);
@@ -110,6 +108,7 @@ internal class ServerSystemStratum : ServerSystem
 	{
 		StratumConfig config = StratumRuntime.Config;
 		StratumRuntime.LogInfo($"{StratumInfo.FullName} for Vintage Story {StratumInfo.BaseGameVersion}");
+		StratumRuntime.LogInfo($"config {(loaded ? "ready" : "using defaults")}: {message} ({StratumRuntime.ConfigPath})");
 		//StratumRuntime.LogInfo($"hardening: packets={OnOff(config.Hardening.PacketMonitoring)} blockBreak={OnOff(config.Hardening.BlockBreakGuards)} inventory={OnOff(config.Hardening.InventoryGuards)} entities={OnOff(config.Hardening.EntityGuards)}");
 		if (config.ClientModPolicy.LogPolicyOnStartup)
 		{

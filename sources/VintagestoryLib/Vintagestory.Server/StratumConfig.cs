@@ -41,11 +41,6 @@ internal class StratumConfig
 
 	public StratumNametagsConfig Nametags { get; set; } = new StratumNametagsConfig();
 
-#if STRATUM_NIMBUS
-	/// <summary>Optional Nimbus network integration. Default disabled — Stratum runs standalone.</summary>
-	public Nimbus.NimbusBackendConfig Network { get; set; } = new Nimbus.NimbusBackendConfig();
-#endif
-
 	public void EnsurePopulated()
 	{
 		Diagnostics ??= new StratumDiagnosticsConfig();
@@ -64,10 +59,6 @@ internal class StratumConfig
 		LoginProtection ??= new StratumLoginProtectionConfig();
 		PlayerPrivacy ??= new StratumPlayerPrivacyConfig();
 		Nametags ??= new StratumNametagsConfig();
-#if STRATUM_NIMBUS
-		Network ??= new Nimbus.NimbusBackendConfig();
-		Network.EnsurePopulated();
-#endif
 		PacketLimits.EnsureSane();
 		PacketBackPressure.EnsureSane();
 		BlockBreakGuards.EnsureSane();
@@ -305,25 +296,6 @@ internal class StratumNametagsConfig
 	/// <summary>If true, only apply the colour injection when the player has no real entitlement of their own.</summary>
 	public bool OnlyInjectIfNoExistingEntitlement { get; set; } = true;
 
-	/// <summary>
-	/// When true, a player's real VS entitlement is shown as a prefix tag (e.g. "vsteam" becomes "[VS Team]").
-	/// The tag appears alongside the role prefix (e.g. "[VS Team] [Admin] Alice").
-	/// </summary>
-	public bool ShowEntitlementPrefix { get; set; } = true;
-
-	/// <summary>
-	/// Display names for known entitlement codes. Used as the label shown in brackets.
-	/// Codes not listed here fall back to the raw code string.
-	/// </summary>
-	public Dictionary<string, string> EntitlementPrefixNames { get; set; } = CreateDefaultEntitlementPrefixNames();
-
-	/// <summary>
-	/// Brightness shift applied to the entitlement colour when building the prefix tag colour.
-	/// Negative = darker (default -0.15), positive = lighter. Keeps the tag visually distinct
-	/// from the player name colour, which uses the unmodified entitlement colour.
-	/// </summary>
-	public float EntitlementPrefixColorAdjust { get; set; } = -0.15f;
-
 	public void EnsurePopulated()
 	{
 		PrefixFormat ??= "[{tag}] ";
@@ -331,21 +303,6 @@ internal class StratumNametagsConfig
 		{
 			EntitlementColorByRole = CreateDefaultEntitlementMap();
 		}
-		EntitlementPrefixNames ??= CreateDefaultEntitlementPrefixNames();
-	}
-
-	private static Dictionary<string, string> CreateDefaultEntitlementPrefixNames()
-	{
-		return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-		{
-			["vsteam"] = "VS Team",
-			["glintteam"] = "Glint Team",
-			["vscontributor"] = "Contributor",
-			["vssupporter"] = "Supporter",
-			["staff"] = "Staff",
-			["bughunter"] = "Bug Hunter",
-			["chiselmaster"] = "Chisel Master"
-		};
 	}
 
 	private static Dictionary<string, string> CreateDefaultEntitlementMap()
@@ -1296,12 +1253,11 @@ internal class StratumChunkIoConfig
 // across the world simultaneously and FIFO would otherwise round-robin them slowly.
 internal class StratumChunkPriorityConfig
 {
-	public bool Enabled { get; set; } = true;
+	public bool Enabled { get; set; } = false;
 
 	// Cap on requests pulled into the sort window each chunk-thread iteration. Keeps the sort
-	// cost bounded regardless of queue size. 512 covers the full pending queue in typical
-	// solo/small-server scenarios and scales well to 100+ players.
-	public int MaxSortedPerTick { get; set; } = 512;
+	// cost bounded regardless of queue size.
+	public int MaxSortedPerTick { get; set; } = 64;
 
 	// Forward-predict each player's chunk position by this many seconds based on .Motion so
 	// chunks ahead of motion are loaded earlier than chunks behind. 0 disables prediction.
