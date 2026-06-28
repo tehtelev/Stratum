@@ -36,6 +36,18 @@ internal static class StratumChatFormatter
 			return false;
 		}
 
+		// Try the unified nametag system (handles entitlement + role tags and /prefix switching)
+		if (StratumNametags.TryGetChatFormat(player, out string prefixVtml, out string nameColorHex))
+		{
+			string playerName = EscapeVtml(player.PlayerName);
+			string nameFormatted = string.IsNullOrEmpty(nameColorHex)
+				? "<strong>" + playerName + ":</strong>"
+				: "<font color=\"" + nameColorHex + "\"><strong>" + playerName + ":</strong></font>";
+			formattedMessage = prefixVtml + nameFormatted + " " + messageBody;
+			return true;
+		}
+
+		// Fallback: role-only prefix when Nametags system is disabled
 		KeyValuePair<string, StratumChatRolePrefixConfig>? prefixEntry = FindPrefix(config.Chat.RolePrefixes, player.Role.Code);
 		if (prefixEntry == null)
 		{
