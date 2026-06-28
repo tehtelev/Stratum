@@ -1,8 +1,10 @@
 diff --git a/VintagestoryApi/Config/GameVersion.cs b/VintagestoryApi/Config/GameVersion.cs
-index 6042bc5..a1b2c3d 100644
+index a7911ea..9358ebf 100644
 --- a/VintagestoryApi/Config/GameVersion.cs
 +++ b/VintagestoryApi/Config/GameVersion.cs
-@@ -38,7 +38,7 @@ namespace Vintagestory.API.Config
+@@ -36,11 +36,11 @@ namespace Vintagestory.API.Config
+         public const string OverallMajorMinor = "1.22";
+ 
          /// <summary>
          /// Assembly Info Version number in the format: major.minor.revision-[rc/pre.subrevision]
          /// </summary>
@@ -11,3 +13,5 @@ index 6042bc5..a1b2c3d 100644
  
          /// <summary>
          /// Whether this is a stable or unstable version
+         /// </summary>
+         public const EnumGameBranch Branch = EnumGameBranch.Stable;
