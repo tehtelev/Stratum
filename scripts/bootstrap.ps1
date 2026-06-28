@@ -173,16 +173,19 @@ try {
                 # Drop the upstream .git so this is just a baseline snapshot.
                 Remove-Item -Recurse -Force (Join-Path $base '.git')
 
-                # Normalize text files to LF. extract-patches.ps1 diffs against
-                # LF-normalized content, so the patches in patches/ assume LF; some
-                # upstream repos ship .gitattributes that force CRLF on checkout
-                # (or Windows autocrlf does), which makes `git apply` reject hunks.
+                # Normalize text files to LF and strip UTF-8 BOMs. extract-patches.ps1
+                # diffs against LF-normalized BOM-free content, so the patches in patches/
+                # assume LF and no BOM; some upstream repos ship .gitattributes that force
+                # CRLF on checkout (or Windows autocrlf does), and some files have BOMs,
+                # both of which make `git apply` reject hunks.
                 Get-ChildItem -Path $base -Recurse -File -Include '*.cs','*.csproj','*.json','*.xml','*.props','*.targets' -ErrorAction SilentlyContinue | ForEach-Object {
                     $bytes = [IO.File]::ReadAllBytes($_.FullName)
+                    $hasBOM = $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF
                     $hasCR = $false
                     foreach ($byte in $bytes) { if ($byte -eq 13) { $hasCR = $true; break } }
-                    if ($hasCR) {
-                        $text = [Text.Encoding]::UTF8.GetString($bytes) -replace "`r`n", "`n"
+                    if ($hasCR -or $hasBOM) {
+                        $start = if ($hasBOM) { 3 } else { 0 }
+                        $text = [Text.Encoding]::UTF8.GetString($bytes, $start, $bytes.Length - $start) -replace "`r`n", "`n"
                         [IO.File]::WriteAllBytes($_.FullName, [Text.Encoding]::UTF8.GetBytes($text))
                     }
                 }
