@@ -1,13 +1,12 @@
-name: Discord PR Notifications
-
 on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize, closed]
+
   pull_request_review:
     types: [submitted]
-  workflow_run:
-    workflows: ["Build"]
-    types: [completed]
+
+  issues:
+    types: [opened, reopened, closed, assigned, labeled, unlabeled]
 
 jobs:
   notify-pr:
@@ -22,36 +21,38 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
         run: |
           case "$ACTION" in
             opened)
-              MSG="**New PR opened** by \`$PR_AUTHOR\`\n$PR_TITLE\n$PR_URL"
+              MSG="**New pull request** #$PR_NUMBER by \`$PR_AUTHOR\`\n**$PR_TITLE**\n$PR_URL"
               ;;
             reopened)
-              MSG="**PR reopened** by \`$PR_AUTHOR\`\n$PR_TITLE\n$PR_URL"
+              MSG="**Pull request reopened** #$PR_NUMBER by \`$PR_AUTHOR\`\n**$PR_TITLE**\n$PR_URL"
               ;;
             ready_for_review)
-              MSG="**PR ready for review**\n$PR_TITLE\n$PR_URL"
+              MSG="**Pull request ready for review** #$PR_NUMBER\n**$PR_TITLE**\n$PR_URL"
               ;;
             synchronize)
-              MSG="**PR updated** by \`$PR_AUTHOR\`\n$PR_TITLE\n$PR_URL"
+              MSG="**Pull request updated** #$PR_NUMBER by \`$PR_AUTHOR\`\n**$PR_TITLE**\n$PR_URL"
               ;;
             closed)
-              MERGED="${{ github.event.pull_request.merged }}"
-              if [ "$MERGED" = "true" ]; then
-                MSG="**PR merged**\n$PR_TITLE\n$PR_URL"
+              if [ "$PR_MERGED" = "true" ]; then
+                MSG="**Pull request merged** #$PR_NUMBER\n**$PR_TITLE**\n$PR_URL"
               else
-                MSG="**PR closed**\n$PR_TITLE\n$PR_URL"
+                MSG="**Pull request closed** #$PR_NUMBER\n**$PR_TITLE**\n$PR_URL"
               fi
               ;;
             *)
-              MSG="**PR event: $ACTION**\n$PR_TITLE\n$PR_URL"
+              MSG="**Pull request event: $ACTION** #$PR_NUMBER\n**$PR_TITLE**\n$PR_URL"
               ;;
           esac
 
+          jq -n --arg content "$MSG" '{content: $content}' > payload.json
+
           curl -H "Content-Type: application/json" \
-            -d "{\"content\":\"$MSG\"}" \
+            -d @payload.json \
             "$WEBHOOK_URL"
 
   notify-review:
@@ -66,9 +67,56 @@ jobs:
           REVIEWER: ${{ github.event.review.user.login }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          MSG="**PR review submitted** by \`$REVIEWER\`\nState: \`$REVIEW_STATE\`\n$PR_TITLE\n$PR_URL"
+          MSG="**Pull request review** on #$PR_NUMBER by \`$REVIEWER\`\nState: \`$REVIEW_STATE\`\n**$PR_TITLE**\n$PR_URL"
+
+          jq -n --arg content "$MSG" '{content: $content}' > payload.json
 
           curl -H "Content-Type: application/json" \
-            -d "{\"content\":\"$MSG\"}" \
+            -d @payload.json \
+            "$WEBHOOK_URL"
+
+  notify-issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send issue notification
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
+          ACTION: ${{ github.event.action }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          case "$ACTION" in
+            opened)
+              MSG="**New issue** #$ISSUE_NUMBER by \`$ISSUE_AUTHOR\`\n**$ISSUE_TITLE**\n$ISSUE_URL"
+              ;;
+            reopened)
+              MSG="**Issue reopened** #$ISSUE_NUMBER by \`$ISSUE_AUTHOR\`\n**$ISSUE_TITLE**\n$ISSUE_URL"
+              ;;
+            closed)
+              MSG="**Issue closed** #$ISSUE_NUMBER\n**$ISSUE_TITLE**\n$ISSUE_URL"
+              ;;
+            assigned)
+              MSG="**Issue assigned** #$ISSUE_NUMBER\n**$ISSUE_TITLE**\n$ISSUE_URL"
+              ;;
+            labeled)
+              MSG="**Issue labeled** #$ISSUE_NUMBER\n**$ISSUE_TITLE**\n$ISSUE_URL"
+              ;;
+            unlabeled)
+              MSG="**Issue unlabeled** #$ISSUE_NUMBER\n**$ISSUE_TITLE**\n$ISSUE_URL"
+              ;;
+            *)
+              MSG="**Issue event: $ACTION** #$ISSUE_NUMBER\n**$ISSUE_TITLE**\n$ISSUE_URL"
+              ;;
+          esac
+
+          jq -n --arg content "$MSG" '{content: $content}' > payload.json
+
+          curl -H "Content-Type: application/json" \
+            -d @payload.json \
             "$WEBHOOK_URL"
