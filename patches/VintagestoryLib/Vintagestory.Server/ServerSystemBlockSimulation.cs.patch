@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
-index 5b0cc42..325d431 100644
+index 5b0cc42..6e4002c 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
 @@ -14,10 +14,13 @@ using Vintagestory.Common.Database;
@@ -29,7 +29,7 @@ index 5b0cc42..325d431 100644
  	{
  		server.RegisterGameTickListener(UpdateEvery100ms, 100);
  		server.PacketHandlers[3] = HandleBlockPlaceOrBreak;
-@@ -319,11 +324,222 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -319,11 +324,224 @@ public class ServerSystemBlockSimulation : ServerSystem
  	}
  
  	private void HandleBlockEntityPacket(Packet_Client packet, ConnectedClient client)
@@ -77,6 +77,8 @@ index 5b0cc42..325d431 100644
 +		if (!IsBlockEntityPacketInRange(player, pos))
 +		{
 +			ServerMain.Logger.Audit("{0} tried to send a block entity packet out of range at {1}", player.PlayerName, pos);
++			// Stratum: track this low-noise packet violation for staff alerting.
++			StratumAnticheatReporter.RecordBlockEntityOutOfRange(server, player, pos);
 +			return false;
 +		}
 +
@@ -253,7 +255,24 @@ index 5b0cc42..325d431 100644
  	internal void HandleBlockPlaceOrBreak(Packet_Client packet, ConnectedClient client)
  	{
  		Packet_ClientBlockPlaceOrBreak blockPlaceOrBreak = packet.BlockPlaceOrBreak;
-@@ -363,10 +579,21 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -338,10 +556,16 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 		};
+ 		if (client.Player.WorldData.CurrentGameMode == EnumGameMode.Spectator)
+ 		{
+ 			return;
+ 		}
++		// Stratum: prevent hacked survival clients from placing or breaking outside server reach.
++		if (!StratumBlockReachGuard.TryAcceptPlaceOrBreak(server, client, blockSelection, blockPlaceOrBreak.Mode, out string stratumReachDisconnectReason))
++		{
++			RejectStratumBlockReach(client, blockSelection.Position, stratumReachDisconnectReason);
++			return;
++		}
+ 		EnumWorldAccessResponse enumWorldAccessResponse;
+ 		if ((enumWorldAccessResponse = server.WorldMap.TestBlockAccess(client.Player, blockSelection, EnumBlockAccessFlags.BuildOrBreak, out string claimant)) != EnumWorldAccessResponse.Granted)
+ 		{
+ 			RevertBlockInteractions(client.Player, blockSelection.Position);
+ 			string code = "noprivilege-buildbreak-" + enumWorldAccessResponse.ToString().ToLowerInvariant();
+@@ -363,10 +587,21 @@ public class ServerSystemBlockSimulation : ServerSystem
  				worldChunk.BreakDecor(server, blockSelection.Position, blockSelection.Face);
  				worldChunk.MarkModified();
  			}
@@ -275,7 +294,48 @@ index 5b0cc42..325d431 100644
  		ItemStack withItemStack = client.Player.inventoryMgr.ActiveHotbarSlot?.Itemstack;
  		if (!TryModifyBlockInWorld(client.Player, blockPlaceOrBreak))
  		{
-@@ -791,12 +1018,20 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -402,10 +637,16 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			Face = face,
+ 			HitPosition = vec3d,
+ 			SelectionBoxIndex = handInteraction.SelectionBoxIndex,
+ 			SelectionBoxId = handInteraction.SelectionBoxId
+ 		};
++		// Stratum: prevent hacked survival clients from interacting outside server reach.
++		if (!StratumBlockReachGuard.TryAcceptBlockInteract(server, client, blockSelection, out string stratumReachDisconnectReason))
++		{
++			RejectStratumBlockReach(client, blockSelection.Position, stratumReachDisconnectReason);
++			return;
++		}
+ 		if (server.Config.AntiAbuse >= EnumProtectionLevel.Basic)
+ 		{
+ 			FastVec3d vec = new FastVec3d((double)handInteraction.X + vec3d.X, (double)handInteraction.Y + vec3d.Y, (double)handInteraction.Z + vec3d.Z);
+ 			float num = player.WorldData.PickingRange * player.WorldData.PickingRange;
+ 			double num2 = player.Entity.Pos.XYZFast.Add(player.Entity.LocalEyePos).DistanceSq(vec);
+@@ -489,10 +730,23 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 		RevertBlockInteraction2(targetPlayer, pos.AddCopy(BlockFacing.UP), sendPlayerData: false);
+ 		RevertBlockInteraction2(targetPlayer, pos.AddCopy(BlockFacing.DOWN), sendPlayerData: false);
+ 		server.SendOwnPlayerData(targetPlayer);
+ 	}
+ 
++	private void RejectStratumBlockReach(ConnectedClient client, BlockPos pos, string disconnectReason)
++	{
++		RevertBlockInteractions(client.Player, pos);
++		if (disconnectReason == null)
++		{
++			return;
++		}
++
++		server.DisconnectPlayer(client, null, disconnectReason);
++		StratumRuntime.PacketLimiter.ForgetClient(client.Id);
++		StratumRuntime.BlockBreakGuard.ForgetClient(client.Id);
++	}
++
+ 	private void RevertBlockInteraction2(IServerPlayer targetPlayer, BlockPos pos, bool sendPlayerData = true)
+ 	{
+ 		server.SendSetBlock(targetPlayer, server.WorldMap.RawRelaxedBlockAccess.GetBlockId(pos), pos.X, pos.InternalY, pos.Z);
+ 		BlockEntity blockEntity = server.WorldMap.RawRelaxedBlockAccess.GetBlockEntity(pos);
+ 		if (blockEntity != null)
+@@ -791,12 +1045,20 @@ public class ServerSystemBlockSimulation : ServerSystem
  	{
  		if (server.RunPhase != EnumServerRunPhase.RunGame)
  		{
@@ -298,7 +358,7 @@ index 5b0cc42..325d431 100644
  			{
  				continue;
  			}
-@@ -825,22 +1060,32 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -825,22 +1087,32 @@ public class ServerSystemBlockSimulation : ServerSystem
  			catch (Exception e)
  			{
  				ServerMain.Logger.Error("Exception thrown in block.OnServerGameTick() for block code '{0}':", block?.Code);
@@ -332,7 +392,7 @@ index 5b0cc42..325d431 100644
  			foreach (int clientId in clientIds)
  			{
  				if (!server.Clients.TryGetValue(clientId, out var value) || value.State != EnumClientState.Playing)
-@@ -875,34 +1120,107 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -875,34 +1147,107 @@ public class ServerSystemBlockSimulation : ServerSystem
  						}
  					}
  				}
@@ -443,7 +503,7 @@ index 5b0cc42..325d431 100644
  		{
  			int num6 = rand.Next(32);
  			int num7 = rand.Next(32);
-@@ -918,10 +1236,11 @@ public class ServerSystemBlockSimulation : ServerSystem
+@@ -918,10 +1263,11 @@ public class ServerSystemBlockSimulation : ServerSystem
  			if (fluid != 0)
  			{
  				tryTickBlock(server.WorldMap.Blocks[fluid], tmpPos.Set(num + num6, num2 + num8, num3 + num7));

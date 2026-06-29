@@ -21,6 +21,8 @@ internal class StratumConfig
 
 	public StratumBlockBreakGuardsConfig BlockBreakGuards { get; set; } = new StratumBlockBreakGuardsConfig();
 
+	public StratumAnticheatConfig Anticheat { get; set; } = new StratumAnticheatConfig();
+
 	public StratumClientModPolicyConfig ClientModPolicy { get; set; } = new StratumClientModPolicyConfig();
 
 	public StratumPerformanceConfig Performance { get; set; } = new StratumPerformanceConfig();
@@ -49,6 +51,7 @@ internal class StratumConfig
 		PacketLimits ??= new StratumPacketLimitsConfig();
 		PacketBackPressure ??= new StratumPacketBackPressureConfig();
 		BlockBreakGuards ??= new StratumBlockBreakGuardsConfig();
+		Anticheat ??= new StratumAnticheatConfig();
 		ClientModPolicy ??= new StratumClientModPolicyConfig();
 		Performance ??= new StratumPerformanceConfig();
 		Commands ??= new StratumCommandsConfig();
@@ -62,6 +65,7 @@ internal class StratumConfig
 		PacketLimits.EnsureSane();
 		PacketBackPressure.EnsureSane();
 		BlockBreakGuards.EnsureSane();
+		Anticheat.EnsureSane();
 		ClientModPolicy.EnsurePopulated();
 		Performance.EnsurePopulated();
 		Commands.EnsurePopulated();
