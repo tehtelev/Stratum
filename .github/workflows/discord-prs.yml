@@ -1,0 +1,74 @@
+name: Discord PR Notifications
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize, closed]
+  pull_request_review:
+    types: [submitted]
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+jobs:
+  notify-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send PR notification
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
+          ACTION: ${{ github.event.action }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          case "$ACTION" in
+            opened)
+              MSG="**New PR opened** by \`$PR_AUTHOR\`\n$PR_TITLE\n$PR_URL"
+              ;;
+            reopened)
+              MSG="**PR reopened** by \`$PR_AUTHOR\`\n$PR_TITLE\n$PR_URL"
+              ;;
+            ready_for_review)
+              MSG="**PR ready for review**\n$PR_TITLE\n$PR_URL"
+              ;;
+            synchronize)
+              MSG="**PR updated** by \`$PR_AUTHOR\`\n$PR_TITLE\n$PR_URL"
+              ;;
+            closed)
+              MERGED="${{ github.event.pull_request.merged }}"
+              if [ "$MERGED" = "true" ]; then
+                MSG="**PR merged**\n$PR_TITLE\n$PR_URL"
+              else
+                MSG="**PR closed**\n$PR_TITLE\n$PR_URL"
+              fi
+              ;;
+            *)
+              MSG="**PR event: $ACTION**\n$PR_TITLE\n$PR_URL"
+              ;;
+          esac
+
+          curl -H "Content-Type: application/json" \
+            -d "{\"content\":\"$MSG\"}" \
+            "$WEBHOOK_URL"
+
+  notify-review:
+    if: github.event_name == 'pull_request_review'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send review notification
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK }}
+          REVIEW_STATE: ${{ github.event.review.state }}
+          REVIEWER: ${{ github.event.review.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          MSG="**PR review submitted** by \`$REVIEWER\`\nState: \`$REVIEW_STATE\`\n$PR_TITLE\n$PR_URL"
+
+          curl -H "Content-Type: application/json" \
+            -d "{\"content\":\"$MSG\"}" \
+            "$WEBHOOK_URL"
