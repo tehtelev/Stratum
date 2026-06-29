@@ -497,12 +497,6 @@ internal class StratumBlockBreakGuardsConfig
 
 	public bool LogViolations { get; set; } = false;
 
-	public bool KickViolations { get; set; } = true;
-
-	public int KickAfterViolations { get; set; } = 3;
-
-	public int ViolationWindowSeconds { get; set; } = 10;
-
 	public float RequiredProgressRatio { get; set; } = 0.8f;
 
 	public float GraceSeconds { get; set; } = 0.25f;
@@ -515,22 +509,15 @@ internal class StratumBlockBreakGuardsConfig
 
 	public int MaxRememberedPartialBreaksPerClient { get; set; } = 24;
 
-	public string KickMessage { get; set; } = "Disconnected by Stratum block break protection";
-
+	// Staff alerting and confirmed-cheat kicking are governed by Anticheat.BlockBreakProgress now.
 	public void EnsureSane()
 	{
-		KickAfterViolations = Math.Max(0, KickAfterViolations);
-		ViolationWindowSeconds = Math.Max(1, ViolationWindowSeconds);
 		RequiredProgressRatio = Math.Max(0.1f, Math.Min(1f, RequiredProgressRatio));
 		GraceSeconds = Math.Max(0f, GraceSeconds);
 		MinimumTrackedBreakSeconds = Math.Max(0f, MinimumTrackedBreakSeconds);
 		PartialProgressRetentionSeconds = Math.Max(0f, PartialProgressRetentionSeconds);
 		MaxRememberedProgressRatio = Math.Max(0.1f, Math.Min(0.99f, MaxRememberedProgressRatio));
 		MaxRememberedPartialBreaksPerClient = Math.Max(0, MaxRememberedPartialBreaksPerClient);
-		if (string.IsNullOrWhiteSpace(KickMessage))
-		{
-			KickMessage = "Disconnected by Stratum block break protection";
-		}
 	}
 }
 

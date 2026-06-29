@@ -16,14 +16,18 @@ internal class StratumAnticheatConfig
 
 	public StratumBlockInteractionOutOfRangeAnticheatConfig BlockInteractionOutOfRange { get; set; } = new StratumBlockInteractionOutOfRangeAnticheatConfig();
 
+	public StratumBlockBreakProgressAnticheatConfig BlockBreakProgress { get; set; } = new StratumBlockBreakProgressAnticheatConfig();
+
 	public void EnsureSane()
 	{
 		MaxStoredViolationsPerPlayer = Math.Clamp(MaxStoredViolationsPerPlayer, 16, 2048);
 		KeepPlayerViolationsMinutes = Math.Clamp(KeepPlayerViolationsMinutes, 5, 1440);
 		BlockEntityOutOfRange ??= new StratumBlockEntityOutOfRangeAnticheatConfig();
 		BlockInteractionOutOfRange ??= new StratumBlockInteractionOutOfRangeAnticheatConfig();
+		BlockBreakProgress ??= new StratumBlockBreakProgressAnticheatConfig();
 		BlockEntityOutOfRange.EnsureSane();
 		BlockInteractionOutOfRange.EnsureSane();
+		BlockBreakProgress.EnsureSane();
 	}
 }
 
@@ -65,5 +69,21 @@ internal class StratumBlockInteractionOutOfRangeAnticheatConfig : StratumAntiche
 		RangeSlack = Math.Clamp(RangeSlack, 0, 4);
 		KickAfterViolations = Math.Clamp(KickAfterViolations, 2, 100);
 		KickMessage ??= "Disconnected by Stratum block reach protection";
+	}
+}
+
+internal class StratumBlockBreakProgressAnticheatConfig : StratumAnticheatRuleConfig
+{
+	public bool KickConfirmedCheats { get; set; } = true;
+
+	public int KickAfterViolations { get; set; } = 3;
+
+	public string KickMessage { get; set; } = "Disconnected by Stratum block break protection";
+
+	public override void EnsureSane()
+	{
+		base.EnsureSane();
+		KickAfterViolations = Math.Clamp(KickAfterViolations, 2, 100);
+		KickMessage ??= "Disconnected by Stratum block break protection";
 	}
 }

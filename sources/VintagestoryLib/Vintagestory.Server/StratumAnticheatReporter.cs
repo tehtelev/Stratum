@@ -13,6 +13,7 @@ internal static class StratumAnticheatReporter
 {
 	private const string BlockEntityOutOfRangeType = "block-entity-range";
 	private const string BlockInteractionOutOfRangeType = "block-interaction-range";
+	private const string BlockBreakProgressType = "block-break-progress";
 
 	private static readonly object Lock = new object();
 	private static readonly Dictionary<string, PlayerViolationState> PlayerViolations = new Dictionary<string, PlayerViolationState>(StringComparer.OrdinalIgnoreCase);
@@ -68,6 +69,40 @@ internal static class StratumAnticheatReporter
 			disconnectReason = string.IsNullOrWhiteSpace(config.BlockInteractionOutOfRange.KickMessage)
 				? "Disconnected by Stratum block reach protection"
 				: config.BlockInteractionOutOfRange.KickMessage;
+			return true;
+		}
+
+		return false;
+	}
+
+	public static bool RecordBlockBreakViolation(ServerMain server, ServerPlayer player, BlockPos pos, string reason, out string disconnectReason)
+	{
+		disconnectReason = null;
+		if (server == null || player == null || pos == null)
+		{
+			return false;
+		}
+
+		StratumRuntime.Config.EnsurePopulated();
+		StratumAnticheatConfig config = StratumRuntime.Config.Anticheat;
+		if (!config.Enabled || !config.BlockBreakProgress.Enabled)
+		{
+			return false;
+		}
+
+		string detail = string.IsNullOrWhiteSpace(reason) ? FormatBlockPos(pos) : reason;
+		DateTime now = DateTime.UtcNow;
+		ViolationRecordResult result = RecordViolation(player, now, BlockBreakProgressType, detail, config, config.BlockBreakProgress);
+		if (result.ShouldAlert)
+		{
+			SendStaffAlert(server, player, "block break progress", pos, result.RollingCount, result.TotalCount, config.BlockBreakProgress.AlertWindowSeconds);
+		}
+
+		if (config.BlockBreakProgress.KickConfirmedCheats && result.RollingCount >= config.BlockBreakProgress.KickAfterViolations)
+		{
+			disconnectReason = string.IsNullOrWhiteSpace(config.BlockBreakProgress.KickMessage)
+				? "Disconnected by Stratum block break protection"
+				: config.BlockBreakProgress.KickMessage;
 			return true;
 		}
 

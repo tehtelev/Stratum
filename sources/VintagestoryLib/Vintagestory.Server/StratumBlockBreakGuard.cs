@@ -112,7 +112,7 @@ internal sealed class StratumBlockBreakGuard
 		}
 
 		string reason = null;
-		bool shouldKick = false;
+		bool canLog = false;
 		long now = server.ElapsedMilliseconds;
 
 		lock (gate)
@@ -162,19 +162,24 @@ internal sealed class StratumBlockBreakGuard
 			}
 
 			totalRejectedBreaks++;
-			state.RegisterViolation(now, Math.Max(1, config.ViolationWindowSeconds));
-			shouldKick = config.KickViolations && config.KickAfterViolations > 0 && state.ViolationsInWindow >= config.KickAfterViolations;
-			if (shouldKick)
+			canLog = config.LogViolations && state.ShouldLog(now);
+		}
+
+		// updating this to go through the shared anticheat reporter so staff alerting and confirmed-cheat kicking follow the same per-player rolling window as the other signals.
+		// Called outside the gate lock since the reporter takes its own lock and may broadcast staff chat.
+		bool shouldKick = StratumAnticheatReporter.RecordBlockBreakViolation(server, player, requestedSelection.Position, reason, out disconnectReason);
+		if (shouldKick)
+		{
+			lock (gate)
 			{
 				totalKickedBreaks++;
-				disconnectReason = string.IsNullOrWhiteSpace(config.KickMessage) ? "Disconnected by Stratum block break protection" : config.KickMessage;
 			}
+		}
 
-			if (config.LogViolations && state.ShouldLog(now))
-			{
-				string action = shouldKick ? "kick" : (config.DropViolations ? "drop" : "monitor");
-				StratumRuntime.LogAudit($"block-break action={action} client={client.Id} player={player.PlayerName} block={block.Code} pos={requestedSelection.Position} reason={reason}", true);
-			}
+		if (canLog)
+		{
+			string action = shouldKick ? "kick" : (config.DropViolations ? "drop" : "monitor");
+			StratumRuntime.LogAudit($"block-break action={action} client={client.Id} player={player.PlayerName} block={block.Code} pos={requestedSelection.Position} reason={reason}", true);
 		}
 
 		return !config.DropViolations && !shouldKick;
@@ -191,9 +196,10 @@ internal sealed class StratumBlockBreakGuard
 	public string BuildReport()
 	{
 		StratumBlockBreakGuardsConfig config = StratumRuntime.Config.BlockBreakGuards;
+		StratumBlockBreakProgressAnticheatConfig kickConfig = StratumRuntime.Config.Anticheat.BlockBreakProgress;
 		lock (gate)
 		{
-			return $"Block break guards: enabled={(config.Enabled ? "on" : "off")}, drop={(config.DropViolations ? "on" : "off")}, kick={(config.KickViolations ? "on" : "off")}, kickAfter={config.KickAfterViolations}, observed={totalObservedBreaks}, rejected={totalRejectedBreaks}, kicked={totalKickedBreaks}";
+			return $"Block break guards: enabled={(config.Enabled ? "on" : "off")}, drop={(config.DropViolations ? "on" : "off")}, kick={(kickConfig.KickConfirmedCheats ? "on" : "off")}, kickAfter={kickConfig.KickAfterViolations}, observed={totalObservedBreaks}, rejected={totalRejectedBreaks}, kicked={totalKickedBreaks}";
 		}
 	}
 
@@ -298,7 +304,6 @@ internal sealed class StratumBlockBreakGuard
 		private readonly Dictionary<BreakKey, RememberedBreak> rememberedBreaks = new Dictionary<BreakKey, RememberedBreak>();
 		private BlockPos position;
 		private int blockId;
-		private long violationWindowStartedMs;
 		private long lastViolationLogMs = long.MinValue;
 
 		public float RequiredResistance { get; set; }
@@ -310,8 +315,6 @@ internal sealed class StratumBlockBreakGuard
 		public long LastObservedMs { get; set; }
 
 		public long LeftMouseHeldSinceMs { get; set; } // Stratum: tracks when left-click started regardless of raytrace
-
-		public int ViolationsInWindow { get; private set; }
 
 		public bool IsTracking(BlockPos pos, int forBlockId)
 		{
@@ -425,17 +428,6 @@ internal sealed class StratumBlockBreakGuard
 			DamagePerSecond = 0f;
 			RequiredResistance = 0f;
 			LastObservedMs = 0;
-		}
-
-		public void RegisterViolation(long nowMs, int windowSeconds)
-		{
-			if (nowMs - violationWindowStartedMs > windowSeconds * 1000L)
-			{
-				violationWindowStartedMs = nowMs;
-				ViolationsInWindow = 0;
-			}
-
-			ViolationsInWindow++;
 		}
 
 		public bool ShouldLog(long nowMs)
