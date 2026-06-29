@@ -509,7 +509,7 @@ internal class StratumBlockBreakGuardsConfig
 
 	public int MaxRememberedPartialBreaksPerClient { get; set; } = 24;
 
-	// Staff alerting and confirmed-cheat kicking are governed by Anticheat.BlockBreakProgress now.
+	// Staff alerting and confirmed-cheat kicking are governed by Anticheat.BlockBreakProgress.
 	public void EnsureSane()
 	{
 		RequiredProgressRatio = Math.Max(0.1f, Math.Min(1f, RequiredProgressRatio));

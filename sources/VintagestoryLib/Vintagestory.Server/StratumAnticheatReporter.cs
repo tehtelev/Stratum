@@ -14,6 +14,7 @@ internal static class StratumAnticheatReporter
 	private const string BlockEntityOutOfRangeType = "block-entity-range";
 	private const string BlockInteractionOutOfRangeType = "block-interaction-range";
 	private const string BlockBreakProgressType = "block-break-progress";
+	private const string MovementType = "movement";
 
 	private static readonly object Lock = new object();
 	private static readonly Dictionary<string, PlayerViolationState> PlayerViolations = new Dictionary<string, PlayerViolationState>(StringComparer.OrdinalIgnoreCase);
@@ -103,6 +104,40 @@ internal static class StratumAnticheatReporter
 			disconnectReason = string.IsNullOrWhiteSpace(config.BlockBreakProgress.KickMessage)
 				? "Disconnected by Stratum block break protection"
 				: config.BlockBreakProgress.KickMessage;
+			return true;
+		}
+
+		return false;
+	}
+
+	public static bool RecordMovementViolation(ServerMain server, ServerPlayer player, BlockPos pos, string reason, out string disconnectReason)
+	{
+		disconnectReason = null;
+		if (server == null || player == null)
+		{
+			return false;
+		}
+
+		StratumRuntime.Config.EnsurePopulated();
+		StratumAnticheatConfig config = StratumRuntime.Config.Anticheat;
+		if (!config.Enabled || !config.Movement.Enabled)
+		{
+			return false;
+		}
+
+		string detail = string.IsNullOrWhiteSpace(reason) ? (pos != null ? FormatBlockPos(pos) : "movement") : reason;
+		DateTime now = DateTime.UtcNow;
+		ViolationRecordResult result = RecordViolation(player, now, MovementType, detail, config, config.Movement);
+		if (result.ShouldAlert)
+		{
+			SendStaffAlert(server, player, "suspicious movement", pos, result.RollingCount, result.TotalCount, config.Movement.AlertWindowSeconds);
+		}
+
+		if (config.Movement.KickConfirmedCheats && result.RollingCount >= config.Movement.KickAfterViolations)
+		{
+			disconnectReason = string.IsNullOrWhiteSpace(config.Movement.KickMessage)
+				? "Disconnected by Stratum movement protection"
+				: config.Movement.KickMessage;
 			return true;
 		}
 
@@ -223,6 +258,11 @@ internal static class StratumAnticheatReporter
 
 	private static string FormatBlockPos(BlockPos pos)
 	{
+		if (pos == null)
+		{
+			return "unknown";
+		}
+
 		return pos.X.ToString(CultureInfo.InvariantCulture) + ", " + pos.InternalY.ToString(CultureInfo.InvariantCulture) + ", " + pos.Z.ToString(CultureInfo.InvariantCulture);
 	}
 

@@ -1,18 +1,16 @@
 diff --git a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-index 719a68b..33c0716 100644
+index 719a68b..576636f 100644
 --- a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
 +++ b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-@@ -13,10 +13,25 @@ using Vintagestory.Common.Network.Packets;
+@@ -13,10 +13,23 @@ using Vintagestory.Common.Network.Packets;
  namespace Vintagestory.Server.Systems;
  
  public class ServerUdpNetwork : ServerSystem
  {
  	public readonly Dictionary<string, ConnectedClient> connectingClients = new Dictionary<string, ConnectedClient>();
++	// Stratum: per-player movement tracking for the server-authoritative speed/teleport guard.
++	// Thresholds and escalation live in Config.Anticheat.Movement (see StratumAnticheatConfig).
 +	private readonly Dictionary<string, StratumMovementState> stratumMovementByPlayerUid = new Dictionary<string, StratumMovementState>();
-+	private const double StratumMaxHorizontalBlocksPerSecond = 36;
-+	private const double StratumMaxVerticalUpBlocksPerSecond = 18;
-+	private const double StratumMaxCumulativeBlocksPerSecond = 64;
-+	private const double StratumMovementSlackBlocks = 2.5;
 +
 +	private sealed class StratumMovementState
 +	{
@@ -28,7 +26,7 @@ index 719a68b..33c0716 100644
  
  	internal ServerUdpQueue ImmediateUdpQueue;
  
-@@ -51,10 +66,12 @@ public class ServerUdpNetwork : ServerSystem
+@@ -51,10 +64,12 @@ public class ServerUdpNetwork : ServerSystem
  			UdpPacket[] array2 = array;
  			for (int j = 0; j < array2.Length; j++)
  			{
@@ -41,7 +39,7 @@ index 719a68b..33c0716 100644
  				case 1:
  					HandleConnectionRequest(udpPacket, uNetServer);
  					break;
-@@ -80,10 +97,20 @@ public class ServerUdpNetwork : ServerSystem
+@@ -80,10 +95,21 @@ public class ServerUdpNetwork : ServerSystem
  		physicsManager.Init();
  	}
  
@@ -50,6 +48,7 @@ index 719a68b..33c0716 100644
 +		if (player?.PlayerUID != null)
 +		{
 +			stratumMovementByPlayerUid.Remove(player.PlayerUID);
++			StratumMovementGuard.ForgetPlayer(player.PlayerUID);
 +			string mountPrefix = player.PlayerUID + ":mount:";
 +			foreach (string key in stratumMovementByPlayerUid.Keys.Where(key => key.StartsWith(mountPrefix)).ToArray())
 +			{
@@ -62,7 +61,7 @@ index 719a68b..33c0716 100644
  		{
  			connectingClients.Remove(keyValuePair.Key);
  		}
-@@ -167,10 +194,15 @@ public class ServerUdpNetwork : ServerSystem
+@@ -167,16 +193,35 @@ public class ServerUdpNetwork : ServerSystem
  		}
  		player.LastReceivedClientPosition = server.ElapsedMilliseconds;
  		int num2 = entity.Attributes.GetInt("tick");
@@ -78,7 +77,27 @@ index 719a68b..33c0716 100644
  			entity.Api.Logger.Audit("Rejected player position update for " + player.PlayerName + ". Client sent " + packet.X / 16384 + "," + packet.Y / 16384 + "," + packet.Z / 16384 + ", server pos was " + entity.Pos);
  			SendSinglePositionPacket(player, entity, num2);
  			return;
-@@ -196,22 +228,118 @@ public class ServerUdpNetwork : ServerSystem
+ 		}
++		// Stratum: server-authoritative flight / noclip validation. Runs after the packet is applied
++		// so it can read the claimed position against the world; on a violation entity.Pos has been
++		// reset to a safe position, so rubberband the client and kick if the reporter escalates.
++		if (!StratumMovementGuard.TryAccept(server, player, entity, player.PlayerUID, out string stratumMovementKick))
++		{
++			SendSinglePositionPacket(player, entity, num2);
++			if (stratumMovementKick != null)
++			{
++				stratumMovementByPlayerUid.Remove(player.PlayerUID);
++				StratumMovementGuard.ForgetPlayer(player.PlayerUID);
++				server.DisconnectPlayer(player.client, null, stratumMovementKick);
++			}
++			return;
++		}
+ 		foreach (EntityBehavior behavior in entity.SidedProperties.Behaviors)
+ 		{
+ 			if (behavior is IRemotePhysics remotePhysics)
+ 			{
+ 				remotePhysics.OnReceivedClientPos(num);
+@@ -196,22 +241,139 @@ public class ServerUdpNetwork : ServerSystem
  		if (flag)
  		{
  			message = new AnimationPacket(entity);
@@ -119,7 +138,18 @@ index 719a68b..33c0716 100644
 +			return false;
 +		}
 +
-+		if (packet.PositionVersion > serverPositionVersion || player.WorldData.CurrentGameMode == EnumGameMode.Creative || player.WorldData.NoClip)
++		StratumConfig stratumConfig = StratumRuntime.Config;
++		stratumConfig.EnsurePopulated();
++		StratumMovementAnticheatConfig config = stratumConfig.Anticheat.Movement;
++		// Guard disabled, or the player is legitimately allowed to bypass physics (creative,
++		// spectator, server-granted fly/noclip, or a teleport/mode-change just bumped the
++		// position version). Trust the packet and reset tracking so the next delta is clean.
++		if (!stratumConfig.Anticheat.Enabled || !config.Enabled
++			|| packet.PositionVersion > serverPositionVersion
++			|| player.WorldData.CurrentGameMode == EnumGameMode.Creative
++			|| player.WorldData.CurrentGameMode == EnumGameMode.Spectator
++			|| player.WorldData.FreeMove
++			|| player.WorldData.NoClip)
 +		{
 +			RememberStratumMovement(entity, stateKey);
 +			return true;
@@ -157,11 +187,11 @@ index 719a68b..33c0716 100644
 +		}
 +		state.WindowDistance += total;
 +
-+		double maxHorizontal = StratumMaxHorizontalBlocksPerSecond * elapsedSeconds + StratumMovementSlackBlocks;
-+		double maxVerticalUp = StratumMaxVerticalUpBlocksPerSecond * elapsedSeconds + StratumMovementSlackBlocks;
-+		if (horizontal > maxHorizontal || dy > maxVerticalUp || state.WindowDistance > StratumMaxCumulativeBlocksPerSecond)
++		double maxHorizontal = config.MaxHorizontalBlocksPerSecond * elapsedSeconds + config.SlackBlocks;
++		double maxVerticalUp = config.MaxVerticalUpBlocksPerSecond * elapsedSeconds + config.SlackBlocks;
++		if (horizontal > maxHorizontal || dy > maxVerticalUp || state.WindowDistance > config.MaxCumulativeBlocksPerSecond)
 +		{
-+			server.api.Logger.Audit("Rejected suspicious player movement for {0}. Delta={1:0.00}/{2:0.00}/{3:0.00}, window={4:0.00}", player.PlayerName, dx, dy, dz, state.WindowDistance);
++			// Rubberband: snap the client back to the authoritative server position.
 +			SendSinglePositionPacket(player, entity, currentTick);
 +			state.X = entity.Pos.X;
 +			state.Y = entity.Pos.InternalY;
@@ -169,6 +199,16 @@ index 719a68b..33c0716 100644
 +			state.LastMs = now;
 +			state.WindowStartMs = now;
 +			state.WindowDistance = 0;
++
++			// Record the violation in the shared anticheat reporter for staff alerting and,
++			// only after the player sustains many of them in the rolling window, a kick.
++			string reason = string.Format(System.Globalization.CultureInfo.InvariantCulture,
++				"delta h={0:0.00} up={1:0.00} window={2:0.00}/{3:0.00}", horizontal, dy, state.WindowDistance, config.MaxCumulativeBlocksPerSecond);
++			if (StratumAnticheatReporter.RecordMovementViolation(server, player, entity.Pos.AsBlockPos, reason, out string movementKickReason))
++			{
++				stratumMovementByPlayerUid.Remove(stateKey);
++				server.DisconnectPlayer(player.client, null, movementKickReason);
++			}
 +			return false;
 +		}
 +
@@ -200,7 +240,7 @@ index 719a68b..33c0716 100644
  	private void SendSinglePositionPacket(ServerPlayer player, Entity entity, int currentTick)
  	{
  		Packet_UdpPacket packet = new Packet_UdpPacket
-@@ -240,10 +368,16 @@ public class ServerUdpNetwork : ServerSystem
+@@ -240,10 +402,16 @@ public class ServerUdpNetwork : ServerSystem
  			return;
  		}
  		int num2 = entityById.Attributes.GetInt("tick");
@@ -217,7 +257,7 @@ index 719a68b..33c0716 100644
  			entityById.Api.Logger.Audit("Rejected mount position update for " + player.PlayerName + ". Client sent " + packet.X / 16384 + "," + packet.Y / 16384 + "," + packet.Z / 16384 + ", server pos was " + entityById.Pos);
  			SendSinglePositionPacket(player, entityById, num2);
  			return;
-@@ -299,10 +433,11 @@ public class ServerUdpNetwork : ServerSystem
+@@ -299,10 +467,11 @@ public class ServerUdpNetwork : ServerSystem
  			IServerNetworkChannel animationsAndTagsChannel = physicsManager.AnimationsAndTagsChannel;
  			AnimationPacket message = animationPacket;
  			IServerPlayer[] players = list.ToArray();
