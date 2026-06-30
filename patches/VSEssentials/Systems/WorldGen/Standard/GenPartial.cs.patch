@@ -13,8 +13,6 @@ index 25813b8..d0c3841 100644
          protected ICoreServerAPI api;
          protected int worldheight;
          public int airBlockId = 0;
-+        public int basaltBlockId; // Stratum: basalt block ID for cave gen
-+        public int lavaBlockId; // Stratum: lava block ID for cave gen
  
          protected abstract int chunkRange { get; }
  
@@ -22,9 +20,6 @@ index 25813b8..d0c3841 100644
          {
              LoadGlobalConfig(api);
  
-+            basaltBlockId = gcfg.basaltBlockId; // Stratum: resolve basalt block ID
-+            lavaBlockId = gcfg.lavaBlockId; // Stratum: resolve lava block ID
-+
              worldheight = api.WorldManager.MapSizeY;
              chunkRand = new LCGRandom(api.WorldManager.Seed);
          }
