@@ -107,7 +107,11 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 
 	public double HorizontalSpeedMultiplier { get; set; } = 3.0;
 
+	public double AirborneHorizontalMultiplier { get; set; } = 1.75;
+
 	public double MinimumHorizontalBlocksPerSecond { get; set; } = 8.0;
+
+	public double PositionVersionAcceptDistance { get; set; } = 4.0;
 
 	// Fallback cap when stat-based speed limits are disabled, and hard ceiling when they are on.
 	public double MaxHorizontalBlocksPerSecond { get; set; } = 36;
@@ -132,7 +136,7 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 
 	public bool DetectWaterWalk { get; set; } = true;
 
-	public int WaterWalkConsecutiveTicks { get; set; } = 5;
+	public int WaterWalkConsecutiveTicks { get; set; } = 3;
 
 	public double GroundContactTolerance { get; set; } = 0.04;
 
@@ -143,6 +147,10 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 
 	public double FlightDescentResetBlocks { get; set; } = 0.08;
 
+	public int HoverConsecutiveTicks { get; set; } = 4;
+
+	public double HoverStableYBlocks { get; set; } = 0.03;
+
 	// Chest-only by design. Feet collide with too many normal partial blocks.
 	public bool DetectNoclip { get; set; } = true;
 
@@ -152,7 +160,9 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 	{
 		base.EnsureSane();
 		HorizontalSpeedMultiplier = Math.Clamp(HorizontalSpeedMultiplier, 1, 20);
+		AirborneHorizontalMultiplier = Math.Clamp(AirborneHorizontalMultiplier, 1, 5);
 		MinimumHorizontalBlocksPerSecond = Math.Clamp(MinimumHorizontalBlocksPerSecond, 3, 100);
+		PositionVersionAcceptDistance = Math.Clamp(PositionVersionAcceptDistance, 0.5, 32);
 		MaxHorizontalBlocksPerSecond = Math.Clamp(MaxHorizontalBlocksPerSecond, 8, 1000);
 		MaxVerticalUpBlocksPerSecond = Math.Clamp(MaxVerticalUpBlocksPerSecond, 4, 1000);
 		CumulativeSpeedMultiplier = Math.Clamp(CumulativeSpeedMultiplier, 1, 20);
@@ -162,6 +172,8 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 		FlightGroundScanDepth = Math.Clamp(FlightGroundScanDepth, 0, 16);
 		FlightMinAirborneSeconds = Math.Clamp(FlightMinAirborneSeconds, 0.5, 10);
 		FlightDescentResetBlocks = Math.Clamp(FlightDescentResetBlocks, 0.01, 1);
+		HoverConsecutiveTicks = Math.Clamp(HoverConsecutiveTicks, 2, 40);
+		HoverStableYBlocks = Math.Clamp(HoverStableYBlocks, 0.005, 0.25);
 		WaterWalkConsecutiveTicks = Math.Clamp(WaterWalkConsecutiveTicks, 3, 40);
 		GroundContactTolerance = Math.Clamp(GroundContactTolerance, 0.005, 0.2);
 		NoclipConsecutiveTicks = Math.Clamp(NoclipConsecutiveTicks, 2, 40);

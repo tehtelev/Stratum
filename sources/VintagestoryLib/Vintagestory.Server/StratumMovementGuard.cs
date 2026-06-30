@@ -127,16 +127,22 @@ internal static class StratumMovementGuard
 				{
 					ResetHover(state);
 				}
-				else if (state.HoverSinceMs == 0)
+				else
 				{
-					state.HoverSinceMs = now;
-				}
-				else if ((now - state.HoverSinceMs) / 1000.0 >= config.FlightMinAirborneSeconds)
-				{
-					ResetHover(state);
-					Rubberband(entity, state);
-					StratumAnticheatReporter.RecordMovementViolation(server, player, entity.Pos.AsBlockPos, "flight: airborne without descent", out disconnectReason);
-					return false;
+					double yDelta = state.HasLastY ? Math.Abs(entity.Pos.Y - state.LastY) : double.MaxValue;
+					state.HoverTicks = yDelta <= config.HoverStableYBlocks ? state.HoverTicks + 1 : 1;
+					if (state.HoverSinceMs == 0)
+					{
+						state.HoverSinceMs = now;
+					}
+
+					if (state.HoverTicks >= config.HoverConsecutiveTicks || (now - state.HoverSinceMs) / 1000.0 >= config.FlightMinAirborneSeconds)
+					{
+						ResetHover(state);
+						Rubberband(entity, state);
+						StratumAnticheatReporter.RecordMovementViolation(server, player, entity.Pos.AsBlockPos, "flight: airborne without descent", out disconnectReason);
+						return false;
+					}
 				}
 			}
 		}
@@ -147,6 +153,7 @@ internal static class StratumMovementGuard
 	private static void ResetHover(MoveState state)
 	{
 		state.HoverSinceMs = 0;
+		state.HoverTicks = 0;
 	}
 
 	private static void Rubberband(EntityPlayer entity, MoveState state)
@@ -388,6 +395,7 @@ internal static class StratumMovementGuard
 	private sealed class MoveState
 	{
 		public long HoverSinceMs;
+		public int HoverTicks;
 		public int EmbeddedTicks;
 		public int WaterWalkTicks;
 		public bool HasLastY;

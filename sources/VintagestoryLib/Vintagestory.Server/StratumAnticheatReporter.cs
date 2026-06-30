@@ -184,7 +184,7 @@ internal static class StratumAnticheatReporter
 		if (showTop)
 		{
 			AppendTopReport(output, players, now);
-			output.Append(StratumCommandText.Row("Player details", "/stratum ac <player>"));
+			output.Append(StratumCommandText.Row("Player details", "/stratum ac &lt;player&gt;"));
 			return output.ToString();
 		}
 

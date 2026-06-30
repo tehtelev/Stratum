@@ -128,6 +128,9 @@ internal sealed class StratumBlockBreakGuard
 			}
 			else if (!hasTrackedProgress && rememberedDamage <= 0f)
 			{
+				// When the server raytrace misses the target block (grass cover, fluid
+				// layer, position sync lag), ObserveMining records the hold start but
+				// accumulates no damage. Use that hold duration as proof of mining intent.
 				float ratio = Math.Max(0.1f, Math.Min(1f, config.RequiredProgressRatio));
 				float requiredSeconds = expectedBreakSeconds * ratio;
 				float heldSeconds = state.LeftMouseHeldSinceMs > 0 ? (now - state.LeftMouseHeldSinceMs) / 1000f : 0f;
@@ -136,6 +139,7 @@ internal sealed class StratumBlockBreakGuard
 				{
 					reason = $"no tracked mining progress for {requestedSelection.Position}";
 				}
+				
 			}
 			else
 			{
@@ -160,6 +164,10 @@ internal sealed class StratumBlockBreakGuard
 			canLog = config.LogViolations && state.ShouldLog(now);
 		}
 
+		// Route the violation through the shared anticheat reporter so staff alerting and
+		// confirmed-cheat kicking follow the same per-player rolling window as the other
+		// signals. Called outside the gate lock since the reporter takes its own lock and
+		// may broadcast staff chat.
 		bool shouldKick = StratumAnticheatReporter.RecordBlockBreakViolation(server, player, requestedSelection.Position, reason, out disconnectReason);
 		if (shouldKick)
 		{

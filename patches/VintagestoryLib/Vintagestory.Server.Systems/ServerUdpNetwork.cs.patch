@@ -1,8 +1,11 @@
 diff --git a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-index 719a68b..ce1a8c1 100644
+index 719a68b..4a33a0b 100644
 --- a/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
 +++ b/VintagestoryLib/Vintagestory.Server.Systems/ServerUdpNetwork.cs
-@@ -7,16 +7,30 @@ using ProtoBuf;
+@@ -4,19 +4,36 @@ using System.IO;
+ using System.Linq;
+ using System.Threading.Tasks;
+ using ProtoBuf;
  using Vintagestory.API.Common;
  using Vintagestory.API.Common.Entities;
 +using Vintagestory.API.Config;
@@ -36,7 +39,7 @@ index 719a68b..ce1a8c1 100644
  
  	internal ServerUdpQueue ImmediateUdpQueue;
  
-@@ -51,10 +64,12 @@ public class ServerUdpNetwork : ServerSystem
+@@ -51,10 +68,12 @@ public class ServerUdpNetwork : ServerSystem
  			UdpPacket[] array2 = array;
  			for (int j = 0; j < array2.Length; j++)
  			{
@@ -49,7 +52,7 @@ index 719a68b..ce1a8c1 100644
  				case 1:
  					HandleConnectionRequest(udpPacket, uNetServer);
  					break;
-@@ -80,10 +95,21 @@ public class ServerUdpNetwork : ServerSystem
+@@ -80,10 +99,21 @@ public class ServerUdpNetwork : ServerSystem
  		physicsManager.Init();
  	}
  
@@ -71,7 +74,7 @@ index 719a68b..ce1a8c1 100644
  		{
  			connectingClients.Remove(keyValuePair.Key);
  		}
-@@ -167,16 +193,35 @@ public class ServerUdpNetwork : ServerSystem
+@@ -167,16 +197,34 @@ public class ServerUdpNetwork : ServerSystem
  		}
  		player.LastReceivedClientPosition = server.ElapsedMilliseconds;
  		int num2 = entity.Attributes.GetInt("tick");
@@ -106,7 +109,7 @@ index 719a68b..ce1a8c1 100644
  			if (behavior is IRemotePhysics remotePhysics)
  			{
  				remotePhysics.OnReceivedClientPos(num);
-@@ -196,22 +241,135 @@ public class ServerUdpNetwork : ServerSystem
+@@ -196,22 +244,206 @@ public class ServerUdpNetwork : ServerSystem
  		if (flag)
  		{
  			message = new AnimationPacket(entity);
@@ -171,6 +174,7 @@ index 719a68b..ce1a8c1 100644
 +
 +		if (packet.PositionVersion > serverPositionVersion)
 +		{
++			double serverDistance = Distance(packetX, packetY, packetZ, entity.Pos.X, entity.Pos.InternalY, entity.Pos.Z);
 +			double correctionDistance = Distance(packetX, packetY, packetZ, state.CorrectionX, state.CorrectionY, state.CorrectionZ);
 +			if (now <= state.CorrectionUntilMs && correctionDistance > Math.Max(0.5, config.SlackBlocks))
 +			{
@@ -185,8 +189,11 @@ index 719a68b..ce1a8c1 100644
 +				return false;
 +			}
 +
-+			RememberStratumMovement(entity, stateKey);
-+			return true;
++			if (serverDistance <= config.PositionVersionAcceptDistance)
++			{
++				RememberStratumMovement(entity, stateKey);
++				return true;
++			}
 +		}
 +
 +		double elapsedSeconds = Math.Max(0.05, (now - state.LastMs) / 1000.0);
@@ -245,6 +252,11 @@ index 719a68b..ce1a8c1 100644
 +		double walkSpeed = entityPlayer.GetWalkSpeedMultiplier(0.3);
 +		double statSpeed = GlobalConstants.BaseMoveSpeed * Math.Max(0.1, moveSpeed) * Math.Max(0.1, walkSpeed) * GlobalConstants.OverallSpeedMultiplier;
 +		double allowed = statSpeed * config.HorizontalSpeedMultiplier;
++		if (!entityPlayer.OnGround || entityPlayer.Controls?.Jump == true)
++		{
++			allowed *= config.AirborneHorizontalMultiplier;
++		}
++
 +		return Math.Min(config.MaxHorizontalBlocksPerSecond, Math.Max(config.MinimumHorizontalBlocksPerSecond, allowed));
 +	}
 +
@@ -302,12 +314,12 @@ index 719a68b..ce1a8c1 100644
 +		double dy = y - otherY;
 +		double dz = z - otherZ;
 +		return Math.Sqrt(dx * dx + dy * dy + dz * dz);
-+	}
+ 	}
  
  	private void SendSinglePositionPacket(ServerPlayer player, Entity entity, int currentTick)
  	{
  		Packet_UdpPacket packet = new Packet_UdpPacket
-@@ -240,10 +398,16 @@ public class ServerUdpNetwork : ServerSystem
+@@ -240,10 +472,16 @@ public class ServerUdpNetwork : ServerSystem
  			return;
  		}
  		int num2 = entityById.Attributes.GetInt("tick");
@@ -324,7 +336,7 @@ index 719a68b..ce1a8c1 100644
  			entityById.Api.Logger.Audit("Rejected mount position update for " + player.PlayerName + ". Client sent " + packet.X / 16384 + "," + packet.Y / 16384 + "," + packet.Z / 16384 + ", server pos was " + entityById.Pos);
  			SendSinglePositionPacket(player, entityById, num2);
  			return;
-@@ -299,10 +463,11 @@ public class ServerUdpNetwork : ServerSystem
+@@ -299,10 +537,11 @@ public class ServerUdpNetwork : ServerSystem
  			IServerNetworkChannel animationsAndTagsChannel = physicsManager.AnimationsAndTagsChannel;
  			AnimationPacket message = animationPacket;
  			IServerPlayer[] players = list.ToArray();
