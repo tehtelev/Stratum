@@ -101,6 +101,9 @@ internal static class StratumMovementGuard
 			state.SafeZ = entity.Pos.Z;
 		}
 
+		state.HasLastY = true;
+		state.LastY = entity.Pos.Y;
+
 		if (config.DetectNoclip)
 		{
 			state.EmbeddedTicks = embedded ? state.EmbeddedTicks + 1 : 0;

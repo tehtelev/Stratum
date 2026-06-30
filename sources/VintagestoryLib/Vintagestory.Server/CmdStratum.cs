@@ -59,7 +59,7 @@ internal class CmdStratum
 		{
 			return HandlePackets(args[1] as string, args[2] as string);
 		}
-
+		
 		if (string.Equals(action, "ac", StringComparison.OrdinalIgnoreCase) || string.Equals(action, "anticheat", StringComparison.OrdinalIgnoreCase))
 		{
 			return HandleAnticheat(args[1] as string);
@@ -265,7 +265,7 @@ internal class CmdStratum
 		output.Append(StratumCommandText.Row("Memory", "managed=" + managedMemory + "MB process=" + processMemory + "MB"));
 		output.Append(StratumCommandText.Row("Preflight", StratumRuntime.LastPreflight.Summary));
 		output.Append(StratumCommandText.Row("Protection", "packets=" + (StratumRuntime.Config.Hardening.PacketMonitoring ? "on" : "off") + " blockBreak=" + (StratumRuntime.Config.Hardening.BlockBreakGuards ? "on" : "off") + " timings=" + (StratumRuntime.Timings.Enabled ? "running" : "stopped")));
-		output.Append(StratumCommandText.Row("Next", "/stratum queues, /stratum chunks, /stratum entities, /stratum players"));
+		output.Append(StratumCommandText.Row("Next", "/stratum queues, /stratum chunks, /stratum entities, /stratum players, /stratum ac"));
 		return TextCommandResult.Success(output.ToString());
 	}
 
@@ -405,7 +405,6 @@ internal class CmdStratum
 				output.Append(StratumCommandText.Bullet(entry.DisplayCommand, FormatAccess(entry.Access)));
 			}
 
-			output.Append(StratumCommandText.Row("Details", "/stratum access command <command>, /stratum access role <role>"));
 			return TextCommandResult.Success(output.ToString());
 		}
 
@@ -414,7 +413,7 @@ internal class CmdStratum
 			StratumCommandAccessEntry entry = StratumCommandAccessCatalog.Find(commands, value);
 			if (entry == null)
 			{
-				return TextCommandResult.Error("Usage: /stratum access command <command>");
+				return TextCommandResult.Error("Usage: /stratum access command &lt;command&gt;");
 			}
 
 			return TextCommandResult.Success(StratumCommandText.Title(entry.DisplayCommand) + "\n" + FormatAccessDetails(entry.Access));
@@ -424,7 +423,7 @@ internal class CmdStratum
 		{
 			if (string.IsNullOrWhiteSpace(value) || !server.Config.RolesByCode.ContainsKey(value))
 			{
-				return TextCommandResult.Error("Usage: /stratum access role <role>");
+				return TextCommandResult.Error("Usage: /stratum access role &lt;role&gt;");
 			}
 
 			string[] allowed = StratumCommandAccessCatalog.Enumerate(commands)
@@ -439,7 +438,7 @@ internal class CmdStratum
 			return TextCommandResult.Success(output.ToString());
 		}
 
-		return TextCommandResult.Error("Usage: /stratum access [command <command>|role <role>]");
+		return TextCommandResult.Error("Usage: /stratum access [command &lt;command&gt;|role &lt;role&gt;]");
 	}
 
 	private TextCommandResult HandleChat()
@@ -475,7 +474,7 @@ internal class CmdStratum
 	{
 		if (string.IsNullOrWhiteSpace(playerName))
 		{
-			return TextCommandResult.Error("Usage: /stratum player <online-player>");
+			return TextCommandResult.Error("Usage: /stratum player &lt;online-player&gt;");
 		}
 
 		ConnectedClient client = server.Clients.Values.FirstOrDefault(candidate => string.Equals(candidate.PlayerName, playerName, StringComparison.OrdinalIgnoreCase));
@@ -771,7 +770,7 @@ internal class CmdStratum
 		string path = args[1] as string;
 		if (string.IsNullOrWhiteSpace(path))
 		{
-			return TextCommandResult.Error("Usage: /stratum set <path> <value>   e.g. /stratum set Performance.Pregen.PauseBelowTps 18");
+			return TextCommandResult.Error("Usage: /stratum set &lt;path&gt; &lt;value&gt;   e.g. /stratum set Performance.Pregen.PauseBelowTps 18");
 		}
 
 		// Join args[2..6] with spaces to allow string values containing spaces.
@@ -785,7 +784,7 @@ internal class CmdStratum
 		}
 		if (rawValue.Length == 0)
 		{
-			return TextCommandResult.Error("Usage: /stratum set <path> <value>");
+			return TextCommandResult.Error("Usage: /stratum set &lt;path&gt; &lt;value&gt;");
 		}
 
 		StratumRuntime.Config.EnsurePopulated();
