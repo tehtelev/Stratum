@@ -1,5 +1,5 @@
 diff --git a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/1.GenTerra/GenTerra.cs b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/1.GenTerra/GenTerra.cs
-index 5f759f1..e6f18b6 100644
+index 5f759f1..1072534 100644
 --- a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/1.GenTerra/GenTerra.cs
 +++ b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/1.GenTerra/GenTerra.cs
 @@ -43,10 +43,12 @@ namespace Vintagestory.ServerMods
@@ -8,8 +8,8 @@ index 5f759f1..e6f18b6 100644
              public double[] LerpedAmplitudes;
              public double[] LerpedThresholds;
              public float[] landformWeights;
-+            public bool[] LocalLayerFullySolid;   // Stratum: Thread-local буфер для исключения False Sharing
-+            public bool[] LocalLayerFullyEmpty;   // Stratum: Thread-local буфер для исключения False Sharing
++            public bool[] LocalLayerFullySolid;   // Stratum: Thread-local buffer to avoid false sharing
++            public bool[] LocalLayerFullyEmpty;   // Stratum: Thread-local buffer to avoid false sharing
          }
          ThreadLocal<ThreadLocalTempData> tempDataThreadLocal;
  
@@ -23,8 +23,8 @@ index 5f759f1..e6f18b6 100644
                  LerpedThresholds = new double[terrainGenOctaves],
 -                landformWeights = new float[NoiseLandforms.landforms.LandFormsByIndex.Length]
 +                landformWeights = new float[NoiseLandforms.landforms.LandFormsByIndex.Length],
-+                LocalLayerFullySolid = new bool[api.WorldManager.MapSizeY], // Stratum: инициализируем локальный буфер
-+                LocalLayerFullyEmpty = new bool[api.WorldManager.MapSizeY]  // Stratum: инициализируем локальный буфер
++                LocalLayerFullySolid = new bool[api.WorldManager.MapSizeY], // Stratum: initialize the local buffer
++                LocalLayerFullyEmpty = new bool[api.WorldManager.MapSizeY]  // Stratum: initialize the local buffer
              });
              columnResults = new ColumnResult[chunksize * chunksize];
              layerFullyEmpty = new bool[api.WorldManager.MapSizeY];
