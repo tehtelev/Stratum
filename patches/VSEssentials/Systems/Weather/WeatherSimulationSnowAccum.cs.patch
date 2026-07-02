@@ -1,0 +1,73 @@
+diff --git a/VSEssentials/Systems/Weather/WeatherSimulationSnowAccum.cs b/VSEssentials/Systems/Weather/WeatherSimulationSnowAccum.cs
+index 3c77f26..79b3d65 100644
+--- a/VSEssentials/Systems/Weather/WeatherSimulationSnowAccum.cs
++++ b/VSEssentials/Systems/Weather/WeatherSimulationSnowAccum.cs
+@@ -527,10 +527,15 @@ namespace Vintagestory.GameContent
+ 
+             int prevChunkY = -99999;
+             IWorldChunk chunk = null;
+ 
+             int maxY = sapi.World.BlockAccessor.MapSizeY - 1;
++            if (chunksCol != null)
++            {
++                maxY = Math.Min(maxY, chunksCol.Length * chunksize - 1);
++            }
++            if (maxY < 0) return null;
+ 
+             for (int i = 0; i < posIndices.Length; i++)
+             {
+                 int posIndex = posIndices[i];
+                 int posY = GameMath.Clamp(mc.RainHeightMap[posIndex], 0, maxY);
+@@ -542,11 +547,11 @@ namespace Vintagestory.GameContent
+                     chunkZ * chunksize + posIndex / chunksize
+                 );
+                 
+                 if (prevChunkY != chunkY)
+                 {
+-                    chunk = chunksCol?[chunkY] ?? sapi.WorldManager.GetChunk(chunkX, chunkY, chunkZ);
++                    chunk = GetChunkFromLoadedColumn(chunksCol, chunkX, chunkY, chunkZ);
+                     prevChunkY = chunkY;
+                 }
+                 if (chunk == null) return null;
+ 
+                 float relx = (pos.X - regionBasePosX) / (float)regionsize;
+@@ -608,16 +613,16 @@ namespace Vintagestory.GameContent
+                 float hereShouldLevel = nowAccum - GameMath.MurmurHash3Mod(pos.X, 0, pos.Z, 150) / 300f;
+ 
+                 float shouldIndexf = GameMath.Clamp(hereShouldLevel - 1.1f, -1, snowBlocksCount - 1);
+                 int shouldIndex = shouldIndexf < 0 ? -1 : (int)shouldIndexf;
+ 
+-                placePos.Set(pos.X, Math.Min(pos.Y + 1, sapi.World.BlockAccessor.MapSizeY - 1), pos.Z);
++                placePos.Set(pos.X, Math.Min(pos.Y + 1, maxY), pos.Z);
+                 chunkY = placePos.Y / chunksize;
+ 
+                 if (prevChunkY != chunkY)
+                 {
+-                    chunk = chunksCol?[chunkY] ?? sapi.WorldManager.GetChunk(chunkX, chunkY, chunkZ);
++                    chunk = GetChunkFromLoadedColumn(chunksCol, chunkX, chunkY, chunkZ);
+                     prevChunkY = chunkY;
+                 }
+                 if (chunk == null) return null;
+ 
+                 Block upBlock = chunk.GetLocalBlockAtBlockPos(sapi.World, placePos);
+@@ -665,8 +670,20 @@ namespace Vintagestory.GameContent
+ 
+ 
+             return updateChunk;
+         }
+ 
++        private IWorldChunk GetChunkFromLoadedColumn(IWorldChunk[] chunksCol, int chunkX, int chunkY, int chunkZ)
++        {
++            if (chunkY < 0) return null;
++
++            if (chunksCol != null)
++            {
++                return chunkY < chunksCol.Length ? chunksCol[chunkY] : null;
++            }
++
++            return sapi.WorldManager.GetChunk(chunkX, chunkY, chunkZ);
++        }
++
+         
+     }
+ }

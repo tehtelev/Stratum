@@ -1,8 +1,8 @@
 diff --git a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
-index 2b6633c..3e511cb 100644
+index 2b6633c..328948f 100644
 --- a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
 +++ b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/5.GenDeposits/Generators/DiscGenerator.cs
-@@ -206,21 +206,56 @@ namespace Vintagestory.ServerMods
+@@ -206,24 +206,62 @@ namespace Vintagestory.ServerMods
              var rnd = new LCGRandom(Api.World.Seed);
              absAvgQuantity = GetAbsAvgQuantity(rnd);
          }
@@ -37,6 +37,8 @@ index 2b6633c..3e511cb 100644
  
          public override void GenDeposit(IBlockAccessor blockAccessor, IServerChunk[] chunks, int chunkX, int chunkZ, BlockPos depoCenterPos, ref Dictionary<BlockPos, DepositVariant> subDepositsToPlace)
          {
++            if (chunks == null || chunks.Length == 0) return;
++
              int radius = Math.Min(64, (int)Radius.nextFloat(1, DepositRand));
              if (radius <= 0) return;
  
@@ -60,9 +62,13 @@ index 2b6633c..3e511cb 100644
  
              int baseX = chunkX * chunksize;
              int baseZ = chunkZ * chunksize;
++            int maxLoadedY = chunks.Length * chunksize - 1;
  
              // No need to caluclate further if this deposit won't be part of this chunk
-@@ -277,10 +312,14 @@ namespace Vintagestory.ServerMods
+             if (
+                 depoCenterPos.X + radiusX < baseX - 6 ||
+                 depoCenterPos.Z + radiusZ < baseZ - 6 ||
+@@ -277,10 +315,14 @@ namespace Vintagestory.ServerMods
  
              float invChunkAreaSize = 1f / (chunksize * chunksize);
              double val;
@@ -77,7 +83,7 @@ index 2b6633c..3e511cb 100644
                  lx = posx - baseX;
                  distx = posx - depoCenterPos.X;
  
-@@ -290,34 +329,31 @@ namespace Vintagestory.ServerMods
+@@ -290,34 +332,36 @@ namespace Vintagestory.ServerMods
                  {
                      posy = depoCenterPos.Y;
                      lz = posz - baseZ;
@@ -106,6 +112,11 @@ index 2b6633c..3e511cb 100644
                      for (int y = 0; y < hereThickness; y++)
                      {
                          if (posy <= 1) continue;
++                        if (posy > maxLoadedY)
++                        {
++                            posy--;
++                            continue;
++                        }
  
 -                        int index3d = ((posy % chunksize) * chunksize + lz) * chunksize + lx;
 -                        int blockId = chunks[posy / chunksize].Data.GetBlockIdUnsafe(index3d);
@@ -119,7 +130,7 @@ index 2b6633c..3e511cb 100644
                          if (!IgnoreParentTestPerBlock || !parentBlockOk)
                          {
                              parentBlockOk = placeBlockByInBlockId.TryGetValue(blockId, out resolvedPlaceBlock);
-@@ -325,37 +361,37 @@ namespace Vintagestory.ServerMods
+@@ -325,37 +369,37 @@ namespace Vintagestory.ServerMods
  
                          if (parentBlockOk && resolvedPlaceBlock.Blocks.Length > 0)
                          {
@@ -165,7 +176,20 @@ index 2b6633c..3e511cb 100644
                                  }
                              }
  
-@@ -383,10 +419,12 @@ namespace Vintagestory.ServerMods
+@@ -363,11 +407,11 @@ namespace Vintagestory.ServerMods
+                             {
+                                 int surfaceY = heremapchunk.RainHeightMap[lz * chunksize + lx];
+                                 int depth = surfaceY - posy;
+                                 float seaLevelScale = 9f * (TerraGenConfig.seaLevel / 110f); // Default sea level for world height 256
+                                 float chance = SurfaceBlockChance * Math.Max(0, 1.11f - depth / seaLevelScale);
+-                                if (surfaceY < worldheight - 1 && DepositRand.NextFloat() < chance)
++                                if (surfaceY < worldheight - 1 && surfaceY + 1 <= maxLoadedY && DepositRand.NextFloat() < chance)
+                                 {
+                                     Block belowBlock = Api.World.Blocks[chunks[surfaceY / chunksize].Data.GetBlockIdUnsafe(((surfaceY % chunksize) * chunksize + lz) * chunksize + lx)];
+                                     if (belowBlock.SideSolid[BlockFacing.UP.Index])
+                                     {
+                                         index3d = (((surfaceY + 1) % chunksize) * chunksize + lz) * chunksize + lx;
+@@ -383,10 +427,12 @@ namespace Vintagestory.ServerMods
  
                          posy--;
                      }
@@ -178,7 +202,7 @@ index 2b6633c..3e511cb 100644
          protected virtual bool shouldGenDepositHere(BlockPos depoCenterPos)
          {
              return true;
-@@ -404,12 +442,17 @@ namespace Vintagestory.ServerMods
+@@ -404,12 +450,17 @@ namespace Vintagestory.ServerMods
              int rdx = (pos.X / chunksize) % regionChunkSize;
              int rdz = (pos.Z / chunksize) % regionChunkSize;
  

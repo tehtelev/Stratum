@@ -1,0 +1,128 @@
+diff --git a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/9.GenRivulets.cs b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/9.GenRivulets.cs
+index 6e99fe9..7ee2063 100644
+--- a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/9.GenRivulets.cs
++++ b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/9.GenRivulets.cs
+@@ -57,10 +57,12 @@ namespace Vintagestory.ServerMods
+         }
+ 
+         private void OnChunkColumnGen(IChunkColumnGenerateRequest request)
+         {
+             var chunks = request.Chunks;
++            if (chunks == null || chunks.Length == 0) return;
++
+             int chunkX = request.ChunkX;
+             int chunkZ = request.ChunkZ;
+ 
+             blockAccessor.BeginColumn();
+             var mapChunk = chunks[0].MapChunk;
+@@ -127,14 +129,21 @@ namespace Vintagestory.ServerMods
+         private void tryGenRivulet(IServerChunk[] chunks, int chunkX, int chunkZ, float geoActivityYThreshold, bool lava)
+         {
+             var mapChunk = chunks[0].MapChunk;
+             int fx, fy, fz;
+             int surfaceY = (int)(TerraGenConfig.seaLevel * 1.1f);
+-            int aboveSurfaceHeight = api.WorldManager.MapSizeY - surfaceY;
++            int maxLoadedY = chunks.Length * chunksize - 1;
++            if (maxLoadedY <= 1) return;
++
++            int maxRivuletY = Math.Min(api.WorldManager.MapSizeY - 2, maxLoadedY - 1);
++            if (maxRivuletY <= 1) return;
++
++            surfaceY = Math.Min(surfaceY, maxRivuletY);
++            int aboveSurfaceHeight = Math.Max(1, maxRivuletY - surfaceY + 1);
+ 
+             int dx = 1 + rnd.NextInt(chunksize - 2);
+-            int y = Math.Min(1 + rnd.NextInt(surfaceY) + rnd.NextInt(aboveSurfaceHeight) * rnd.NextInt(aboveSurfaceHeight), api.WorldManager.MapSizeY - 2);
++            int y = Math.Min(1 + rnd.NextInt(surfaceY) + rnd.NextInt(aboveSurfaceHeight) * rnd.NextInt(aboveSurfaceHeight), maxRivuletY);
+             int dz = 1 + rnd.NextInt(chunksize - 2);
+ 
+             ushort hereSurfaceY = mapChunk.WorldGenTerrainHeightMap[dz * chunksize + dx];
+             if (y > hereSurfaceY && rnd.NextInt(2) == 0) return; // Half as common overground
+ 
+@@ -147,10 +156,11 @@ namespace Vintagestory.ServerMods
+             {
+                 BlockFacing facing = BlockFacing.ALLFACES[i];
+                 fx = dx + facing.Normali.X;
+                 fy = y + facing.Normali.Y;
+                 fz = dz + facing.Normali.Z;
++                if (!IsInLoadedColumn(chunks, fy)) return;
+ 
+                 Block block = api.World.Blocks[
+                     chunks[fy / chunksize].Data.GetBlockIdUnsafe((chunksize * (fy % chunksize) + fz) * chunksize + fx)
+                 ];
+ 
+@@ -162,10 +172,11 @@ namespace Vintagestory.ServerMods
+                 {
+                     if (facing == BlockFacing.UP) quantitySolid = 0;   // We don't place rivulets on flat ground!
+                     else if (facing == BlockFacing.DOWN)   // Nor in 1-block thick ceilings
+                     {
+                         fy = y + 1;
++                        if (!IsInLoadedColumn(chunks, fy)) return;
+                         block = api.World.Blocks[chunks[fy / chunksize].Data.GetBlockIdUnsafe((chunksize * (fy % chunksize) + fz) * chunksize + fx)];
+                         if (block.BlockMaterial != EnumBlockMaterial.Stone) quantitySolid = 0;
+                     }
+                 }
+             }
+@@ -177,10 +188,11 @@ namespace Vintagestory.ServerMods
+             {
+                 if (structuresIntersectingChunk[i].Contains(pos)) return;
+             }
+             if (GetIntersectingStructure(pos.X, pos.Z, RivuletsHashCode) != null) return;
+ 
++            if (!IsInLoadedColumn(chunks, y)) return;
+             var chunk = chunks[y / chunksize];
+             var index = (chunksize * (y % chunksize) + dz) * chunksize + dx;
+             Block existing = api.World.GetBlock(chunk.Data.GetBlockId(index, BlockLayersAccess.Solid));
+             if (existing.EntityClass != null)
+             {
+@@ -203,10 +215,11 @@ namespace Vintagestory.ServerMods
+             int dx = 4 + rnd.NextInt(chunksize - 8);
+             int dz = 4 + rnd.NextInt(chunksize - 8);
+             int y = mapChunk.WorldGenTerrainHeightMap[dz * chunksize + dx] - 2;
+ 
+             if (y < minY) return;
++            if (!IsInLoadedColumn(chunks, y)) return;
+             if (liquidBlockID == gcfg.rivuletWaterBlockId && y - TerraGenConfig.seaLevel > 20) return; // Normal rivulets only at lower heights
+ 
+             Vec3i dir = null;
+             int len = 0;
+             for (int i = 0; i < BlockFacing.HORIZONTALS.Length; i++)
+@@ -215,20 +228,22 @@ namespace Vintagestory.ServerMods
+ 
+                 // All direct neighbours need to be solid
+                 fx = dx + facing.Normali.X;
+                 fy = y;
+                 fz = dz + facing.Normali.Z;
++                if (!IsInLoadedColumn(chunks, fy)) return;
+                 Block block = api.World.Blocks[chunks[fy / chunksize].Data.GetBlockIdUnsafe((chunksize * (fy % chunksize) + fz) * chunksize + fx)];
+                 if (!block.SideSolid.All) return;
+ 
+                 // In one direction there needs to be a path towards the surface
+                 if (dir != null) continue;
+                 for (len = 1; len <= 4; len++)
+                 {
+                     fx = dx + facing.Normali.X * len;
+                     fy = y;
+                     fz = dz + facing.Normali.Z * len;
++                    if (!IsInLoadedColumn(chunks, fy) || !IsInLoadedColumn(chunks, fy - 1)) return;
+ 
+                     block = api.World.Blocks[chunks[fy / chunksize].Data.GetBlockIdUnsafe((chunksize * (fy % chunksize) + fz) * chunksize + fx)];
+                     bool belowSolid = api.World.Blocks[chunks[(fy - 1) / chunksize].Data.GetBlockIdUnsafe((chunksize * ((fy - 1) % chunksize) + fz) * chunksize + fx)].SideSolid.All;
+                     bool solid = block.SideSolid.All;
+                     if ((len < 2 && !solid) || !belowSolid) break;
+@@ -265,10 +280,15 @@ namespace Vintagestory.ServerMods
+                     blockAccessor.ScheduleBlockUpdate(pos);
+                 }
+             }
+         }
+ 
++        private bool IsInLoadedColumn(IServerChunk[] chunks, int y)
++        {
++            return y >= 0 && chunks != null && y / chunksize < chunks.Length;
++        }
++
+         private int getGeologicActivity(int posx, int posz)
+         {
+             var climateMap = blockAccessor.GetMapRegion(posx / regionsize, posz / regionsize)?.ClimateMap;
+             if (climateMap == null) return 0;
+             int regionChunkSize = regionsize / chunksize;

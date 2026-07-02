@@ -125,6 +125,14 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 
 	public double SlackBlocks { get; set; } = 2.5;
 
+	public double MountMaxHorizontalBlocksPerSecond { get; set; } = 96;
+
+	public double MountMaxVerticalUpBlocksPerSecond { get; set; } = 36;
+
+	public double MountMaxCumulativeBlocksPerSecond { get; set; } = 160;
+
+	public double MountSlackBlocks { get; set; } = 8;
+
 	public bool KickConfirmedCheats { get; set; } = true;
 
 	public int KickAfterViolations { get; set; } = 10;
@@ -137,6 +145,8 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 	public bool DetectWaterWalk { get; set; } = true;
 
 	public int WaterWalkConsecutiveTicks { get; set; } = 3;
+
+	public int WaterWalkEntryGraceMs { get; set; } = 900;
 
 	public double GroundContactTolerance { get; set; } = 0.04;
 
@@ -164,11 +174,16 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 		CumulativeSpeedMultiplier = Math.Clamp(CumulativeSpeedMultiplier, 1, 20);
 		MaxCumulativeBlocksPerSecond = Math.Clamp(MaxCumulativeBlocksPerSecond, MaxHorizontalBlocksPerSecond, 4000);
 		SlackBlocks = Math.Clamp(SlackBlocks, 0, 32);
+		MountMaxHorizontalBlocksPerSecond = Math.Clamp(MountMaxHorizontalBlocksPerSecond, 16, 1000);
+		MountMaxVerticalUpBlocksPerSecond = Math.Clamp(MountMaxVerticalUpBlocksPerSecond, 8, 1000);
+		MountMaxCumulativeBlocksPerSecond = Math.Clamp(MountMaxCumulativeBlocksPerSecond, MountMaxHorizontalBlocksPerSecond, 4000);
+		MountSlackBlocks = Math.Clamp(MountSlackBlocks, 0, 64);
 		KickAfterViolations = Math.Clamp(KickAfterViolations, 3, 1000);
 		FlightGroundScanDepth = Math.Clamp(FlightGroundScanDepth, 0, 16);
 		FlightMinAirborneSeconds = Math.Clamp(FlightMinAirborneSeconds, 1.0, 10);
 		FlightRequiredDescentBlocks = Math.Clamp(FlightRequiredDescentBlocks, 0.05, 3);
 		WaterWalkConsecutiveTicks = Math.Clamp(WaterWalkConsecutiveTicks, 3, 40);
+		WaterWalkEntryGraceMs = Math.Clamp(WaterWalkEntryGraceMs, 0, 5000);
 		GroundContactTolerance = Math.Clamp(GroundContactTolerance, 0.005, 0.2);
 		NoclipConsecutiveTicks = Math.Clamp(NoclipConsecutiveTicks, 2, 40);
 		KickMessage ??= "Disconnected by Stratum movement protection";

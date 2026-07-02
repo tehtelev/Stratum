@@ -498,6 +498,7 @@ internal sealed class StratumPregenManager
 		output.Append("Skipped: loaded=").Append(skippedLoadedColumns).Append(" invalid=").Append(skippedInvalidColumns).Append(" alreadyQueued=").Append(alreadyQueuedColumns).Append('\n');
 		output.Append("Pressure pauses: ").Append(pressurePauses).Append(" last=").Append(lastPauseReason).Append('\n');
 		output.Append("Config: rate=").Append(StratumRuntime.Config.Performance.Pregen.MaxColumnsPerSecond).Append("/s queues=").Append(StratumRuntime.Config.Performance.Pregen.MaxPendingColumnQueue).Append('/').Append(StratumRuntime.Config.Performance.Pregen.MaxWorkerColumnQueue).Append(" loadedColumns=").Append(StratumRuntime.Config.Performance.Pregen.MaxLoadedChunkColumns).Append('\n');
+		output.Append("Commands: /stratum pregen start radius &lt;radiusChunks&gt; [centerChunkX] [centerChunkZ], /stratum pregen start rect &lt;chunkX1&gt; &lt;chunkZ1&gt; &lt;chunkX2&gt; &lt;chunkZ2&gt;, /stratum pregen pause|resume|stop|status");
 		return output.ToString();
 	}
 
