@@ -57,11 +57,6 @@ internal static class StratumMovementGuard
 			return true;
 		}
 
-		long now = server.ElapsedMilliseconds;
-		bool supported = IsSupported(server, entity, feetCell, config);
-		bool embedded = config.DetectNoclip && IsEmbedded(server, entity, feetCell);
-		bool waterWalkCandidate = config.DetectFlight && config.DetectWaterWalk && IsWaterWalkCandidate(server, entity, feetCell, config);
-
 		MoveState state;
 		lock (gate)
 		{
@@ -70,6 +65,21 @@ internal static class StratumMovementGuard
 				state = new MoveState();
 				states[key] = state;
 			}
+		}
+
+		long now = server.ElapsedMilliseconds;
+		bool groundContact = HasGroundContact(server, entity, feetCell, config);
+		if (groundContact)
+		{
+			state.LastGroundContactMs = now;
+		}
+
+		bool supported = IsSupported(server, entity, feetCell, config, groundContact);
+		bool embedded = config.DetectNoclip && IsEmbedded(server, entity, feetCell);
+		bool waterWalkCandidate = config.DetectFlight && config.DetectWaterWalk && IsWaterWalkCandidate(server, entity, feetCell, config, groundContact);
+		if (waterWalkCandidate && now - state.LastGroundContactMs < config.WaterWalkEntryGraceMs)
+		{
+			waterWalkCandidate = false;
 		}
 
 		bool hasPreviousY = state.HasLastY;
@@ -100,9 +110,6 @@ internal static class StratumMovementGuard
 			state.SafeY = entity.Pos.Y;
 			state.SafeZ = entity.Pos.Z;
 		}
-
-		state.HasLastY = true;
-		state.LastY = entity.Pos.Y;
 
 		if (config.DetectNoclip)
 		{
@@ -199,7 +206,7 @@ internal static class StratumMovementGuard
 	}
 
 	// Unloaded blocks count as supported. Guessing wrong there would make chunk-load timing look like cheating.
-	private static bool IsSupported(ServerMain server, EntityPlayer entity, BlockPos feetCell, StratumMovementAnticheatConfig config)
+	private static bool IsSupported(ServerMain server, EntityPlayer entity, BlockPos feetCell, StratumMovementAnticheatConfig config, bool groundContact)
 	{
 		var blocks = server.WorldMap.RelaxedBlockAccess;
 		int feetY = feetCell.Y;
@@ -226,7 +233,7 @@ internal static class StratumMovementGuard
 			}
 		}
 
-		if (HasGroundContact(server, entity, feetCell, config))
+		if (groundContact)
 		{
 			return true;
 		}
@@ -281,11 +288,11 @@ internal static class StratumMovementGuard
 		return false;
 	}
 
-	private static bool IsWaterWalkCandidate(ServerMain server, EntityPlayer entity, BlockPos feetCell, StratumMovementAnticheatConfig config)
+	private static bool IsWaterWalkCandidate(ServerMain server, EntityPlayer entity, BlockPos feetCell, StratumMovementAnticheatConfig config, bool groundContact)
 	{
 		var blocks = server.WorldMap.RelaxedBlockAccess;
 
-		if (HasGroundContact(server, entity, feetCell, config))
+		if (groundContact)
 		{
 			return false;
 		}
@@ -409,6 +416,7 @@ internal static class StratumMovementGuard
 		public bool AirborneHadDescent;
 		public int EmbeddedTicks;
 		public int WaterWalkTicks;
+		public long LastGroundContactMs;
 		public bool HasLastY;
 		public double LastY;
 		public bool HasSafePos;
