@@ -1,0 +1,91 @@
+using System;
+using Vintagestory.API.Common;
+using Vintagestory.API.MathTools;
+
+namespace Vintagestory.Server;
+
+internal static class StratumBlockReachGuard
+{
+	public static bool TryAcceptPlaceOrBreak(ServerMain server, ConnectedClient client, BlockSelection selection, int mode, out string disconnectReason)
+	{
+		return TryAccept(server, client, selection, ActionName(mode), out disconnectReason);
+	}
+
+	public static bool TryAcceptBlockInteract(ServerMain server, ConnectedClient client, BlockSelection selection, out string disconnectReason)
+	{
+		return TryAccept(server, client, selection, "interact", out disconnectReason);
+	}
+
+	private static bool TryAccept(ServerMain server, ConnectedClient client, BlockSelection selection, string action, out string disconnectReason)
+	{
+		disconnectReason = null;
+		ServerPlayer player = client?.Player;
+		if (server == null || player?.Entity == null || selection?.Position == null)
+		{
+			return true;
+		}
+
+		StratumRuntime.Config.EnsurePopulated();
+		StratumAnticheatConfig anticheat = StratumRuntime.Config.Anticheat;
+		StratumBlockInteractionOutOfRangeAnticheatConfig config = anticheat.BlockInteractionOutOfRange;
+		if (!anticheat.Enabled || !config.Enabled || player.WorldData.CurrentGameMode != EnumGameMode.Survival)
+		{
+			return true;
+		}
+
+		double maxRange = Math.Max(0, player.WorldData.PickingRange) + Math.Max(0, config.RangeSlack);
+		double distanceSq = DistanceSqToBlock(player, selection.Position);
+		if (distanceSq <= maxRange * maxRange)
+		{
+			return true;
+		}
+
+		double distance = Math.Sqrt(distanceSq);
+		ServerMain.Logger.Audit(
+			"{0} tried to {1} a block out of survival reach {2:0.##}/{3:0.##} at {4}",
+			player.PlayerName,
+			action,
+			distance,
+			maxRange,
+			selection.Position);
+
+		bool shouldKick = StratumAnticheatReporter.RecordBlockInteractionOutOfRange(server, player, action, selection.Position, distance, maxRange, out disconnectReason);
+		if (shouldKick)
+		{
+			return false;
+		}
+
+		disconnectReason = null;
+		return false;
+	}
+
+	private static double DistanceSqToBlock(ServerPlayer player, BlockPos pos)
+	{
+		FastVec3d eyes = player.Entity.Pos.XYZFast.Add(player.Entity.LocalEyePos);
+		double nearestX = Clamp(eyes.X, pos.X, pos.X + 1);
+		double nearestY = Clamp(eyes.Y, pos.InternalY, pos.InternalY + 1);
+		double nearestZ = Clamp(eyes.Z, pos.Z, pos.Z + 1);
+		double dx = eyes.X - nearestX;
+		double dy = eyes.Y - nearestY;
+		double dz = eyes.Z - nearestZ;
+		return dx * dx + dy * dy + dz * dz;
+	}
+
+	private static double Clamp(double value, double min, double max)
+	{
+		if (value < min) return min;
+		if (value > max) return max;
+		return value;
+	}
+
+	private static string ActionName(int mode)
+	{
+		return mode switch
+		{
+			0 => "break",
+			1 => "place",
+			2 => "break decor",
+			_ => "modify"
+		};
+	}
+}

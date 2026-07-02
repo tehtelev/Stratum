@@ -1,3 +1,7 @@
 # Keep patch files as LF so `git apply` always sees what extract-patches.ps1 wrote.
 patches/**/*.patch text eol=lf
 *.ps1 text eol=crlf
+*.cs text eol=lf
+*.csproj text eol=lf
+*.slnx text eol=lf
+*.json text eol=lf

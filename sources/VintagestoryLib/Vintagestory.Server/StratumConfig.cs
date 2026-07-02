@@ -21,6 +21,8 @@ internal class StratumConfig
 
 	public StratumBlockBreakGuardsConfig BlockBreakGuards { get; set; } = new StratumBlockBreakGuardsConfig();
 
+	public StratumAnticheatConfig Anticheat { get; set; } = new StratumAnticheatConfig();
+
 	public StratumClientModPolicyConfig ClientModPolicy { get; set; } = new StratumClientModPolicyConfig();
 
 	public StratumPerformanceConfig Performance { get; set; } = new StratumPerformanceConfig();
@@ -41,6 +43,8 @@ internal class StratumConfig
 
 	public StratumNametagsConfig Nametags { get; set; } = new StratumNametagsConfig();
 
+	public StratumBackupConfig Backup { get; set; } = new StratumBackupConfig();
+
 	public void EnsurePopulated()
 	{
 		Diagnostics ??= new StratumDiagnosticsConfig();
@@ -49,6 +53,7 @@ internal class StratumConfig
 		PacketLimits ??= new StratumPacketLimitsConfig();
 		PacketBackPressure ??= new StratumPacketBackPressureConfig();
 		BlockBreakGuards ??= new StratumBlockBreakGuardsConfig();
+		Anticheat ??= new StratumAnticheatConfig();
 		ClientModPolicy ??= new StratumClientModPolicyConfig();
 		Performance ??= new StratumPerformanceConfig();
 		Commands ??= new StratumCommandsConfig();
@@ -59,9 +64,11 @@ internal class StratumConfig
 		LoginProtection ??= new StratumLoginProtectionConfig();
 		PlayerPrivacy ??= new StratumPlayerPrivacyConfig();
 		Nametags ??= new StratumNametagsConfig();
+		Backup ??= new StratumBackupConfig();
 		PacketLimits.EnsureSane();
 		PacketBackPressure.EnsureSane();
 		BlockBreakGuards.EnsureSane();
+		Anticheat.EnsureSane();
 		ClientModPolicy.EnsurePopulated();
 		Performance.EnsurePopulated();
 		Commands.EnsurePopulated();
@@ -72,6 +79,7 @@ internal class StratumConfig
 		LoginProtection.EnsureSane();
 		PlayerPrivacy.EnsurePopulated();
 		Nametags.EnsurePopulated();
+		Backup.EnsureSane();
 		UpdateChecker.EnsureSane();
 		MigrateLegacyDefaults();
 	}
@@ -493,12 +501,6 @@ internal class StratumBlockBreakGuardsConfig
 
 	public bool LogViolations { get; set; } = false;
 
-	public bool KickViolations { get; set; } = true;
-
-	public int KickAfterViolations { get; set; } = 3;
-
-	public int ViolationWindowSeconds { get; set; } = 10;
-
 	public float RequiredProgressRatio { get; set; } = 0.8f;
 
 	public float GraceSeconds { get; set; } = 0.25f;
@@ -511,22 +513,15 @@ internal class StratumBlockBreakGuardsConfig
 
 	public int MaxRememberedPartialBreaksPerClient { get; set; } = 24;
 
-	public string KickMessage { get; set; } = "Disconnected by Stratum block break protection";
-
+	// Staff alerting and confirmed-cheat kicking are governed by Anticheat.BlockBreakProgress.
 	public void EnsureSane()
 	{
-		KickAfterViolations = Math.Max(0, KickAfterViolations);
-		ViolationWindowSeconds = Math.Max(1, ViolationWindowSeconds);
 		RequiredProgressRatio = Math.Max(0.1f, Math.Min(1f, RequiredProgressRatio));
 		GraceSeconds = Math.Max(0f, GraceSeconds);
 		MinimumTrackedBreakSeconds = Math.Max(0f, MinimumTrackedBreakSeconds);
 		PartialProgressRetentionSeconds = Math.Max(0f, PartialProgressRetentionSeconds);
 		MaxRememberedProgressRatio = Math.Max(0.1f, Math.Min(0.99f, MaxRememberedProgressRatio));
 		MaxRememberedPartialBreaksPerClient = Math.Max(0, MaxRememberedPartialBreaksPerClient);
-		if (string.IsNullOrWhiteSpace(KickMessage))
-		{
-			KickMessage = "Disconnected by Stratum block break protection";
-		}
 	}
 }
 
@@ -767,11 +762,46 @@ internal class StratumRegionTickingConfig
 	// Min entities required in a region to consider parallel ticking (small regions stay on main thread).
 	public int MinEntitiesPerRegion { get; set; } = 16;
 
+	// Entity filter mode. Controls which entities tick in parallel worker threads vs main thread.
+	// "all" = current behavior (all non-players go parallel). "denylist" = entities matching
+	// BlockedEntityCodePrefixes or BlockedEntityClasses tick on main thread. "allowlist" = only
+	// entities matching AllowedEntityCodePrefixes go parallel, everything else stays serial.
+	public string EntityFilterMode { get; set; } = "all";
+
+	// Denylist mode: entity Code.Path prefixes that force main-thread ticking.
+	public List<string> BlockedEntityCodePrefixes { get; set; } = new List<string>();
+
+	// Denylist mode: entity Properties.Class strings that force main-thread ticking.
+	// Matches against the JSON "class" field operators see in entity type configs.
+	public List<string> BlockedEntityClasses { get; set; } = new List<string>();
+
+	// Allowlist mode: entity Code.Path prefixes allowed to tick in parallel.
+	// Everything not matching stays on main thread.
+	public List<string> AllowedEntityCodePrefixes { get; set; } = new List<string>();
+
+	// Automatic fallback: max exceptions a single entity type (Properties.Class) can throw
+	// within FallbackWindowSeconds before it gets runtime-blocked from parallel ticking.
+	// 0 = disabled (no automatic fallback).
+	public int FallbackAfterExceptions { get; set; } = 5;
+
+	// Time window in seconds for counting exceptions per entity type.
+	public int FallbackWindowSeconds { get; set; } = 60;
+
+	// When true, the runtime-blocked set persists until server restart.
+	// When false (default), /stratum reload clears the blocked set.
+	public bool PersistFallbackUntilRestart { get; set; } = false;
+
 	public void EnsureSane()
 	{
 		RegionSizeChunks = Math.Max(1, RegionSizeChunks);
 		WorkerThreads = Math.Max(0, WorkerThreads);
 		MinEntitiesPerRegion = Math.Max(1, MinEntitiesPerRegion);
+		EntityFilterMode ??= "all";
+		BlockedEntityCodePrefixes ??= new List<string>();
+		BlockedEntityClasses ??= new List<string>();
+		AllowedEntityCodePrefixes ??= new List<string>();
+		FallbackAfterExceptions = Math.Max(0, FallbackAfterExceptions);
+		FallbackWindowSeconds = Math.Max(1, FallbackWindowSeconds);
 	}
 }
 
@@ -1734,5 +1764,22 @@ internal class StratumChatRolePrefixConfig
 	{
 		Tag ??= "Staff";
 		Color ??= "#ffffff";
+	}
+}
+
+internal class StratumBackupConfig
+{
+	public bool Enabled { get; set; }
+
+	public int IntervalMinutes { get; set; } = 360;
+
+	public int RetainCount { get; set; } = 5;
+
+	public bool LogBackups { get; set; } = true;
+
+	public void EnsureSane()
+	{
+		if (IntervalMinutes < 1) IntervalMinutes = 1;
+		if (RetainCount < 1) RetainCount = 1;
 	}
 }

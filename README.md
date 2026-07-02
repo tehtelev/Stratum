@@ -1,17 +1,21 @@
 # Stratum
 
-[![Release](https://img.shields.io/github/v/release/trevorftp/Stratum?display_name=tag&sort=semver&logo=github&label=release)](https://github.com/trevorftp/Stratum/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/trevorftp/Stratum/release.yml?logo=githubactions&logoColor=white&label=build)](https://github.com/trevorftp/Stratum/actions/workflows/release.yml)
+[![Release](https://img.shields.io/github/v/release/StratumServer/Stratum?display_name=tag\&sort=semver\&logo=github\&label=release)](https://github.com/StratumServer/Stratum/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/StratumServer/Stratum/release.yml?logo=githubactions\&logoColor=white\&label=build)](https://github.com/StratumServer/Stratum/actions/workflows/release.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![Discord](https://img.shields.io/badge/chat-on%20discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/pd24fawhsD)
-[![Stars](https://img.shields.io/github/stars/trevorftp/Stratum?logo=github&style=flat)](https://github.com/trevorftp/Stratum/stargazers)
-[![Support on Ko-fi](https://img.shields.io/badge/Support_on_Ko--fi-ff5f5f?logo=ko-fi&logoColor=white)](https://ko-fi.com/imtsubaki)
+[![Discord](https://img.shields.io/badge/chat-on%20discord-5865F2?logo=discord\&logoColor=white)](https://discord.gg/pd24fawhsD)
+[![Stars](https://img.shields.io/github/stars/StratumServer/Stratum?logo=github\&style=flat)](https://github.com/StratumServer/Stratum/stargazers)
+[![Support on OpenCollective](https://img.shields.io/badge/Support-OpenCollective-7FADF2?logo=opencollective\&logoColor=white)](https://opencollective.com/stratum)
 
 Stratum is a high-performance, server-side fork of [Vintage Story](https://www.vintagestory.at).
 
 ## Sponsors
 
 Big thanks to everyone supporting Stratum.
+
+Financial support now goes through [OpenCollective](https://opencollective.com/stratum), which gives the project a cleaner and more transparent way to handle donations and project costs.
+
+Older Ko-fi supporters are still listed below because they helped Stratum early on.
 
 ### Supporters
 
@@ -58,39 +62,49 @@ Big thanks to everyone supporting Stratum.
   </tr>
 </table>
 
-<sub>☕ Thanks for helping keep Stratum moving.</sub>
+<sub>Thanks for helping keep Stratum moving.</sub>
 
 </div>
 
 ## Install
 
-1. Grab the latest `stratum-<version>-<rid>.zip` from [Releases](https://github.com/trevorftp/Stratum/releases).
+1. Grab the latest `stratum-<version>-<rid>.zip` from [Releases](https://github.com/StratumServer/Stratum/releases).
 2. Extract it.
-3. Run `StratumServer.exe` (Windows) or `dotnet StratumServer.dll` (Linux).
+3. Run `StratumServer.exe` on Windows or `dotnet StratumServer.dll` on Linux.
 
 First launch downloads and unpacks the matching vanilla server build.
 
 ## Flags
 
-| Flag | Effect |
-| --- | --- |
-| `--stratum-version` | Print version info and exit |
-| `--stratum-help` | Print launcher options and exit |
-| `--stratum-refresh` | Re-download and re-extract vanilla assets |
-| `--stratum-skip-bootstrap` | Skip the first-run download |
-| `--stratum-no-banner` | Suppress the startup banner |
+| Flag                       | Effect                                    |
+| -------------------------- | ----------------------------------------- |
+| `--stratum-version`        | Print version info and exit               |
+| `--stratum-help`           | Print launcher options and exit           |
+| `--stratum-refresh`        | Re-download and re-extract vanilla assets |
+| `--stratum-skip-bootstrap` | Skip the first-run download               |
+| `--stratum-no-banner`      | Suppress the startup banner               |
 
-Anything else is forwarded to the server (`--port`, `--dataPath`, ...).
+Anything else is forwarded to the server, such as `--port` or `--dataPath`.
 
 ## Build
 
-Requires the .NET 10 SDK, PowerShell 5.1+, and `git`.
+Requires the .NET 10 SDK and `git`. Linux/macOS also need `bash`, `python3`, and `curl`.
+
+```bash
+# Linux / macOS
+git clone https://github.com/StratumServer/Stratum.git
+cd Stratum
+make build        # bootstrap + build in one step
+make smoke        # build + boot-test the server
+```
 
 ```powershell
-git clone https://github.com/trevorftp/Stratum.git
+# Windows (PowerShell)
+git clone https://github.com/StratumServer/Stratum.git
 cd Stratum
 .\scripts\bootstrap.ps1
 dotnet build VintageStory.slnx -c Release
+.\scripts\smoke-test.ps1    # boot-test the server
 ```
 
 `bootstrap.ps1` downloads the targeted vanilla server zip, decompiles
@@ -106,8 +120,12 @@ See [SECURITY.md](SECURITY.md) for reporting exploits.
 
 ## Versions
 
-Stratum builds are tagged `v<vs-version>-stratum.<rev>` (e.g. `v1.22.3-stratum.1`). The `vs-version` half always matches the Vintage Story release the server was built against; the `stratum.<rev>` half increments per public Stratum release on that base. See [CONTRIBUTING.md](CONTRIBUTING.md#versioning-and-releases) for the full scheme.
+Stratum builds are tagged `v<vs-version>-stratum.<rev>`, for example `v1.22.3-stratum.1`.
+
+The `vs-version` half always matches the Vintage Story release the server was built against. The `stratum.<rev>` half increments per public Stratum release on that base.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md#versioning-and-releases) for the full scheme.
 
 ## License
 
-[LICENSE](LICENSE).
+[MIT](LICENSE).

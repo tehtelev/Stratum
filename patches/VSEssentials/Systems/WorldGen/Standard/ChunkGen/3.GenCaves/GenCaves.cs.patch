@@ -360,7 +360,7 @@ index 30f034d..2e2080a 100644
 +                                {
 +                                    if (basaltNoise.Noise(chunkX * chunksize + lx, chunkZ * chunksize + lz) > 0.65)
 +                                    {
-+                                        chunkBlockData[index3d] = basaltBlockId;
++                                        chunkBlockData[index3d] = gcfg.basaltBlockId;
 +                                        terrainheightmap[idx2d] = Math.Max(terrainheightmap[idx2d], (ushort)11);
 +                                        rainheightmap[idx2d] = Math.Max(rainheightmap[idx2d], (ushort)11);
 +                                    }
@@ -368,28 +368,28 @@ index 30f034d..2e2080a 100644
 +                                    {
 +                                        if (y > yLavaStart)
 +                                        {
-+                                            chunkBlockData[index3d] = basaltBlockId;
++                                            chunkBlockData[index3d] = gcfg.basaltBlockId;
 +                                        }
 +                                        else
 +                                        {
-+                                            chunkBlockData.SetFluid(index3d, lavaBlockId);
++                                            chunkBlockData.SetFluid(index3d, gcfg.lavaBlockId);
 +                                        }
 +
 +                                        if (y <= yLavaStart)
 +                                            worldgenBlockAccessor.ScheduleBlockLightUpdate(
 +                                                new BlockPos(chunkX * chunksize + lx, y, chunkZ * chunksize + lz),
-+                                                airBlockId, lavaBlockId);
++                                                airBlockId, gcfg.lavaBlockId);
 +                                    }
 +                                }
 +                                else if (y < 12)
 +                                {
 +                                    if (y > yLavaStart)
 +                                    {
-+                                        chunkBlockData[index3d] = basaltBlockId;
++                                        chunkBlockData[index3d] = gcfg.basaltBlockId;
 +                                    }
 +                                    else
 +                                    {
-+                                        chunkBlockData.SetFluid(index3d, lavaBlockId);
++                                        chunkBlockData.SetFluid(index3d, gcfg.lavaBlockId);
 +                                    }
 +                                }
 +                                else

@@ -264,9 +264,10 @@ internal static class StratumRuntime
 		}
 
 		StratumBlockBreakGuardsConfig blockBreak = Config.BlockBreakGuards;
-		if (Config.Hardening.BlockBreakGuards && blockBreak.Enabled && blockBreak.KickViolations && blockBreak.KickAfterViolations > 0 && blockBreak.KickAfterViolations < 3)
+		StratumBlockBreakProgressAnticheatConfig blockBreakKick = Config.Anticheat.BlockBreakProgress;
+		if (Config.Hardening.BlockBreakGuards && blockBreak.Enabled && Config.Anticheat.Enabled && blockBreakKick.Enabled && blockBreakKick.KickConfirmedCheats && blockBreakKick.KickAfterViolations < 3)
 		{
-			report.Warnings.Add("BlockBreakGuards KickAfterViolations is very low; raise it while validating modded mining behavior");
+			report.Warnings.Add("Anticheat.BlockBreakProgress KickAfterViolations is very low; raise it while validating modded mining behavior");
 		}
 
 		if (blockBreak.RequiredProgressRatio > 0.95f && blockBreak.GraceSeconds <= 0.1f)
