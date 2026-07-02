@@ -1,23 +1,17 @@
 diff --git a/VintagestoryLib/Vintagestory.Server.Network/TcpNetConnection.cs b/VintagestoryLib/Vintagestory.Server.Network/TcpNetConnection.cs
-index 7978960..c558086 100644
+index 1884990..a860d75 100644
 --- a/VintagestoryLib/Vintagestory.Server.Network/TcpNetConnection.cs
 +++ b/VintagestoryLib/Vintagestory.Server.Network/TcpNetConnection.cs
-@@ -217,11 +217,11 @@ public class TcpNetConnection : NetConnection
- 	private OnReceivedMessageDelegate m_ReceivedMessage;
+@@ -37,7 +37,7 @@ public class TcpNetConnection : NetConnection
  
- 	[CompilerGenerated]
- 	private TcpConnectionDelegate m_Disconnected;
+ 	private Memory<byte> dataRcvBuf = new byte[4096];
  
 -	private CancellationTokenSource cts;
 +	internal CancellationTokenSource cts; // Stratum: internal for StratumNetworkFlush access
  
  	public int MaxPacketSize = 5000;
  
- 	public event OnReceivedMessageDelegate ReceivedMessage
- 	{
-@@ -352,10 +352,16 @@ public class TcpNetConnection : NetConnection
- 			return EnumSendResult.Disconnected;
- 		}
+@@ -182,6 +182,12 @@ public class TcpNetConnection : NetConnection
  		try
  		{
  			NetIncomingMessage.WriteInt(dataWithLength, length | (int)((compressedFlag ? 1u : 0u) << 31));
@@ -26,9 +20,7 @@ index 7978960..c558086 100644
 +			{
 +				return EnumSendResult.Ok;
 +			}
-+			// Stratum end: large/compressed packet, send directly (buffer was flushed first).
- 			TcpSocket.SendAsync(ReadOnlyMemory<byte>.op_Implicit(dataWithLength), (SocketFlags)0, cts.Token);
++			// Stratum end: large/compressed packet, send directly after flushing the buffer.
+ 			TcpSocket.SendAsync(dataWithLength, SocketFlags.None, cts.Token);
  			return EnumSendResult.Ok;
  		}
- 		catch
- 		{

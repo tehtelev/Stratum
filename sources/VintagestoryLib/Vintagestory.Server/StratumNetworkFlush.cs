@@ -68,6 +68,26 @@ internal static class StratumNetworkFlush
 		return true;
 	}
 
+	internal static void GetBufferedPressure(TcpNetConnection connection, out int pendingSends, out long pendingBytes)
+	{
+		pendingSends = 0;
+		pendingBytes = 0;
+
+		if (connection == null || !buffers.TryGetValue(connection, out ConnectionBuffer state))
+		{
+			return;
+		}
+
+		int bytes = Volatile.Read(ref state.WritePos);
+		if (bytes <= 0)
+		{
+			return;
+		}
+
+		pendingSends = 1;
+		pendingBytes = bytes;
+	}
+
 	internal static void FlushAll()
 	{
 		foreach (KeyValuePair<TcpNetConnection, ConnectionBuffer> kvp in buffers)
