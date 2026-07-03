@@ -2,7 +2,7 @@ diff --git a/VintagestoryLib/Vintagestory.Server/ServerPackets.cs b/Vintagestory
 index d4a0736..8cb471c 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerPackets.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerPackets.cs
-@@ -1,9 +1,11 @@
+@@ -1,18 +1,31 @@
 +using System;
  using System.Collections.Generic;
  using System.IO;
@@ -14,7 +14,7 @@ index d4a0736..8cb471c 100644
  using Vintagestory.Common;
  using Vintagestory.Common.Network.Packets;
  
-@@ -11,6 +13,17 @@ namespace Vintagestory.Server;
+ namespace Vintagestory.Server;
  
  public class ServerPackets
  {
@@ -32,7 +32,11 @@ index d4a0736..8cb471c 100644
  	public static Packet_Server IngameError(string code, string text, params object[] langargs)
  	{
  		Packet_Server packet_Server = new Packet_Server();
-@@ -173,25 +186,23 @@ public class ServerPackets
+ 		packet_Server.Id = 68;
+ 		packet_Server.IngameError = new Packet_IngameError
+@@ -171,29 +184,27 @@ public class ServerPackets
+ 		return packet_EntityAttributeUpdate;
+ 	}
  
  	public static Packet_Server GetBulkEntityAttributesPacket(List<Packet_EntityAttributes> fullPackets, List<Packet_EntityAttributeUpdate> partialPackets)
  	{
@@ -68,7 +72,11 @@ index d4a0736..8cb471c 100644
  	}
  
  	public static Packet_Server GetEntityAttributesPacket(Entity entity)
-@@ -240,9 +251,18 @@ public class ServerPackets
+ 	{
+ 		Packet_EntityAttributes packet_EntityAttributes = new Packet_EntityAttributes();
+@@ -238,13 +249,22 @@ public class ServerPackets
+ 		};
+ 	}
  
  	public static Packet_Server GetEntityDespawnPacket(List<EntityDespawn> despawns)
  	{
@@ -90,7 +98,11 @@ index d4a0736..8cb471c 100644
  		Packet_EntityDespawn packet_EntityDespawn = new Packet_EntityDespawn();
  		packet_EntityDespawn.SetEntityId(entityId);
  		packet_EntityDespawn.SetDeathDamageSource(deathDamageSource);
-@@ -347,7 +367,12 @@ public class ServerPackets
+ 		packet_EntityDespawn.SetDespawnReason(despawnReason);
+ 		return new Packet_Server
+@@ -345,20 +365,34 @@ public class ServerPackets
+ 			}
+ 		};
  		if (entity is EntityAgent entityAgent)
  		{
  			packet_EntityPosition.BodyYaw = CollectibleNet.SerializeFloatPrecise(entityAgent.BodyYaw);
@@ -104,7 +116,9 @@ index d4a0736..8cb471c 100644
  		}
  		EntityControls entityControls = ((entity.SidedProperties == null) ? null : entity.GetInterface<IMountable>()?.ControllingControls);
  		if (entityControls != null)
-@@ -357,6 +382,15 @@ public class ServerPackets
+ 		{
+ 			packet_EntityPosition.MountControls = entityControls.ToInt();
+ 		}
  		return packet_EntityPosition;
  	}
  
@@ -120,3 +134,5 @@ index d4a0736..8cb471c 100644
  	public static byte[] getEntityDataForClient(Entity entity, FastMemoryStream ms, BinaryWriter writer)
  	{
  		ms.Reset();
+ 		entity.ToBytes(writer, forClient: true);
+ 		return ms.ToArray();

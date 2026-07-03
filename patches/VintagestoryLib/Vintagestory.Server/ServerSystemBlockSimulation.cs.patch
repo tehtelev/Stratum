@@ -1,8 +1,10 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
-index 5b0cc42..ff224ea 100644
+index 5b0cc42..1c88f5f 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemBlockSimulation.cs
-@@ -5,6 +5,7 @@ using System.IO;
+@@ -3,10 +3,11 @@ using System.Collections.Concurrent;
+ using System.Collections.Generic;
+ using System.IO;
  using Vintagestory.API.Client;
  using Vintagestory.API.Common;
  using Vintagestory.API.Common.CommandAbbr;
@@ -10,7 +12,11 @@ index 5b0cc42..ff224ea 100644
  using Vintagestory.API.Datastructures;
  using Vintagestory.API.MathTools;
  using Vintagestory.API.Server;
-@@ -16,6 +16,9 @@ namespace Vintagestory.Server;
+ using Vintagestory.API.Util;
+ using Vintagestory.Common;
+@@ -14,10 +15,13 @@ using Vintagestory.Common.Database;
+ 
+ namespace Vintagestory.Server;
  
  public class ServerSystemBlockSimulation : ServerSystem
  {
@@ -20,7 +26,11 @@ index 5b0cc42..ff224ea 100644
  	private class BlockPosWithExtraObject
  	{
  		public BlockPos pos;
-@@ -54,6 +57,12 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 
+ 		public object extra;
+@@ -52,10 +56,16 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 
+ 	private BlockPos tmpPos = new BlockPos(0);
  
  	private FluidBlockPos tmpLiquidPos = new FluidBlockPos();
  
@@ -33,7 +43,11 @@ index 5b0cc42..ff224ea 100644
  	public ServerSystemBlockSimulation(ServerMain server)
  		: base(server)
  	{
-@@ -321,9 +330,209 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 		server.RegisterGameTickListener(UpdateEvery100ms, 100);
+ 		server.PacketHandlers[3] = HandleBlockPlaceOrBreak;
+@@ -319,13 +329,213 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 	}
+ 
  	private void HandleBlockEntityPacket(Packet_Client packet, ConnectedClient client)
  	{
  		Packet_BlockEntityPacket blockEntityPacket = packet.BlockEntityPacket;
@@ -244,7 +258,11 @@ index 5b0cc42..ff224ea 100644
  	internal void HandleBlockPlaceOrBreak(Packet_Client packet, ConnectedClient client)
  	{
  		Packet_ClientBlockPlaceOrBreak blockPlaceOrBreak = packet.BlockPlaceOrBreak;
-@@ -340,6 +549,11 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 		BlockSelection blockSelection = new BlockSelection
+ 		{
+@@ -338,10 +548,15 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 		};
+ 		if (client.Player.WorldData.CurrentGameMode == EnumGameMode.Spectator)
  		{
  			return;
  		}
@@ -256,7 +274,11 @@ index 5b0cc42..ff224ea 100644
  		EnumWorldAccessResponse enumWorldAccessResponse;
  		if ((enumWorldAccessResponse = server.WorldMap.TestBlockAccess(client.Player, blockSelection, EnumBlockAccessFlags.BuildOrBreak, out string claimant)) != EnumWorldAccessResponse.Granted)
  		{
-@@ -356,6 +570,17 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			RevertBlockInteractions(client.Player, blockSelection.Position);
+ 			string code = "noprivilege-buildbreak-" + enumWorldAccessResponse.ToString().ToLowerInvariant();
+@@ -354,10 +569,21 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 				code = "noprivilege-buildbreak-" + claimant.Substring("custommessage-".Length);
+ 			}
  			client.Player.SendIngameError(code, null, claimant);
  			return;
  		}
@@ -274,7 +296,11 @@ index 5b0cc42..ff224ea 100644
  		if (blockPlaceOrBreak.Mode == 2)
  		{
  			if (server.BlockAccessor.GetChunkAtBlockPos(blockSelection.Position) is WorldChunk worldChunk)
-@@ -404,6 +629,11 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			{
+ 				worldChunk.BreakDecor(server, blockSelection.Position, blockSelection.Face);
+@@ -402,10 +628,15 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			Face = face,
+ 			HitPosition = vec3d,
  			SelectionBoxIndex = handInteraction.SelectionBoxIndex,
  			SelectionBoxId = handInteraction.SelectionBoxId
  		};
@@ -286,7 +312,11 @@ index 5b0cc42..ff224ea 100644
  		if (server.Config.AntiAbuse >= EnumProtectionLevel.Basic)
  		{
  			FastVec3d vec = new FastVec3d((double)handInteraction.X + vec3d.X, (double)handInteraction.Y + vec3d.Y, (double)handInteraction.Z + vec3d.Z);
-@@ -491,6 +721,17 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			float num = player.WorldData.PickingRange * player.WorldData.PickingRange;
+ 			double num2 = player.Entity.Pos.XYZFast.Add(player.Entity.LocalEyePos).DistanceSq(vec);
+@@ -489,10 +720,21 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 		RevertBlockInteraction2(targetPlayer, pos.AddCopy(BlockFacing.UP), sendPlayerData: false);
+ 		RevertBlockInteraction2(targetPlayer, pos.AddCopy(BlockFacing.DOWN), sendPlayerData: false);
  		server.SendOwnPlayerData(targetPlayer);
  	}
  
@@ -304,7 +334,11 @@ index 5b0cc42..ff224ea 100644
  	private void RevertBlockInteraction2(IServerPlayer targetPlayer, BlockPos pos, bool sendPlayerData = true)
  	{
  		server.SendSetBlock(targetPlayer, server.WorldMap.RawRelaxedBlockAccess.GetBlockId(pos), pos.X, pos.InternalY, pos.Z);
-@@ -793,8 +1034,16 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 		BlockEntity blockEntity = server.WorldMap.RawRelaxedBlockAccess.GetBlockEntity(pos);
+ 		if (blockEntity != null)
+@@ -791,12 +1033,20 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 	{
+ 		if (server.RunPhase != EnumServerRunPhase.RunGame)
  		{
  			return;
  		}
@@ -323,7 +357,11 @@ index 5b0cc42..ff224ea 100644
  		{
  			if (!queuedTicks.TryDequeue(out var result))
  			{
-@@ -827,8 +1076,10 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 				continue;
+ 			}
+@@ -825,22 +1075,37 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			catch (Exception e)
+ 			{
  				ServerMain.Logger.Error("Exception thrown in block.OnServerGameTick() for block code '{0}':", block?.Code);
  				ServerMain.Logger.Error(e);
  			}
@@ -335,7 +373,8 @@ index 5b0cc42..ff224ea 100644
  	}
  
  	public override void OnSeparateThreadTick()
-@@ -837,8 +1088,21 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 	{
+ 		if (server.RunPhase != EnumServerRunPhase.RunGame)
  		{
  			return;
  		}
@@ -357,7 +396,11 @@ index 5b0cc42..ff224ea 100644
  		lock (clientIdsLock)
  		{
  			foreach (int clientId in clientIds)
-@@ -877,11 +1141,42 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			{
+ 				if (!server.Clients.TryGetValue(clientId, out var value) || value.State != EnumClientState.Playing)
+@@ -875,34 +1140,101 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 						}
+ 					}
  				}
  			}
  		}
@@ -401,7 +444,7 @@ index 5b0cc42..ff224ea 100644
  			}
  			catch (Exception e)
  			{
-@@ -889,9 +1184,36 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 				ServerMain.Logger.Warning("Exception thrown when trying to tick a chunk.");
  				ServerMain.Logger.Warning(e);
  			}
  		}
@@ -439,7 +482,8 @@ index 5b0cc42..ff224ea 100644
  	{
  		ChunkPos chunkPos = server.WorldMap.ChunkPosFromChunkIndex3D(index3d);
  		int num = 32 * chunkPos.X;
-@@ -900,7 +1222,16 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 		int num2 = 32 * chunkPos.Y;
+ 		int num3 = 32 * chunkPos.Z;
  		tmpPos.SetDimension(chunkPos.Dimension);
  		tmpLiquidPos.SetDimension(chunkPos.Dimension);
  		chunk.Unpack();
@@ -457,7 +501,11 @@ index 5b0cc42..ff224ea 100644
  		int num5 = (int)num4 + ((server.rand.Value.NextDouble() < (double)(num4 - (float)(int)num4)) ? 1 : 0);
  		for (int i = 0; i < num5; i++)
  		{
-@@ -920,6 +1251,7 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			int num6 = rand.Next(32);
+ 			int num7 = rand.Next(32);
+@@ -918,29 +1250,73 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			if (fluid != 0)
+ 			{
  				tryTickBlock(server.WorldMap.Blocks[fluid], tmpPos.Set(num + num6, num2 + num8, num3 + num7));
  			}
  		}
@@ -465,7 +513,10 @@ index 5b0cc42..ff224ea 100644
  	}
  
  	private bool tryTickBlock(Block block, BlockPos atPos)
-@@ -930,7 +1262,7 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 	{
+ 		if (!block.ShouldReceiveServerGameTicks(server.api.World, atPos, rand, out var extra))
+ 		{
+ 			return false;
  		}
  		if (extra == null)
  		{
@@ -474,7 +525,8 @@ index 5b0cc42..ff224ea 100644
  		}
  		else
  		{
-@@ -939,6 +1271,49 @@ public class ServerSystemBlockSimulation : ServerSystem
+ 			queuedTicks.Enqueue(new BlockPosWithExtraObject(atPos.Copy(), extra));
+ 		}
  		return true;
  	}
  
@@ -524,3 +576,5 @@ index 5b0cc42..ff224ea 100644
  	private Packet_BlockEntity BlockEntityToPacket(BlockEntity blockEntity, FastMemoryStream ms)
  	{
  		ms.Reset();
+ 		BinaryWriter stream = new BinaryWriter(ms);
+ 		TreeAttribute treeAttribute = new TreeAttribute();

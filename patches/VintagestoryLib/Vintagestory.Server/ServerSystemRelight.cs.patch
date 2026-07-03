@@ -2,7 +2,9 @@ diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemRelight.cs b/Vintag
 index 82aaf34..6529b4f 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemRelight.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemRelight.cs
-@@ -10,6 +10,8 @@ public class ServerSystemRelight : ServerSystem
+@@ -8,10 +8,12 @@ namespace Vintagestory.Server;
+ 
+ public class ServerSystemRelight : ServerSystem
  {
  	public ChunkIlluminator chunkIlluminator;
  
@@ -11,7 +13,11 @@ index 82aaf34..6529b4f 100644
  	public ServerSystemRelight(ServerMain server)
  		: base(server)
  	{
-@@ -63,7 +65,8 @@ public class ServerSystemRelight : ServerSystem
+ 	}
+ 
+@@ -61,11 +63,12 @@ public class ServerSystemRelight : ServerSystem
+ 		int num2 = 0;
+ 		bool flag = false;
  		int x = task.pos.X;
  		int internalY = task.pos.InternalY;
  		int z = task.pos.Z;
@@ -21,3 +27,5 @@ index 82aaf34..6529b4f 100644
  		if (task.absorbUpdate)
  		{
  			num = task.oldAbsorb;
+ 			num2 = task.newAbsorb;
+ 		}

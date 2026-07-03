@@ -2,7 +2,9 @@ diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemCompressChunks.cs b
 index a8590af..dd18d42 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemCompressChunks.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemCompressChunks.cs
-@@ -22,6 +22,8 @@ internal class ServerSystemCompressChunks(ServerMain server) : ServerSystem(serv
+@@ -20,10 +20,12 @@ internal class ServerSystemCompressChunks(ServerMain server) : ServerSystem(serv
+ 
+ 	private object clientIdsLock = new object();
  
  	private List<int> clientIds = new List<int>();
  
@@ -11,7 +13,11 @@ index a8590af..dd18d42 100644
  	public override void OnPlayerJoin(ServerPlayer player)
  	{
  		lock (clientIdsLock)
-@@ -59,7 +61,8 @@ internal class ServerSystemCompressChunks(ServerMain server) : ServerSystem(serv
+ 		{
+ 			clientIds.Add(player.ClientId);
+@@ -57,11 +59,12 @@ internal class ServerSystemCompressChunks(ServerMain server) : ServerSystem(serv
+ 		}
+ 	}
  
  	private void FindFreeableMemory()
  	{
@@ -21,3 +27,5 @@ index a8590af..dd18d42 100644
  		lock (clientIdsLock)
  		{
  			foreach (int clientId in clientIds)
+ 			{
+ 				if (server.Clients.TryGetValue(clientId, out var value) && value.State == EnumClientState.Playing)
