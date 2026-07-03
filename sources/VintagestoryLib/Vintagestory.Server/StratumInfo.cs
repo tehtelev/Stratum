@@ -16,7 +16,7 @@ internal static class StratumInfo
 	public const string StratumRevision = "14";
 
 	// Optional prerelease label appended after the revision ("rc.1", "dev", "").
-	public const string PreRelease = "";
+	public const string PreRelease = "indev";
 
 	public const string ProtocolMode = "vanilla-compatible";
 
