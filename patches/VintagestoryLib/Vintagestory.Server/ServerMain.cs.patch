@@ -1,35 +1,29 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerMain.cs b/VintagestoryLib/Vintagestory.Server/ServerMain.cs
-index 140b2f0..cb95b3c 100644
+index 1017be9..761dca9 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerMain.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerMain.cs
-@@ -365,10 +365,19 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -238,6 +238,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  
- 	internal ConcurrentQueue<ReceivedClientPacket> ClientPackets;
+ 	internal List<int> DisconnectedClientsThisTick = new List<int>();
  
- 	internal List<int> DisconnectedClientsThisTick;
- 
-+	// Stratum start: cached AllOnlinePlayers/AllPlayers arrays. Rebuilt once per tick on
-+	// first access (keyed by TickPosition). Avoids LINQ Select+Where+ToArray on every
-+	// property access from BlockSimulation, EntitySpawner, Inventory, SupplyChunks, SendChunks.
++	// Stratum: cache these arrays for the current tick so hot paths do not rebuild them over and over.
 +	private IPlayer[] stratumCachedOnlinePlayers = [];
 +	private int stratumOnlinePlayersCacheTick = -1;
 +	private IPlayer[] stratumCachedAllPlayers = [];
 +	private int stratumAllPlayersCacheTick = -1;
-+	// Stratum end
 +
  	[ThreadStatic]
  	private static BoxedPacket reusableBuffer;
  
- 	private readonly List<BoxedArray> reusableBuffersDisposalList;
+@@ -415,12 +421,63 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  
-@@ -561,13 +570,62 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+ 	public Vintagestory.API.Datastructures.OrderedDictionary<AssetLocation, ITreeGenerator> TreeGenerators => TreeGeneratorsByTreeCode;
  
- 	public string WorldName => SaveGameData.WorldName;
- 
- 	public OrderedDictionary<AssetLocation, ITreeGenerator> TreeGenerators => TreeGeneratorsByTreeCode;
- 
--	public IPlayer[] AllOnlinePlayers => Enumerable.ToArray<ServerPlayer>(Enumerable.Where<ServerPlayer>(Enumerable.Select<ConnectedClient, ServerPlayer>((System.Collections.Generic.IEnumerable<ConnectedClient>)Clients.Values, (Func<ConnectedClient, ServerPlayer>)((ConnectedClient c) => c.Player)), (Func<ServerPlayer, bool>)((ServerPlayer c) => c != null)));
-+	public IPlayer[] AllOnlinePlayers // Stratum: per-tick cached, see stratumCachedOnlinePlayers
+-	public IPlayer[] AllOnlinePlayers => (from c in Clients.Values
+-		select c.Player into c
+-		where c != null
+-		select c).ToArray();
++	public IPlayer[] AllOnlinePlayers
 +	{
 +		get
 +		{
@@ -38,6 +32,7 @@ index 140b2f0..cb95b3c 100644
 +			{
 +				return stratumCachedOnlinePlayers;
 +			}
++
 +			int count = 0;
 +			foreach (ConnectedClient client in Clients.Values)
 +			{
@@ -46,6 +41,7 @@ index 140b2f0..cb95b3c 100644
 +					count++;
 +				}
 +			}
++
 +			ServerPlayer[] result = new ServerPlayer[count];
 +			int idx = 0;
 +			foreach (ConnectedClient client in Clients.Values)
@@ -55,14 +51,14 @@ index 140b2f0..cb95b3c 100644
 +					result[idx++] = client.Player;
 +				}
 +			}
++
 +			stratumCachedOnlinePlayers = result;
 +			stratumOnlinePlayersCacheTick = tick;
 +			return result;
 +		}
 +	}
- 
--	public IPlayer[] AllPlayers => Enumerable.ToArray<ServerPlayer>((System.Collections.Generic.IEnumerable<ServerPlayer>)PlayersByUid.Values);
-+	public IPlayer[] AllPlayers // Stratum: per-tick cached, see stratumCachedAllPlayers
++
++	public IPlayer[] AllPlayers
 +	{
 +		get
 +		{
@@ -71,12 +67,15 @@ index 140b2f0..cb95b3c 100644
 +			{
 +				return stratumCachedAllPlayers;
 +			}
+ 
+-	public IPlayer[] AllPlayers => PlayersByUid.Values.ToArray();
 +			ServerPlayer[] result = new ServerPlayer[PlayersByUid.Count];
 +			int idx = 0;
 +			foreach (ServerPlayer player in PlayersByUid.Values)
 +			{
 +				result[idx++] = player;
 +			}
++
 +			stratumCachedAllPlayers = result;
 +			stratumAllPlayersCacheTick = tick;
 +			return result;
@@ -85,115 +84,87 @@ index 140b2f0..cb95b3c 100644
  
  	public bool EntityDebugMode => Config.EntityDebugMode;
  
- 	IClassRegistryAPI IWorldAccessor.ClassRegistry => api.ClassRegistry;
- 
-@@ -1135,11 +1193,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 			string entitlements = (client.IsSinglePlayerClient ? GlobalConstants.SinglePlayerEntitlements : null);
- 			PreFinalizePlayerIdentification(identification, client, entitlements);
+@@ -963,7 +1020,7 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			return;
  		}
  		ServerPlayerData serverPlayerData = PlayerDataManager.GetServerPlayerData(identification.PlayerUID);
--		if ((serverPlayerData == null || (!serverPlayerData.HasPrivilege(Privilege.controlserver, Config.RolesByCode) && !serverPlayerData.HasPrivilege("ignoremaxclients", Config.RolesByCode))) && Enumerable.Count<KeyValuePair<int, ConnectedClient>>((System.Collections.Generic.IEnumerable<KeyValuePair<int, ConnectedClient>>)Clients, (Func<KeyValuePair<int, ConnectedClient>, bool>)((KeyValuePair<int, ConnectedClient> c) => c.Value.State.IsAdmitted())) >= Config.MaxClients && ConnectionQueue.Count >= Config.MaxClientsInQueue)
-+		if ((serverPlayerData == null || (!serverPlayerData.HasPrivilege(Privilege.controlserver, Config.RolesByCode) && !serverPlayerData.HasPrivilege("ignoremaxclients", Config.RolesByCode))) && StratumCountAdmittedClients() >= Config.MaxClients && ConnectionQueue.Count >= Config.MaxClientsInQueue) // Stratum: eliminate LINQ closure
+-		if ((serverPlayerData == null || (!serverPlayerData.HasPrivilege(Privilege.controlserver, Config.RolesByCode) && !serverPlayerData.HasPrivilege("ignoremaxclients", Config.RolesByCode))) && Clients.Count((KeyValuePair<int, ConnectedClient> c) => c.Value.State.IsAdmitted()) >= Config.MaxClients && ConnectionQueue.Count >= Config.MaxClientsInQueue)
++		if ((serverPlayerData == null || (!serverPlayerData.HasPrivilege(Privilege.controlserver, Config.RolesByCode) && !serverPlayerData.HasPrivilege("ignoremaxclients", Config.RolesByCode))) && StratumCountAdmittedClients() >= Config.MaxClients && ConnectionQueue.Count >= Config.MaxClientsInQueue)
  		{
  			DisconnectPlayer(client, null, Lang.Get("Server and Connection queue is full ({0} max clients, {1} queue size). Please try again later.", Config.MaxClients, Config.MaxClientsInQueue));
  		}
- 		VerifyPlayerWithAuthServer(identification, client);
- 	}
-@@ -1860,13 +1918,15 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 			{
- 				Thread.Sleep(num3);
+@@ -1552,9 +1609,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  				FrameProfiler.Mark("sleep");
  			}
  			TickPosition++;
-+			StratumNetworkFlush.FlushAll(); // Stratum: flush batched TCP packets at tick end
++			StratumNetworkFlush.FlushAll();
  		}
- 		catch (System.Exception e)
+ 		catch (Exception e)
  		{
-+			StratumNetworkFlush.FlushAll(); // Stratum: flush on crash so buffered data reaches clients
++			StratumNetworkFlush.FlushAll();
  			Logger.Fatal(e);
  		}
  		FrameProfiler.End();
- 	}
- 
-@@ -2461,11 +2521,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 					val = new List<QueuedClient>();
- 					for (int i = 0; i < num2; i++)
+@@ -2104,7 +2163,7 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  					{
  						if (ConnectionQueue.Count > 0)
  						{
--							QueuedClient nextPlayer = Enumerable.First<QueuedClient>((System.Collections.Generic.IEnumerable<QueuedClient>)ConnectionQueue);
-+							QueuedClient nextPlayer = ConnectionQueue[0]; // Stratum: was Enumerable.First (enumerator alloc)
- 							ConnectionQueue.RemoveAll((Predicate<QueuedClient>)((QueuedClient e) => e.Client.Id == nextPlayer.Client.Id));
- 							val.Add(nextPlayer);
+-							QueuedClient nextPlayer = ConnectionQueue.First();
++							QueuedClient nextPlayer = ConnectionQueue[0];
+ 							ConnectionQueue.RemoveAll((QueuedClient e) => e.Client.Id == nextPlayer.Client.Id);
+ 							list.Add(nextPlayer);
  						}
- 					}
- 					if (debugProcessConnectionQueue)
-@@ -4070,11 +4130,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 	}
- 
+@@ -3578,7 +3637,7 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  	private void PreFinalizePlayerIdentification(Packet_ClientIdentification packet, ConnectedClient client, string entitlements)
  	{
  		int maxClients = Config.MaxClients;
--		if (Enumerable.Count<KeyValuePair<int, ConnectedClient>>((System.Collections.Generic.IEnumerable<KeyValuePair<int, ConnectedClient>>)Clients, (Func<KeyValuePair<int, ConnectedClient>, bool>)((KeyValuePair<int, ConnectedClient> c) => c.Value.State.IsAdmitted())) >= maxClients || ((System.Collections.Generic.IEnumerable<KeyValuePair<int, ConnectedClient>>)Clients).Contains((KeyValuePair<int, ConnectedClient> c) => c.Value.State == EnumClientState.Queued))
-+		if (StratumCountAdmittedClients() >= maxClients || StratumHasQueuedClient()) // Stratum: eliminate LINQ closures
+-		if (Clients.Count((KeyValuePair<int, ConnectedClient> c) => c.Value.State.IsAdmitted()) >= maxClients || Clients.Contains((KeyValuePair<int, ConnectedClient> c) => c.Value.State == EnumClientState.Queued))
++		if (StratumCountAdmittedClients() >= maxClients || StratumHasQueuedClient())
  		{
  			ServerPlayerData orCreateServerPlayerData = PlayerDataManager.GetOrCreateServerPlayerData(packet.PlayerUID);
  			if (!orCreateServerPlayerData.HasPrivilege(Privilege.controlserver, Config.RolesByCode) && !orCreateServerPlayerData.HasPrivilege("ignoremaxclients", Config.RolesByCode))
- 			{
- 				tryEnqueuePlayer(packet, client, entitlements, maxClients);
-@@ -4817,11 +4877,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 		try
+@@ -4246,7 +4305,7 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+ 	{
+ 		foreach (ConnectedClient client in Clients.Values)
  		{
- 			while (((System.Collections.IEnumerator)enumerator).MoveNext())
+-			if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (skipPlayers == null || !skipPlayers.Any((IServerPlayer plr) => plr?.ClientId == client.Id)))
++			if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (!StratumShouldSkipClient(skipPlayers, client.Id)))
  			{
- 				ConnectedClient client = enumerator.Current;
--				if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (skipPlayers == null || !Enumerable.Any<IServerPlayer>((System.Collections.Generic.IEnumerable<IServerPlayer>)skipPlayers, (Func<IServerPlayer, bool>)((IServerPlayer plr) => plr?.ClientId == client.Id))))
-+				if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && !StratumShouldSkipClient(skipPlayers, client.Id)) // Stratum: eliminate LINQ closure
- 				{
- 					SendPacket(client.Player, data);
- 				}
+ 				SendPacket(client.Player, data);
  			}
- 		}
-@@ -4840,11 +4900,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 		try
+@@ -4260,7 +4319,7 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+ 		bool compressed = false;
+ 		foreach (ConnectedClient client in Clients.Values)
  		{
- 			while (((System.Collections.IEnumerator)enumerator).MoveNext())
+-			if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (skipPlayers == null || !skipPlayers.Any((IServerPlayer plr) => plr?.ClientId == client.Id)))
++			if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (!StratumShouldSkipClient(skipPlayers, client.Id)))
  			{
- 				ConnectedClient client = enumerator.Current;
--				if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (skipPlayers == null || !Enumerable.Any<IServerPlayer>((System.Collections.Generic.IEnumerable<IServerPlayer>)skipPlayers, (Func<IServerPlayer, bool>)((IServerPlayer plr) => plr?.ClientId == client.Id))))
-+				if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && !StratumShouldSkipClient(skipPlayers, client.Id)) // Stratum: eliminate LINQ closure
+ 				if (array == null)
  				{
- 					if (array == null)
- 					{
- 						array = client.Socket.PreparePacketForSending(reusableBuffer, Config.CompressPackets, out compressed);
- 					}
-@@ -4868,11 +4928,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 		try
+@@ -4279,13 +4338,53 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+ 	{
+ 		foreach (ConnectedClient client in Clients.Values)
  		{
- 			while (((System.Collections.IEnumerator)enumerator).MoveNext())
+-			if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (skipPlayers == null || skipPlayers.All((IServerPlayer plr) => plr?.ClientId != client.Id)))
++			if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (!StratumShouldSkipClient(skipPlayers, client.Id)))
  			{
- 				ConnectedClient client = enumerator.Current;
--				if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && (skipPlayers == null || Enumerable.All<IServerPlayer>((System.Collections.Generic.IEnumerable<IServerPlayer>)skipPlayers, (Func<IServerPlayer, bool>)((IServerPlayer plr) => plr?.ClientId != client.Id))))
-+				if (client.State != EnumClientState.Offline && client.State != EnumClientState.Queued && !StratumShouldSkipClient(skipPlayers, client.Id)) // Stratum: eliminate LINQ closure
- 				{
- 					SendPacket(client, data);
- 				}
+ 				SendPacket(client, data);
  			}
- 		}
-@@ -4880,10 +4940,41 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 		{
- 			((System.IDisposable)enumerator)?.Dispose();
  		}
  	}
  
-+	// Stratum start: replace per-client LINQ closure with a simple array scan
 +	private static bool StratumShouldSkipClient(IServerPlayer[] skipPlayers, int clientId)
 +	{
-+		if (skipPlayers == null) return false;
++		if (skipPlayers == null)
++		{
++			return false;
++		}
 +		for (int i = 0; i < skipPlayers.Length; i++)
 +		{
-+			if (skipPlayers[i]?.ClientId == clientId) return true;
++			if (skipPlayers[i]?.ClientId == clientId)
++			{
++				return true;
++			}
 +		}
 +		return false;
 +	}
@@ -201,25 +172,27 @@ index 140b2f0..cb95b3c 100644
 +	private int StratumCountAdmittedClients()
 +	{
 +		int count = 0;
-+		foreach (KeyValuePair<int, ConnectedClient> c in Clients)
++		foreach (KeyValuePair<int, ConnectedClient> client in Clients)
 +		{
-+			if (c.Value.State.IsAdmitted()) count++;
++			if (client.Value.State.IsAdmitted())
++			{
++				count++;
++			}
 +		}
 +		return count;
 +	}
 +
 +	private bool StratumHasQueuedClient()
 +	{
-+		foreach (KeyValuePair<int, ConnectedClient> c in Clients)
++		foreach (KeyValuePair<int, ConnectedClient> client in Clients)
 +		{
-+			if (c.Value.State == EnumClientState.Queued) return true;
++			if (client.Value.State == EnumClientState.Queued)
++			{
++				return true;
++			}
 +		}
 +		return false;
 +	}
-+	// Stratum end
-+
  	private void recordInBenchmark(int packetId, int dataLength)
  	{
  		if (packetBenchmark.ContainsKey(packetId))
- 		{
- 			SortedDictionary<int, int> obj = packetBenchmark;

@@ -1,73 +1,53 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemLoadAndSaveGame.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemLoadAndSaveGame.cs
-index af7310f..db96a66 100644
+index 455b85f..27492a0 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemLoadAndSaveGame.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemLoadAndSaveGame.cs
-@@ -33,10 +33,12 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
+@@ -28,6 +28,8 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
+ 
+ 	private Dictionary<long, ServerChunk> chunksCopy = new Dictionary<long, ServerChunk>();
+ 
++	private readonly List<DbChunk> stratumSaveBatch = new List<DbChunk>();
++
+ 	private bool ignoreSave;
  
  	internal static PlayerSpawnPos SetDefaultSpawnOnce;
- 
- 	private FastMemoryStream reusableStream => reusableMemoryStream ?? (reusableMemoryStream = new FastMemoryStream());
- 
-+	private readonly List<DbChunk> stratumSaveBatch = new List<DbChunk>(); // Stratum: reuse across save methods
-+
- 	public ServerSystemLoadAndSaveGame(ServerMain server, ChunkServerThread chunkthread)
- 		: base(server)
- 	{
- 		this.chunkthread = chunkthread;
- 		chunkthread.loadsavegame = this;
-@@ -438,11 +440,12 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
+@@ -394,7 +396,8 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
  	private int SaveAllDirtyMapRegions(FastMemoryStream ms)
  	{
- 		//IL_001c: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_0021: Unknown result type (might be due to invalid IL or missing references)
  		int num = 0;
--		List<DbChunk> val = new List<DbChunk>();
-+		List<DbChunk> val = stratumSaveBatch; // Stratum: reuse list
-+		val.Clear();
- 		System.Collections.Generic.IEnumerator<KeyValuePair<long, ServerMapRegion>> enumerator = server.loadedMapRegions.GetEnumerator();
- 		try
+-		List<DbChunk> list = new List<DbChunk>();
++		List<DbChunk> list = stratumSaveBatch;
++		list.Clear();
+ 		foreach (KeyValuePair<long, ServerMapRegion> loadedMapRegion in server.loadedMapRegions)
  		{
- 			while (((System.Collections.IEnumerator)enumerator).MoveNext())
- 			{
-@@ -470,11 +473,12 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
+ 			if (loadedMapRegion.Value.DirtyForSaving)
+@@ -415,7 +418,8 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
  	private int SaveAllDirtyMapChunks(FastMemoryStream ms)
  	{
- 		//IL_001f: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_0024: Unknown result type (might be due to invalid IL or missing references)
  		int num = 0;
--		List<DbChunk> val = new List<DbChunk>();
-+		List<DbChunk> val = stratumSaveBatch; // Stratum: reuse list
-+		val.Clear();
- 		System.Collections.Generic.IEnumerator<KeyValuePair<long, ServerMapChunk>> enumerator = server.loadedMapChunks.GetEnumerator();
- 		try
+-		List<DbChunk> list = new List<DbChunk>();
++		List<DbChunk> list = stratumSaveBatch;
++		list.Clear();
+ 		foreach (KeyValuePair<long, ServerMapChunk> loadedMapChunk in server.loadedMapChunks)
  		{
- 			while (((System.Collections.IEnumerator)enumerator).MoveNext())
- 			{
-@@ -510,11 +514,12 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
- 		//IL_0017: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_001c: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_0024: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_0029: Unknown result type (might be due to invalid IL or missing references)
+ 			if (loadedMapChunk.Value.DirtyForSaving)
+@@ -442,7 +446,8 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
+ 	internal int SaveAllDirtyLoadedChunks(bool isSaveLater, FastMemoryStream ms)
+ 	{
  		int num = 0;
--		List<DbChunk> val = new List<DbChunk>();
-+		List<DbChunk> val = stratumSaveBatch; // Stratum: reuse list
-+		val.Clear();
+-		List<DbChunk> list = new List<DbChunk>();
++		List<DbChunk> list = stratumSaveBatch;
++		list.Clear();
  		if (!isSaveLater)
  		{
  			PopulateChunksCopy();
- 		}
- 		Enumerator<long, ServerChunk> enumerator = chunksCopy.GetEnumerator();
-@@ -588,11 +593,12 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
- 	}
- 
+@@ -498,7 +503,8 @@ internal class ServerSystemLoadAndSaveGame : ServerSystem, IChunkProviderThread
  	internal int SaveAllDirtyGeneratingChunks(FastMemoryStream ms)
  	{
  		int num = 0;
--		List<DbChunk> val = new List<DbChunk>();
-+		List<DbChunk> val = stratumSaveBatch; // Stratum: reuse list
-+		val.Clear();
+-		List<DbChunk> list = new List<DbChunk>();
++		List<DbChunk> list = stratumSaveBatch;
++		list.Clear();
  		if (chunkthread.requestedChunkColumns.Count > 0)
  		{
- 			System.Collections.Generic.IEnumerator<ChunkColumnLoadRequest> enumerator = ((System.Collections.Generic.IEnumerable<ChunkColumnLoadRequest>)chunkthread.requestedChunkColumns.Snapshot()).GetEnumerator();
- 			try
- 			{
+ 			foreach (ChunkColumnLoadRequest item in chunkthread.requestedChunkColumns.Snapshot())

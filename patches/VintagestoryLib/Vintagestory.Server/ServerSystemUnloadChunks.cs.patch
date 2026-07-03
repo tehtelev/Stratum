@@ -1,14 +1,11 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemUnloadChunks.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemUnloadChunks.cs
-index c0ecd20..03aa9de 100644
+index 642722c..84ab8fd 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemUnloadChunks.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemUnloadChunks.cs
-@@ -35,10 +35,25 @@ internal class ServerSystemUnloadChunks : ServerSystem
- 	private List<MapRegionAndPos> dirtyMapRegions = new List<MapRegionAndPos>();
- 
+@@ -36,6 +36,18 @@ internal class ServerSystemUnloadChunks : ServerSystem
  	[ThreadStatic]
  	private static FastMemoryStream reusableStream;
  
-+	// Stratum start: reuse intermediate lists in chunk unload methods
 +	private readonly List<MapRegionAndPos> stratumMapRegionBuf = new List<MapRegionAndPos>();
 +	private readonly List<DbChunk> stratumDbChunkBuf1 = new List<DbChunk>();
 +	private readonly List<DbChunk> stratumDbChunkBuf2 = new List<DbChunk>();
@@ -21,148 +18,116 @@ index c0ecd20..03aa9de 100644
 +	private readonly List<long> stratumOutOfRangeBuf = new List<long>();
 +	private readonly HashSet<long> stratumOutOfRangeSet = new HashSet<long>();
 +	private readonly List<ChunkColumnLoadRequest> stratumUnloadGenBuf = new List<ChunkColumnLoadRequest>();
-+	// Stratum end
-+
  	private float accum120s;
  
  	private float accum3s;
- 
- 	public ServerSystemUnloadChunks(ServerMain server, ChunkServerThread chunkthread)
-@@ -268,17 +283,19 @@ internal class ServerSystemUnloadChunks : ServerSystem
- 		//IL_0057: Unknown result type (might be due to invalid IL or missing references)
- 		if (dirtyMapRegions.Count <= 0)
+@@ -210,13 +222,15 @@ internal class ServerSystemUnloadChunks : ServerSystem
  		{
  			return;
  		}
--		List<MapRegionAndPos> val = new List<MapRegionAndPos>();
-+		List<MapRegionAndPos> val = stratumMapRegionBuf; // Stratum: reuse list
-+		val.Clear();
+-		List<MapRegionAndPos> list = new List<MapRegionAndPos>();
++		List<MapRegionAndPos> list = stratumMapRegionBuf;
++		list.Clear();
  		lock (dirtyMapRegionsLock)
  		{
- 			val.AddRange((System.Collections.Generic.IEnumerable<MapRegionAndPos>)dirtyMapRegions);
+ 			list.AddRange(dirtyMapRegions);
  			dirtyMapRegions.Clear();
  		}
--		List<DbChunk> val2 = new List<DbChunk>();
-+		List<DbChunk> val2 = stratumDbChunkBuf1; // Stratum: reuse list
-+		val2.Clear();
- 		Enumerator<MapRegionAndPos> enumerator = val.GetEnumerator();
- 		try
+-		List<DbChunk> list2 = new List<DbChunk>();
++		List<DbChunk> list2 = stratumDbChunkBuf1;
++		list2.Clear();
+ 		foreach (MapRegionAndPos item in list)
  		{
- 			while (enumerator.MoveNext())
- 			{
-@@ -298,21 +315,25 @@ internal class ServerSystemUnloadChunks : ServerSystem
- 		//IL_0075: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_007a: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_00d8: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_00dd: Unknown result type (might be due to invalid IL or missing references)
+ 			list2.Add(new DbChunk(new ChunkPos(item.pos), item.region.ToBytes(ms)));
+@@ -227,8 +241,10 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 	private void SaveDirtyUnloadedChunks(FastMemoryStream ms)
+ 	{
  		server.readyToAutoSave = false;
--		List<ServerChunkWithCoord> val = new List<ServerChunkWithCoord>();
--		List<ServerMapChunkWithCoord> val2 = new List<ServerMapChunkWithCoord>();
-+		List<ServerChunkWithCoord> val = stratumDirtyChunkBuf; // Stratum: reuse list
-+		val.Clear();
-+		List<ServerMapChunkWithCoord> val2 = stratumDirtyMapChunkBuf; // Stratum: reuse list
-+		val2.Clear();
+-		List<ServerChunkWithCoord> list = new List<ServerChunkWithCoord>();
+-		List<ServerMapChunkWithCoord> list2 = new List<ServerMapChunkWithCoord>();
++		List<ServerChunkWithCoord> list = stratumDirtyChunkBuf;
++		list.Clear();
++		List<ServerMapChunkWithCoord> list2 = stratumDirtyMapChunkBuf;
++		list2.Clear();
  		lock (dirtyChunksLock)
  		{
- 			val.AddRange((System.Collections.Generic.IEnumerable<ServerChunkWithCoord>)dirtyUnloadedChunks);
- 			val2.AddRange((System.Collections.Generic.IEnumerable<ServerMapChunkWithCoord>)dirtyUnloadedMapChunks);
+ 			list.AddRange(dirtyUnloadedChunks);
+@@ -236,8 +252,10 @@ internal class ServerSystemUnloadChunks : ServerSystem
  			dirtyUnloadedChunks.Clear();
  			dirtyUnloadedMapChunks.Clear();
  		}
--		List<DbChunk> val3 = new List<DbChunk>();
--		List<DbChunk> val4 = new List<DbChunk>();
-+		List<DbChunk> val3 = stratumDbChunkBuf1; // Stratum: reuse list
-+		val3.Clear();
-+		List<DbChunk> val4 = stratumDbChunkBuf2; // Stratum: reuse list
-+		val4.Clear();
- 		Enumerator<ServerChunkWithCoord> enumerator = val.GetEnumerator();
- 		try
+-		List<DbChunk> list3 = new List<DbChunk>();
+-		List<DbChunk> list4 = new List<DbChunk>();
++		List<DbChunk> list3 = stratumDbChunkBuf1;
++		list3.Clear();
++		List<DbChunk> list4 = stratumDbChunkBuf2;
++		list4.Clear();
+ 		foreach (ServerChunkWithCoord item in list)
  		{
- 			while (enumerator.MoveNext())
- 			{
-@@ -364,12 +385,14 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 			list3.Add(new DbChunk
+@@ -273,8 +291,10 @@ internal class ServerSystemUnloadChunks : ServerSystem
  
  	private void UnloadChunkColumns()
  	{
- 		//IL_0014: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_0019: Unknown result type (might be due to invalid IL or missing references)
--		List<ServerChunkWithCoord> val = new List<ServerChunkWithCoord>();
--		List<ServerMapChunkWithCoord> val2 = new List<ServerMapChunkWithCoord>();
-+		List<ServerChunkWithCoord> val = stratumUnloadChunkBuf; // Stratum: reuse list
-+		val.Clear();
-+		List<ServerMapChunkWithCoord> val2 = stratumUnloadMapChunkBuf; // Stratum: reuse list
-+		val2.Clear();
+-		List<ServerChunkWithCoord> list = new List<ServerChunkWithCoord>();
+-		List<ServerMapChunkWithCoord> list2 = new List<ServerMapChunkWithCoord>();
++		List<ServerChunkWithCoord> list = stratumUnloadChunkBuf;
++		list.Clear();
++		List<ServerMapChunkWithCoord> list2 = stratumUnloadMapChunkBuf;
++		list2.Clear();
  		int num = 0;
- 		Enumerator<long> enumerator = mapChunkUnloadCandidates.GetEnumerator();
- 		try
+ 		foreach (long mapChunkUnloadCandidate in mapChunkUnloadCandidates)
  		{
- 			ServerMapChunk serverMapChunk = default(ServerMapChunk);
-@@ -461,11 +484,12 @@ internal class ServerSystemUnloadChunks : ServerSystem
+@@ -358,7 +378,8 @@ internal class ServerSystemUnloadChunks : ServerSystem
  
  	internal void UnloadGeneratingChunkColumns(long timeToLive)
  	{
- 		//IL_00f0: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_00f5: Unknown result type (might be due to invalid IL or missing references)
--		List<ChunkColumnLoadRequest> val = new List<ChunkColumnLoadRequest>();
-+		List<ChunkColumnLoadRequest> val = stratumUnloadGenBuf; // Stratum: reuse list
-+		val.Clear();
+-		List<ChunkColumnLoadRequest> list = new List<ChunkColumnLoadRequest>();
++		List<ChunkColumnLoadRequest> list = stratumUnloadGenBuf;
++		list.Clear();
  		int num = 0;
- 		System.Collections.Generic.IEnumerator<ChunkColumnLoadRequest> enumerator = ((System.Collections.Generic.IEnumerable<ChunkColumnLoadRequest>)chunkthread.requestedChunkColumns.Snapshot()).GetEnumerator();
- 		try
+ 		foreach (ChunkColumnLoadRequest item in chunkthread.requestedChunkColumns.Snapshot())
  		{
- 			while (((System.Collections.IEnumerator)enumerator).MoveNext())
-@@ -505,13 +529,15 @@ internal class ServerSystemUnloadChunks : ServerSystem
- 		}
- 		if (val.Count == 0)
+@@ -393,9 +414,11 @@ internal class ServerSystemUnloadChunks : ServerSystem
  		{
  			return;
  		}
--		List<DbChunk> val2 = new List<DbChunk>();
--		List<DbChunk> val3 = new List<DbChunk>();
--		FastMemoryStream fastMemoryStream = new FastMemoryStream();
-+		List<DbChunk> val2 = stratumDbChunkBuf1; // Stratum: reuse list
-+		val2.Clear();
-+		List<DbChunk> val3 = stratumDbChunkBuf2; // Stratum: reuse list
-+		val3.Clear();
-+		FastMemoryStream fastMemoryStream = reusableStream ?? (reusableStream = new FastMemoryStream()); // Stratum: reuse stream
- 		try
+-		List<DbChunk> list2 = new List<DbChunk>();
+-		List<DbChunk> list3 = new List<DbChunk>();
+-		using FastMemoryStream ms = new FastMemoryStream();
++		List<DbChunk> list2 = stratumDbChunkBuf1;
++		list2.Clear();
++		List<DbChunk> list3 = stratumDbChunkBuf2;
++		list3.Clear();
++		FastMemoryStream ms = reusableStream ?? (reusableStream = new FastMemoryStream());
+ 		foreach (ChunkColumnLoadRequest item2 in list)
  		{
- 			Enumerator<ChunkColumnLoadRequest> enumerator2 = val.GetEnumerator();
- 			try
- 			{
-@@ -659,14 +685,16 @@ internal class ServerSystemUnloadChunks : ServerSystem
- 		//IL_006e: Unknown result type (might be due to invalid IL or missing references)
- 		if (server.unloadedChunks.IsEmpty)
+ 			item2.generatingLock.AcquireReadLock();
+@@ -499,10 +522,12 @@ internal class ServerSystemUnloadChunks : ServerSystem
  		{
  			return;
  		}
--		List<long> val = new List<long>();
-+		List<long> val = stratumSendUnloadBuf; // Stratum: reuse list
-+		val.Clear();
- 		val.AddRange((System.Collections.Generic.IEnumerable<long>)server.unloadedChunks);
+-		List<long> list = new List<long>();
++		List<long> list = stratumSendUnloadBuf;
++		list.Clear();
+ 		list.AddRange(server.unloadedChunks);
  		server.unloadedChunks = new ConcurrentQueue<long>();
--		List<Vec3i> val2 = new List<Vec3i>();
-+		List<Vec3i> val2 = stratumSendUnloadVec3Buf; // Stratum: reuse list
-+		val2.Clear();
- 		System.Collections.Generic.IEnumerator<ConnectedClient> enumerator = ((System.Collections.Generic.IEnumerable<ConnectedClient>)server.Clients.Values).GetEnumerator();
- 		try
+-		List<Vec3i> list2 = new List<Vec3i>();
++		List<Vec3i> list2 = stratumSendUnloadVec3Buf;
++		list2.Clear();
+ 		foreach (ConnectedClient value in server.Clients.Values)
  		{
- 			while (((System.Collections.IEnumerator)enumerator).MoveNext())
- 			{
-@@ -727,12 +755,14 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 			list2.Clear();
+@@ -547,8 +572,10 @@ internal class ServerSystemUnloadChunks : ServerSystem
  
  	private void SendOutOfRangeChunkUnloads(ConnectedClient client)
  	{
- 		//IL_00ad: Unknown result type (might be due to invalid IL or missing references)
- 		//IL_00b2: Unknown result type (might be due to invalid IL or missing references)
--		List<long> val = new List<long>();
--		HashSet<long> val2 = new HashSet<long>();
-+		List<long> val = stratumOutOfRangeBuf; // Stratum: reuse list
-+		val.Clear();
-+		HashSet<long> val2 = stratumOutOfRangeSet; // Stratum: reuse set
-+		val2.Clear();
+-		List<long> list = new List<long>();
+-		HashSet<long> hashSet = new HashSet<long>();
++		List<long> list = stratumOutOfRangeBuf;
++		list.Clear();
++		HashSet<long> hashSet = stratumOutOfRangeSet;
++		hashSet.Clear();
  		int allowedChunkRadius = server.GetAllowedChunkRadius(client);
  		int x = ((client.Position == null) ? (server.WorldMap.MapSizeX / 2) : ((int)client.Position.X)) / MagicNum.ServerChunkSize;
  		int y = ((client.Position == null) ? (server.WorldMap.MapSizeZ / 2) : ((int)client.Position.Z)) / MagicNum.ServerChunkSize;
- 		int chunkMapSizeX = server.WorldMap.ChunkMapSizeX;
- 		for (int i = 0; i <= allowedChunkRadius; i++)
