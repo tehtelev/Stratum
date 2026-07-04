@@ -106,9 +106,10 @@ internal static class StratumServerStats
 
 		Task.Run(async () =>
 		{
+			bool ok = false;
 			try
 			{
-				await PostAsync(url, payload, timeoutSeconds);
+				ok = await PostAsync(url, payload, timeoutSeconds);
 			}
 			catch
 			{
@@ -147,7 +148,7 @@ internal static class StratumServerStats
 		};
 	}
 
-	private static async Task PostAsync(string url, StatsPayload payload, int timeoutSeconds)
+	private static async Task<bool> PostAsync(string url, StatsPayload payload, int timeoutSeconds)
 	{
 		using CancellationTokenSource timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)));
 		string json = JsonConvert.SerializeObject(payload);
@@ -156,6 +157,7 @@ internal static class StratumServerStats
 		request.Headers.UserAgent.ParseAdd("StratumServer/" + StratumInfo.Version);
 		using HttpResponseMessage response = await http.SendAsync(request, timeout.Token);
 		// Body is ignored on purpose, dont fix. reporting is fire-and-forget
+		return response.IsSuccessStatusCode;
 	}
 
 	private static string GetOs()
