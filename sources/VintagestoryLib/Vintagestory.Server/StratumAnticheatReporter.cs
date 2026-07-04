@@ -19,6 +19,7 @@ internal static class StratumAnticheatReporter
 	private const string BlockBreakProgressType = "block-break-progress";
 	private const string MovementType = "movement";
 	private const string CombatType = "combat";
+	private const string NoFallType = "no-fall";
 
 	private static readonly object Lock = new object();
 	private static readonly Dictionary<string, PlayerViolationState> PlayerViolations = new Dictionary<string, PlayerViolationState>(StringComparer.OrdinalIgnoreCase);
@@ -110,6 +111,40 @@ internal static class StratumAnticheatReporter
 			disconnectReason = string.IsNullOrWhiteSpace(config.EntityInteractionOutOfRange.KickMessage)
 				? "Disconnected by Stratum entity reach protection"
 				: config.EntityInteractionOutOfRange.KickMessage;
+			return true;
+		}
+
+		return false;
+	}
+
+	public static bool RecordNoFallViolation(ServerMain server, ServerPlayer player, BlockPos pos, double fallBlocks, out string disconnectReason)
+	{
+		disconnectReason = null;
+		if (server == null || player == null)
+		{
+			return false;
+		}
+
+		StratumRuntime.Config.EnsurePopulated();
+		StratumAnticheatConfig config = StratumRuntime.Config.Anticheat;
+		if (!config.Enabled || !config.NoFall.Enabled)
+		{
+			return false;
+		}
+
+		string detail = "fell " + fallBlocks.ToString("0.#", CultureInfo.InvariantCulture) + " blocks with no fall damage" + (pos != null ? " at " + FormatBlockPos(pos) : "");
+		DateTime now = DateTime.UtcNow;
+		ViolationRecordResult result = RecordViolation(player, now, NoFallType, detail, config, config.NoFall);
+		if (result.ShouldAlert)
+		{
+			SendStaffAlert(server, player, "no-fall", pos, result.RollingCount, result.TotalCount, config.NoFall.AlertWindowSeconds);
+		}
+
+		if (config.NoFall.KickConfirmedCheats && result.RollingCount >= config.NoFall.KickAfterViolations)
+		{
+			disconnectReason = string.IsNullOrWhiteSpace(config.NoFall.KickMessage)
+				? "Disconnected by Stratum no-fall protection"
+				: config.NoFall.KickMessage;
 			return true;
 		}
 

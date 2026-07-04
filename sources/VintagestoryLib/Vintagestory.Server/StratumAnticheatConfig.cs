@@ -21,8 +21,10 @@ internal class StratumAnticheatConfig
 	public StratumBlockBreakProgressAnticheatConfig BlockBreakProgress { get; set; } = new StratumBlockBreakProgressAnticheatConfig();
 
 	public StratumMovementAnticheatConfig Movement { get; set; } = new StratumMovementAnticheatConfig();
-	
+
 	public StratumCombatAnticheatConfig Combat { get; set; } = new StratumCombatAnticheatConfig();
+
+	public StratumNoFallAnticheatConfig NoFall { get; set; } = new StratumNoFallAnticheatConfig();
 
 	public void EnsureSane()
 	{
@@ -34,12 +36,14 @@ internal class StratumAnticheatConfig
 		BlockBreakProgress ??= new StratumBlockBreakProgressAnticheatConfig();
 		Movement ??= new StratumMovementAnticheatConfig();
 		Combat ??= new StratumCombatAnticheatConfig();
+		NoFall ??= new StratumNoFallAnticheatConfig();
 		BlockEntityOutOfRange.EnsureSane();
 		BlockInteractionOutOfRange.EnsureSane();
 		EntityInteractionOutOfRange.EnsureSane();
 		BlockBreakProgress.EnsureSane();
 		Movement.EnsureSane();
 		Combat.EnsureSane();
+		NoFall.EnsureSane();
 	}
 }
 
@@ -270,5 +274,34 @@ internal class StratumCombatAnticheatConfig : StratumAnticheatRuleConfig
 		MinAngleCheckDistance = Math.Clamp(MinAngleCheckDistance, 0.0, 8.0);
 		KickAfterViolations = Math.Clamp(KickAfterViolations, 3, 1000);
 		KickMessage ??= "Disconnected by Stratum combat protection";
+	}
+}
+
+internal class StratumNoFallAnticheatConfig : StratumAnticheatRuleConfig
+{
+	public StratumNoFallAnticheatConfig()
+	{
+		AlertAfterViolations = 5;
+		AlertWindowSeconds = 30;
+		RepeatAlertSeconds = 30;
+	}
+
+	public double MinFallBlocks { get; set; } = 5.0;
+
+	public double MinDescentSpeed { get; set; } = 4.0;
+
+	public bool KickConfirmedCheats { get; set; } = false;
+
+	public int KickAfterViolations { get; set; } = 10;
+
+	public string KickMessage { get; set; } = "Disconnected by Stratum no-fall protection";
+
+	public override void EnsureSane()
+	{
+		base.EnsureSane();
+		MinFallBlocks = Math.Clamp(MinFallBlocks, 3.0, 64.0);
+		MinDescentSpeed = Math.Clamp(MinDescentSpeed, 1.0, 30.0);
+		KickAfterViolations = Math.Clamp(KickAfterViolations, 3, 200);
+		KickMessage ??= "Disconnected by Stratum no-fall protection";
 	}
 }
