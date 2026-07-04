@@ -45,6 +45,8 @@ internal class StratumConfig
 
 	public StratumBackupConfig Backup { get; set; } = new StratumBackupConfig();
 
+	public StratumServerStatsConfig ServerStats { get; set; } = new StratumServerStatsConfig();
+
 	public void EnsurePopulated()
 	{
 		Diagnostics ??= new StratumDiagnosticsConfig();
@@ -65,6 +67,7 @@ internal class StratumConfig
 		PlayerPrivacy ??= new StratumPlayerPrivacyConfig();
 		Nametags ??= new StratumNametagsConfig();
 		Backup ??= new StratumBackupConfig();
+		ServerStats ??= new StratumServerStatsConfig();
 		PacketLimits.EnsureSane();
 		PacketBackPressure.EnsureSane();
 		BlockBreakGuards.EnsureSane();
@@ -80,6 +83,7 @@ internal class StratumConfig
 		PlayerPrivacy.EnsurePopulated();
 		Nametags.EnsurePopulated();
 		Backup.EnsureSane();
+		ServerStats.EnsureSane();
 		UpdateChecker.EnsureSane();
 		MigrateLegacyDefaults();
 	}
@@ -135,16 +139,45 @@ internal class StratumUpdateCheckerConfig
 
 	public bool CheckOnStartup { get; set; } = true;
 
-	public string LatestReleaseUrl { get; set; } = "https://api.github.com/repos/trevorftp/Stratum/releases/latest";
+	public string LatestReleaseUrl { get; set; } = "https://api.github.com/repos/StratumServer/Stratum/releases/latest";
 
 	public int TimeoutSeconds { get; set; } = 5;
 
 	public void EnsureSane()
 	{
 		LatestReleaseUrl = string.IsNullOrWhiteSpace(LatestReleaseUrl)
-			? "https://api.github.com/repos/trevorftp/Stratum/releases/latest"
+			? "https://api.github.com/repos/StratumServer/Stratum/releases/latest"
 			: LatestReleaseUrl.Trim();
 		TimeoutSeconds = Math.Min(30, Math.Max(1, TimeoutSeconds));
+	}
+}
+
+// Anonymous server stats reporting ("phone home"). Opt-out: on by default. Each server posts a
+// tiny JSON blob (a random per-install id, the version, and the current player count) to
+// ReportUrl every IntervalMinutes so the project can show total players and total servers running
+// Stratum. Nothing identifying is sent - no player names, no IPs, no server address or name.
+internal class StratumServerStatsConfig
+{
+	public bool Enabled { get; set; } = true;
+
+	// Central endpoint that receives the report (HTTP POST, application/json). Point this at your
+	// aggregator. Leave empty to keep reporting off even when Enabled is true.
+	public string ReportUrl { get; set; } = "https://my.stratumvs.dev/stratum-stats.php";
+
+	public int IntervalMinutes { get; set; } = 30;
+
+	public int TimeoutSeconds { get; set; } = 10;
+
+	// Random, anonymous, per-install id. Generated once on first run and kept so restarts are not
+	// counted as new servers. Delete it to reset this server's identity.
+	public string ServerId { get; set; } = "";
+
+	public void EnsureSane()
+	{
+		IntervalMinutes = Math.Clamp(IntervalMinutes, 5, 1440);
+		TimeoutSeconds = Math.Clamp(TimeoutSeconds, 1, 60);
+		ReportUrl = string.IsNullOrWhiteSpace(ReportUrl) ? "" : ReportUrl.Trim();
+		ServerId = ServerId?.Trim() ?? "";
 	}
 }
 

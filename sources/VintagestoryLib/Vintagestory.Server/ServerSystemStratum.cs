@@ -92,6 +92,7 @@ internal class ServerSystemStratum : ServerSystem
 		StratumPlayerPrivacy.Initialize(server);
 		StratumMetricsPublisher.Start();
 		StratumUpdateChecker.CheckOnStartup();
+		StratumServerStats.Start(server);
 		if (StratumRuntime.Config.Backup.Enabled)
 		{
 			new StratumBackupScheduler(server);
@@ -106,6 +107,7 @@ internal class ServerSystemStratum : ServerSystem
 		{
 			StratumRuntime.Pregen.Tick(server);
 			StratumMetricsPublisher.Publish(server);
+			StratumServerStats.Tick(server);
 		}
 	}
 
