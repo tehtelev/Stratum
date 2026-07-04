@@ -66,6 +66,15 @@ Older Ko-fi supporters are still listed below because they helped Stratum early 
 
 </div>
 
+## Server Stats
+<div align="center">
+  
+![Stratum Network](https://my.stratumvs.dev/stratum-stats.php?graph)  
+<sub>Statistics shown are as of v1.22.3-stratum.15-indev.1 and on.</sub>
+
+</div>
+
+
 ## Install
 
 1. Grab the latest `stratum-<version>-<rid>.zip` from [Releases](https://github.com/StratumServer/Stratum/releases).

@@ -2,14 +2,18 @@ diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemInventory.cs b/Vint
 index f39b1bd..8b7e158 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemInventory.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemInventory.cs
-@@ -1,5 +1,6 @@
+@@ -1,7 +1,8 @@
  using System;
  using System.Collections.Generic;
 +using System.Threading;
  using Vintagestory.API.Common;
  using Vintagestory.API.Datastructures;
  using Vintagestory.API.MathTools;
-@@ -140,6 +141,7 @@ internal class ServerSystemInventory : ServerSystem
+ using Vintagestory.API.Server;
+ using Vintagestory.Common;
+@@ -138,10 +139,11 @@ internal class ServerSystemInventory : ServerSystem
+ 		{
+ 			if (value.ConnectionState != EnumClientState.Playing)
  			{
  				continue;
  			}
@@ -17,7 +21,11 @@ index f39b1bd..8b7e158 100644
  			ItemSlot activeHotbarSlot = value.inventoryMgr.ActiveHotbarSlot;
  			if (value.Entity.Controls.LeftMouseDown && value.WorldData.CurrentGameMode == EnumGameMode.Survival && value.CurrentBlockSelection?.Position != null && activeHotbarSlot.Itemstack != null)
  			{
-@@ -207,6 +209,12 @@ internal class ServerSystemInventory : ServerSystem
+ 				activeHotbarSlot.Itemstack.Collectible.OnBlockBreaking(value, value.CurrentBlockSelection, activeHotbarSlot, 99f, dt, value.blockBreakingCounter);
+ 				value.blockBreakingCounter++;
+@@ -205,10 +207,16 @@ internal class ServerSystemInventory : ServerSystem
+ 		}
+ 	}
  
  	private void SendDirtySlots(float dt)
  	{
@@ -30,3 +38,5 @@ index f39b1bd..8b7e158 100644
  		foreach (ConnectedClient value in server.Clients.Values)
  		{
  			if (!value.IsPlayingClient)
+ 			{
+ 				continue;

@@ -1,5 +1,5 @@
 diff --git a/VSEssentials/Entity/AI/AiTaskBase.cs b/VSEssentials/Entity/AI/AiTaskBase.cs
-index 72f34f0..a1b2c3e 100644
+index 72f34f0..1ce43dd 100644
 --- a/VSEssentials/Entity/AI/AiTaskBase.cs
 +++ b/VSEssentials/Entity/AI/AiTaskBase.cs
 @@ -211,11 +211,11 @@ namespace Vintagestory.API.Common

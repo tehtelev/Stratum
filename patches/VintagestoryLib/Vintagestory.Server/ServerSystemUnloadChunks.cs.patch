@@ -2,7 +2,9 @@ diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemUnloadChunks.cs b/V
 index 642722c..84ab8fd 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemUnloadChunks.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemUnloadChunks.cs
-@@ -36,6 +36,18 @@ internal class ServerSystemUnloadChunks : ServerSystem
+@@ -34,10 +34,22 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 	private List<MapRegionAndPos> dirtyMapRegions = new List<MapRegionAndPos>();
+ 
  	[ThreadStatic]
  	private static FastMemoryStream reusableStream;
  
@@ -21,7 +23,11 @@ index 642722c..84ab8fd 100644
  	private float accum120s;
  
  	private float accum3s;
-@@ -210,13 +222,15 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 
+ 	public ServerSystemUnloadChunks(ServerMain server, ChunkServerThread chunkthread)
+@@ -208,38 +220,44 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 	{
+ 		if (dirtyMapRegions.Count <= 0)
  		{
  			return;
  		}
@@ -39,7 +45,10 @@ index 642722c..84ab8fd 100644
  		foreach (MapRegionAndPos item in list)
  		{
  			list2.Add(new DbChunk(new ChunkPos(item.pos), item.region.ToBytes(ms)));
-@@ -227,8 +241,10 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 		}
+ 		chunkthread.gameDatabase.SetMapRegions(list2);
+ 	}
+ 
  	private void SaveDirtyUnloadedChunks(FastMemoryStream ms)
  	{
  		server.readyToAutoSave = false;
@@ -52,7 +61,7 @@ index 642722c..84ab8fd 100644
  		lock (dirtyChunksLock)
  		{
  			list.AddRange(dirtyUnloadedChunks);
-@@ -236,8 +252,10 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 			list2.AddRange(dirtyUnloadedMapChunks);
  			dirtyUnloadedChunks.Clear();
  			dirtyUnloadedMapChunks.Clear();
  		}
@@ -65,7 +74,11 @@ index 642722c..84ab8fd 100644
  		foreach (ServerChunkWithCoord item in list)
  		{
  			list3.Add(new DbChunk
-@@ -273,8 +291,10 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 			{
+ 				Position = item.pos,
+@@ -271,12 +289,14 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 		server.readyToAutoSave = true;
+ 	}
  
  	private void UnloadChunkColumns()
  	{
@@ -78,7 +91,11 @@ index 642722c..84ab8fd 100644
  		int num = 0;
  		foreach (long mapChunkUnloadCandidate in mapChunkUnloadCandidates)
  		{
-@@ -358,7 +378,8 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 			if (server.forceLoadedChunkColumns.Contains(mapChunkUnloadCandidate))
+ 			{
+@@ -356,11 +376,12 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 		return flag;
+ 	}
  
  	internal void UnloadGeneratingChunkColumns(long timeToLive)
  	{
@@ -88,7 +105,11 @@ index 642722c..84ab8fd 100644
  		int num = 0;
  		foreach (ChunkColumnLoadRequest item in chunkthread.requestedChunkColumns.Snapshot())
  		{
-@@ -393,9 +414,11 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 			if (item.Chunks == null || item.Disposed)
+ 			{
+@@ -391,13 +412,15 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 		}
+ 		if (list.Count == 0)
  		{
  			return;
  		}
@@ -103,7 +124,11 @@ index 642722c..84ab8fd 100644
  		foreach (ChunkColumnLoadRequest item2 in list)
  		{
  			item2.generatingLock.AcquireReadLock();
-@@ -499,10 +522,12 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 			try
+ 			{
+@@ -497,14 +520,16 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 	{
+ 		if (server.unloadedChunks.IsEmpty)
  		{
  			return;
  		}
@@ -118,7 +143,11 @@ index 642722c..84ab8fd 100644
  		foreach (ConnectedClient value in server.Clients.Values)
  		{
  			list2.Clear();
-@@ -547,8 +572,10 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 			foreach (long item in list)
+ 			{
+@@ -545,12 +570,14 @@ internal class ServerSystemUnloadChunks : ServerSystem
+ 		}
+ 	}
  
  	private void SendOutOfRangeChunkUnloads(ConnectedClient client)
  	{
@@ -131,3 +160,5 @@ index 642722c..84ab8fd 100644
  		int allowedChunkRadius = server.GetAllowedChunkRadius(client);
  		int x = ((client.Position == null) ? (server.WorldMap.MapSizeX / 2) : ((int)client.Position.X)) / MagicNum.ServerChunkSize;
  		int y = ((client.Position == null) ? (server.WorldMap.MapSizeZ / 2) : ((int)client.Position.Z)) / MagicNum.ServerChunkSize;
+ 		int chunkMapSizeX = server.WorldMap.ChunkMapSizeX;
+ 		for (int i = 0; i <= allowedChunkRadius; i++)

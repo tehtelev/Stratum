@@ -2,7 +2,9 @@ diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemSendChunks.cs b/Vin
 index 277d286..f19d491 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemSendChunks.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemSendChunks.cs
-@@ -3,11 +3,13 @@ using System.Collections.Generic;
+@@ -1,15 +1,17 @@
+ using System;
+ using System.Collections.Generic;
  using System.Diagnostics;
  using System.Threading;
  using Vintagestory.API.Common;
@@ -16,7 +18,11 @@ index 277d286..f19d491 100644
  
  namespace Vintagestory.Server;
  
-@@ -27,6 +29,20 @@ internal class ServerSystemSendChunks : ServerSystem
+ internal class ServerSystemSendChunks : ServerSystem
+ {
+@@ -25,10 +27,24 @@ internal class ServerSystemSendChunks : ServerSystem
+ 
+ 	private Dictionary<long, Packet_ServerChunk> packetsWithEntities = new Dictionary<long, Packet_ServerChunk>();
  
  	private Dictionary<long, Packet_ServerChunk> packetsWithoutEntities = new Dictionary<long, Packet_ServerChunk>();
  
@@ -37,7 +43,11 @@ index 277d286..f19d491 100644
  	public override void Dispose()
  	{
  		chunkPackets = null;
-@@ -56,6 +72,27 @@ internal class ServerSystemSendChunks : ServerSystem
+ 		chunksToSend = null;
+ 		mapChunksToSend = null;
+@@ -54,46 +70,218 @@ internal class ServerSystemSendChunks : ServerSystem
+ 	{
+ 		if (server.RunPhase != EnumServerRunPhase.RunGame)
  		{
  			return;
  		}
@@ -65,7 +75,7 @@ index 277d286..f19d491 100644
  		packetsWithEntities.Clear();
  		packetsWithoutEntities.Clear();
  		IPlayer[] allOnlinePlayers = server.AllOnlinePlayers;
-@@ -63,15 +100,128 @@ internal class ServerSystemSendChunks : ServerSystem
+ 		foreach (IMiniDimension value in server.LoadedMiniDimensions.Values)
  		{
  			value.CollectChunksForSending(allOnlinePlayers);
  		}
@@ -196,7 +206,7 @@ index 277d286..f19d491 100644
  	}
  
  	private void OnClientLeaveChunk(ClientStatistics clientstats)
-@@ -79,19 +229,57 @@ internal class ServerSystemSendChunks : ServerSystem
+ 	{
  		clientstats.client.CurrentChunkSentRadius = 0;
  	}
  
@@ -257,7 +267,11 @@ index 277d286..f19d491 100644
  		foreach (long forceSendMapChunk in client.forceSendMapChunks)
  		{
  			Vec2i vec2i = server.WorldMap.MapChunkPosFromChunkIndex2D(forceSendMapChunk);
-@@ -127,6 +315,10 @@ internal class ServerSystemSendChunks : ServerSystem
+ 			server.loadedMapChunks.TryGetValue(forceSendMapChunk, out var value);
+ 			if (value != null)
+@@ -125,18 +313,22 @@ internal class ServerSystemSendChunks : ServerSystem
+ 					chunk = loadedChunk,
+ 					pos = pos,
  					withEntities = true
  				});
  				num2--;
@@ -268,7 +282,7 @@ index 277d286..f19d491 100644
  				toRemove.Add(forceSendChunk);
  			}
  		}
-@@ -134,7 +326,7 @@ internal class ServerSystemSendChunks : ServerSystem
+ 		foreach (long item3 in toRemove)
  		{
  			client.forceSendChunks.Remove(item3);
  		}
@@ -277,7 +291,11 @@ index 277d286..f19d491 100644
  		{
  			client.CurrentChunkSentRadius++;
  		}
-@@ -205,12 +397,32 @@ internal class ServerSystemSendChunks : ServerSystem
+ 		foreach (ServerMapChunkWithCoord item4 in mapChunksToSend)
+ 		{
+@@ -203,16 +395,36 @@ internal class ServerSystemSendChunks : ServerSystem
+ 				server.SendPacketFast(client.Id, value3.ToPacket(vec3i.X, vec3i.Z));
+ 				client.SetMapRegionSent(forceSendMapRegion);
  			}
  		}
  		client.forceSendMapRegions.Clear();
@@ -312,7 +330,11 @@ index 277d286..f19d491 100644
  		int num2 = 0;
  		int num3 = dimension * 1024;
  		for (int i = 0; i < octagonPoints.Length; i++)
-@@ -240,6 +452,14 @@ internal class ServerSystemSendChunks : ServerSystem
+ 		{
+ 			int x = octagonPoints[i].X;
+@@ -238,10 +450,18 @@ internal class ServerSystemSendChunks : ServerSystem
+ 						chunksToSend.Add(new ServerChunkWithCoord
+ 						{
  							chunk = loadedChunk,
  							pos = new ChunkPos(x, j, y, dimension)
  						});
@@ -327,7 +349,11 @@ index 277d286..f19d491 100644
  						countChunks--;
  						if (!flag)
  						{
-@@ -260,18 +480,35 @@ internal class ServerSystemSendChunks : ServerSystem
+ 							if (!client.DidSendMapChunk(num4))
+ 							{
+@@ -258,41 +478,404 @@ internal class ServerSystemSendChunks : ServerSystem
+ 					}
+ 					num2++;
  				}
  				else
  				{
@@ -365,7 +391,8 @@ index 277d286..f19d491 100644
  					}
  					num2++;
  				}
-@@ -280,6 +517,245 @@ internal class ServerSystemSendChunks : ServerSystem
+ 			}
+ 		}
  		return num2;
  	}
  
@@ -611,7 +638,10 @@ index 277d286..f19d491 100644
  	private Packet_ServerChunk collectChunk(ServerChunk serverChunk, int chunkX, int chunkY, int chunkZ, ConnectedClient client, bool withEntities)
  	{
  		long num = server.WorldMap.ChunkIndex3D(chunkX, chunkY, chunkZ);
-@@ -290,7 +766,114 @@ internal class ServerSystemSendChunks : ServerSystem
+ 		client.SetChunkSent(num);
+ 		chunksSent++;
+ 		Dictionary<long, Packet_ServerChunk> dictionary = (withEntities ? packetsWithEntities : packetsWithoutEntities);
+ 		if (dictionary.TryGetValue(num, out var value))
  		{
  			return value;
  		}
@@ -727,3 +757,5 @@ index 277d286..f19d491 100644
  	}
  
  	public static string performanceTest(ServerMain server)
+ 	{
+ 		Stopwatch stopwatch = null;

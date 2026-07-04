@@ -2,7 +2,9 @@ diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemNotifyPing.cs b/Vin
 index 7229dd4..11131c5 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemNotifyPing.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemNotifyPing.cs
-@@ -10,6 +10,8 @@ public class ServerSystemNotifyPing : ServerSystem
+@@ -8,10 +8,12 @@ public class ServerSystemNotifyPing : ServerSystem
+ 	{
+ 		Interval = 1.0,
  		MaxDeltaTime = 5.0
  	};
  
@@ -11,7 +13,11 @@ index 7229dd4..11131c5 100644
  	public ServerSystemNotifyPing(ServerMain server)
  		: base(server)
  	{
-@@ -41,7 +43,8 @@ public class ServerSystemNotifyPing : ServerSystem
+ 		server.RegisterGameTickListener(OnEveryFewSeconds, 5000);
+ 		server.PacketHandlers[2] = HandlePingReply;
+@@ -39,11 +41,12 @@ public class ServerSystemNotifyPing : ServerSystem
+ 		if (server.exitState.Exit)
+ 		{
  			return;
  		}
  		long elapsedMilliseconds = server.totalUnpausedTime.ElapsedMilliseconds;
@@ -21,3 +27,5 @@ index 7229dd4..11131c5 100644
  		foreach (var (num2, connectedClient2) in server.Clients)
  		{
  			if (!connectedClient2.Ping.DidReplyOnLastPing)
+ 			{
+ 				if (connectedClient2.Ping.DidTimeout(elapsedMilliseconds) && !connectedClient2.IsSinglePlayerClient)
