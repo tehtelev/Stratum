@@ -20,6 +20,7 @@ internal static class StratumAnticheatReporter
 	private const string MovementType = "movement";
 	private const string CombatType = "combat";
 	private const string NoFallType = "no-fall";
+	private const string MultiBreakType = "multi-break";
 
 	private static readonly object Lock = new object();
 	private static readonly Dictionary<string, PlayerViolationState> PlayerViolations = new Dictionary<string, PlayerViolationState>(StringComparer.OrdinalIgnoreCase);
@@ -111,6 +112,44 @@ internal static class StratumAnticheatReporter
 			disconnectReason = string.IsNullOrWhiteSpace(config.EntityInteractionOutOfRange.KickMessage)
 				? "Disconnected by Stratum entity reach protection"
 				: config.EntityInteractionOutOfRange.KickMessage;
+			return true;
+		}
+
+		return false;
+	}
+
+	public static bool RecordMultiBreakViolation(ServerMain server, ServerPlayer player, BlockPos pos, int breaksInWindow, bool fingerprinted, out string disconnectReason)
+	{
+		disconnectReason = null;
+		if (server == null || player == null)
+		{
+			return false;
+		}
+
+		StratumRuntime.Config.EnsurePopulated();
+		StratumAnticheatConfig config = StratumRuntime.Config.Anticheat;
+		if (!config.Enabled || !config.MultiBreak.Enabled)
+		{
+			return false;
+		}
+
+		string detail = "broke " + breaksInWindow.ToString(CultureInfo.InvariantCulture) + " blocks in " + config.MultiBreak.WindowMs.ToString(CultureInfo.InvariantCulture) + "ms" + (fingerprinted ? " (all dead-centre hits)" : "") + (pos != null ? " near " + FormatBlockPos(pos) : "");
+		DateTime now = DateTime.UtcNow;
+		ViolationRecordResult result = RecordViolation(player, now, MultiBreakType, detail, config, config.MultiBreak);
+		if (result.ShouldAlert)
+		{
+			SendStaffAlert(server, player, "multi-break", pos, result.RollingCount, result.TotalCount, config.MultiBreak.AlertWindowSeconds);
+		}
+
+		// A dead-centre-hit burst is near-certain nuker, so it may kick on its own even while
+		// KickConfirmedCheats stays off; otherwise fall back to the usual monitor-first kick gate.
+		bool kickByFingerprint = fingerprinted && config.MultiBreak.KickOnFingerprint;
+		bool kickByCount = config.MultiBreak.KickConfirmedCheats && result.RollingCount >= config.MultiBreak.KickAfterViolations;
+		if (kickByFingerprint || kickByCount)
+		{
+			disconnectReason = string.IsNullOrWhiteSpace(config.MultiBreak.KickMessage)
+				? "Disconnected by Stratum multi-break protection"
+				: config.MultiBreak.KickMessage;
 			return true;
 		}
 

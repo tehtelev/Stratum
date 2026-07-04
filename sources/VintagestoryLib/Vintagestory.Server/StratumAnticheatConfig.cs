@@ -26,6 +26,8 @@ internal class StratumAnticheatConfig
 
 	public StratumNoFallAnticheatConfig NoFall { get; set; } = new StratumNoFallAnticheatConfig();
 
+	public StratumMultiBreakAnticheatConfig MultiBreak { get; set; } = new StratumMultiBreakAnticheatConfig();
+
 	public void EnsureSane()
 	{
 		MaxStoredViolationsPerPlayer = Math.Clamp(MaxStoredViolationsPerPlayer, 16, 2048);
@@ -37,6 +39,7 @@ internal class StratumAnticheatConfig
 		Movement ??= new StratumMovementAnticheatConfig();
 		Combat ??= new StratumCombatAnticheatConfig();
 		NoFall ??= new StratumNoFallAnticheatConfig();
+		MultiBreak ??= new StratumMultiBreakAnticheatConfig();
 		BlockEntityOutOfRange.EnsureSane();
 		BlockInteractionOutOfRange.EnsureSane();
 		EntityInteractionOutOfRange.EnsureSane();
@@ -44,6 +47,7 @@ internal class StratumAnticheatConfig
 		Movement.EnsureSane();
 		Combat.EnsureSane();
 		NoFall.EnsureSane();
+		MultiBreak.EnsureSane();
 	}
 }
 
@@ -303,5 +307,44 @@ internal class StratumNoFallAnticheatConfig : StratumAnticheatRuleConfig
 		MinDescentSpeed = Math.Clamp(MinDescentSpeed, 1.0, 30.0);
 		KickAfterViolations = Math.Clamp(KickAfterViolations, 3, 200);
 		KickMessage ??= "Disconnected by Stratum no-fall protection";
+	}
+}
+
+// Nuker / veinmine / multi-break
+internal class StratumMultiBreakAnticheatConfig : StratumAnticheatRuleConfig
+{
+	public StratumMultiBreakAnticheatConfig()
+	{
+		AlertAfterViolations = 2;
+		AlertWindowSeconds = 10;
+		RepeatAlertSeconds = 15;
+	}
+
+	public int WindowMs { get; set; } = 300;
+
+	public int MaxBreaksInWindow { get; set; } = 6;
+
+	// Cap on tracked positions per player so a huge radius nuke can't grow memory
+	public int MaxTrackedBreaks { get; set; } = 128;
+
+	// Off by default: monitor-only
+	public bool KickConfirmedCheats { get; set; } = false;
+
+	public int KickAfterViolations { get; set; } = 4;
+
+	public string KickMessage { get; set; } = "Disconnected by Stratum multi-break protection";
+
+	// when every hit lands dead-centre (0.5,0.5,0.5) can't come from a real raytrace, which always strikes a block surface. 
+	// Combined with the superhuman burst rate this is near-zero false-positive, so such a burst may kick immediately even while KickConfirmedCheats stays off.
+	public bool KickOnFingerprint { get; set; } = true;
+
+	public override void EnsureSane()
+	{
+		base.EnsureSane();
+		WindowMs = Math.Clamp(WindowMs, 50, 5000);
+		MaxBreaksInWindow = Math.Clamp(MaxBreaksInWindow, 3, 200);
+		MaxTrackedBreaks = Math.Clamp(MaxTrackedBreaks, MaxBreaksInWindow, 2048);
+		KickAfterViolations = Math.Clamp(KickAfterViolations, 2, 200);
+		KickMessage ??= "Disconnected by Stratum multi-break protection";
 	}
 }

@@ -101,6 +101,15 @@ internal sealed class StratumBlockBreakGuard
 		}
 
 		ServerPlayer player = client.Player;
+		long now = server.ElapsedMilliseconds;
+
+		// Nuker / veinmine check. Runs before the per-block progress checks below so it also catches bursts of instant-break blocks
+		// Only returns false when it has escalated to a kick
+		if (CheckMultiBreak(server, client, player, requestedSelection.Position, requestedSelection.HitPosition, now, out disconnectReason))
+		{
+			return false;
+		}
+
 		ItemSlot activeSlot = player.inventoryMgr.ActiveHotbarSlot;
 		float resistance = Math.Max(0f, block.GetResistance(server.BlockAccessor, requestedSelection.Position));
 		float damagePerSecond = CalculateDamagePerSecond(server, player, requestedSelection, block, activeSlot);
@@ -113,7 +122,6 @@ internal sealed class StratumBlockBreakGuard
 
 		string reason = null;
 		bool canLog = false;
-		long now = server.ElapsedMilliseconds;
 
 		lock (gate)
 		{
@@ -245,6 +253,51 @@ internal sealed class StratumBlockBreakGuard
 		}
 	}
 
+	// Flags a burst too many distinct break positions from one client inside the configured window. 
+	// Records one violation per burst, returns true only when the reporter escalates to a kick.
+	private bool CheckMultiBreak(ServerMain server, ConnectedClient client, ServerPlayer player, BlockPos pos, Vec3d hit, long now, out string disconnectReason)
+	{
+		disconnectReason = null;
+		StratumMultiBreakAnticheatConfig mb = StratumRuntime.Config.Anticheat.MultiBreak;
+		if (mb == null || !StratumRuntime.Config.Anticheat.Enabled || !mb.Enabled)
+		{
+			return false;
+		}
+
+		bool centerHit = IsCenterHit(hit);
+		int distinct;
+		int centerHits;
+		lock (gate)
+		{
+			ClientBreakState state = GetOrCreateState(client.Id);
+			distinct = state.RegisterRecentBreak(pos, centerHit, now, Math.Max(1, mb.WindowMs), mb.MaxTrackedBreaks);
+			if (distinct <= mb.MaxBreaksInWindow || now < state.MultiBreakCooldownUntilMs)
+			{
+				return false;
+			}
+
+			centerHits = state.CountCenterHits();
+
+			// One burst one violation, cool down and clear so the rest of the wave stays quiet.
+			state.MultiBreakCooldownUntilMs = now + Math.Max(1, mb.WindowMs);
+			state.ClearRecentBreaks();
+		}
+
+		bool fingerprinted = distinct > 0 && centerHits >= distinct;
+		return StratumAnticheatReporter.RecordMultiBreakViolation(server, player, pos, distinct, fingerprinted, out disconnectReason);
+	}
+
+	private static bool IsCenterHit(Vec3d hit)
+	{
+		if (hit == null)
+		{
+			return false;
+		}
+
+		const double t = 0.02;
+		return Math.Abs(hit.X - 0.5) < t && Math.Abs(hit.Y - 0.5) < t && Math.Abs(hit.Z - 0.5) < t;
+	}
+
 	private static Block GetBreakBlock(ServerMain server, BlockPos pos)
 	{
 		Block fluidLayerBlock = server.WorldMap.RelaxedBlockAccess.GetBlock(pos, 2);
@@ -303,9 +356,12 @@ internal sealed class StratumBlockBreakGuard
 	private sealed class ClientBreakState
 	{
 		private readonly Dictionary<BreakKey, RememberedBreak> rememberedBreaks = new Dictionary<BreakKey, RememberedBreak>();
+		private readonly List<RecentBreak> recentBreaks = new List<RecentBreak>();
 		private BlockPos position;
 		private int blockId;
 		private long lastViolationLogMs = long.MinValue;
+
+		public long MultiBreakCooldownUntilMs { get; set; }
 
 		public float RequiredResistance { get; set; }
 
@@ -315,11 +371,80 @@ internal sealed class StratumBlockBreakGuard
 
 		public long LastObservedMs { get; set; }
 
-		public long LeftMouseHeldSinceMs { get; set; } // Stratum: tracks when left-click started regardless of raytrace
+		public long LeftMouseHeldSinceMs { get; set; } // tracks when left-click started regardless of raytrace
 
 		public bool IsTracking(BlockPos pos, int forBlockId)
 		{
 			return position != null && position.Equals(pos) && blockId == forBlockId;
+		}
+
+		// Registers a break at pos and returns the number of distinct block positions broken within the last windowMs
+		public int RegisterRecentBreak(BlockPos pos, bool centerHit, long nowMs, int windowMs, int maxTracked)
+		{
+			int drop = 0;
+			while (drop < recentBreaks.Count && nowMs - recentBreaks[drop].Ms > windowMs)
+			{
+				drop++;
+			}
+
+			if (drop > 0)
+			{
+				recentBreaks.RemoveRange(0, drop);
+			}
+
+			bool already = false;
+			for (int i = 0; i < recentBreaks.Count; i++)
+			{
+				if (recentBreaks[i].X == pos.X && recentBreaks[i].Y == pos.Y && recentBreaks[i].Z == pos.Z)
+				{
+					already = true;
+					break;
+				}
+			}
+
+			if (!already && recentBreaks.Count < maxTracked)
+			{
+				recentBreaks.Add(new RecentBreak(nowMs, pos.X, pos.Y, pos.Z, centerHit));
+			}
+
+			return recentBreaks.Count;
+		}
+
+		public void ClearRecentBreaks()
+		{
+			recentBreaks.Clear();
+		}
+
+		public int CountCenterHits()
+		{
+			int count = 0;
+			for (int i = 0; i < recentBreaks.Count; i++)
+			{
+				if (recentBreaks[i].Center)
+				{
+					count++;
+				}
+			}
+
+			return count;
+		}
+
+		private readonly struct RecentBreak
+		{
+			public readonly long Ms;
+			public readonly int X;
+			public readonly int Y;
+			public readonly int Z;
+			public readonly bool Center;
+
+			public RecentBreak(long ms, int x, int y, int z, bool center)
+			{
+				Ms = ms;
+				X = x;
+				Y = y;
+				Z = z;
+				Center = center;
+			}
 		}
 
 		public void Start(BlockPos pos, int forBlockId, long nowMs, StratumBlockBreakGuardsConfig config)
