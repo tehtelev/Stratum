@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
@@ -14,8 +15,10 @@ internal static class StratumAnticheatReporter
 {
 	private const string BlockEntityOutOfRangeType = "block-entity-range";
 	private const string BlockInteractionOutOfRangeType = "block-interaction-range";
+	private const string EntityInteractionOutOfRangeType = "entity-interaction-range";
 	private const string BlockBreakProgressType = "block-break-progress";
 	private const string MovementType = "movement";
+	private const string CombatType = "combat";
 
 	private static readonly object Lock = new object();
 	private static readonly Dictionary<string, PlayerViolationState> PlayerViolations = new Dictionary<string, PlayerViolationState>(StringComparer.OrdinalIgnoreCase);
@@ -71,6 +74,42 @@ internal static class StratumAnticheatReporter
 			disconnectReason = string.IsNullOrWhiteSpace(config.BlockInteractionOutOfRange.KickMessage)
 				? "Disconnected by Stratum block reach protection"
 				: config.BlockInteractionOutOfRange.KickMessage;
+			return true;
+		}
+
+		return false;
+	}
+
+	public static bool RecordEntityInteractionOutOfRange(ServerMain server, ServerPlayer player, Entity target, double distance, double maxRange, out string disconnectReason)
+	{
+		disconnectReason = null;
+		if (server == null || player == null || target?.Pos == null)
+		{
+			return false;
+		}
+
+		StratumRuntime.Config.EnsurePopulated();
+		StratumAnticheatConfig config = StratumRuntime.Config.Anticheat;
+		if (!config.Enabled || !config.EntityInteractionOutOfRange.Enabled)
+		{
+			return false;
+		}
+
+		BlockPos pos = target.Pos.AsBlockPos;
+		string who = target.Code?.ToString() ?? target.EntityId.ToString(CultureInfo.InvariantCulture);
+		string detail = "entity " + who + " at " + FormatBlockPos(pos) + " distance=" + distance.ToString("0.##", CultureInfo.InvariantCulture) + "/" + maxRange.ToString("0.##", CultureInfo.InvariantCulture);
+		DateTime now = DateTime.UtcNow;
+		ViolationRecordResult result = RecordViolation(player, now, EntityInteractionOutOfRangeType, detail, config, config.EntityInteractionOutOfRange);
+		if (result.ShouldAlert)
+		{
+			SendStaffAlert(server, player, "survival entity reach", pos, result.RollingCount, result.TotalCount, config.EntityInteractionOutOfRange.AlertWindowSeconds);
+		}
+
+		if (config.EntityInteractionOutOfRange.KickConfirmedCheats && result.RollingCount >= config.EntityInteractionOutOfRange.KickAfterViolations)
+		{
+			disconnectReason = string.IsNullOrWhiteSpace(config.EntityInteractionOutOfRange.KickMessage)
+				? "Disconnected by Stratum entity reach protection"
+				: config.EntityInteractionOutOfRange.KickMessage;
 			return true;
 		}
 
@@ -139,6 +178,40 @@ internal static class StratumAnticheatReporter
 			disconnectReason = string.IsNullOrWhiteSpace(config.Movement.KickMessage)
 				? "Disconnected by Stratum movement protection"
 				: config.Movement.KickMessage;
+			return true;
+		}
+
+		return false;
+	}
+
+	public static bool RecordCombatViolation(ServerMain server, ServerPlayer player, BlockPos pos, string reason, out string disconnectReason)
+	{
+		disconnectReason = null;
+		if (server == null || player == null)
+		{
+			return false;
+		}
+
+		StratumRuntime.Config.EnsurePopulated();
+		StratumAnticheatConfig config = StratumRuntime.Config.Anticheat;
+		if (!config.Enabled || !config.Combat.Enabled)
+		{
+			return false;
+		}
+
+		string detail = string.IsNullOrWhiteSpace(reason) ? "combat" : reason;
+		DateTime now = DateTime.UtcNow;
+		ViolationRecordResult result = RecordViolation(player, now, CombatType, detail, config, config.Combat);
+		if (result.ShouldAlert)
+		{
+			SendStaffAlert(server, player, "combat", pos, result.RollingCount, result.TotalCount, config.Combat.AlertWindowSeconds);
+		}
+
+		if (config.Combat.KickConfirmedCheats && result.RollingCount >= config.Combat.KickAfterViolations)
+		{
+			disconnectReason = string.IsNullOrWhiteSpace(config.Combat.KickMessage)
+				? "Disconnected by Stratum combat protection"
+				: config.Combat.KickMessage;
 			return true;
 		}
 
@@ -250,6 +323,8 @@ internal static class StratumAnticheatReporter
 				return "Block break timing";
 			case MovementType:
 				return "Movement";
+			case CombatType:
+				return "Combat";
 			default:
 				return string.IsNullOrWhiteSpace(type) ? "Unknown" : type;
 		}
@@ -290,6 +365,20 @@ internal static class StratumAnticheatReporter
 		{
 			return "sent a block entity packet too far away at " + detail;
 		}
+
+				if (entry.Type == CombatType)
+		{
+			if (detail.StartsWith("aura:", StringComparison.OrdinalIgnoreCase))
+			{
+				return "attacked several entities at once (" + detail + ")";
+			}
+
+			if (detail.StartsWith("aim:", StringComparison.OrdinalIgnoreCase))
+			{
+				return "attacked an entity outside their aim (" + detail + ")";
+			}
+		}
+
 
 		return detail;
 	}

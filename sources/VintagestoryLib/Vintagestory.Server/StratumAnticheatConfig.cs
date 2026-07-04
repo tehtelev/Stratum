@@ -16,9 +16,13 @@ internal class StratumAnticheatConfig
 
 	public StratumBlockInteractionOutOfRangeAnticheatConfig BlockInteractionOutOfRange { get; set; } = new StratumBlockInteractionOutOfRangeAnticheatConfig();
 
+	public StratumEntityInteractionOutOfRangeAnticheatConfig EntityInteractionOutOfRange { get; set; } = new StratumEntityInteractionOutOfRangeAnticheatConfig();
+
 	public StratumBlockBreakProgressAnticheatConfig BlockBreakProgress { get; set; } = new StratumBlockBreakProgressAnticheatConfig();
 
 	public StratumMovementAnticheatConfig Movement { get; set; } = new StratumMovementAnticheatConfig();
+	
+	public StratumCombatAnticheatConfig Combat { get; set; } = new StratumCombatAnticheatConfig();
 
 	public void EnsureSane()
 	{
@@ -26,12 +30,16 @@ internal class StratumAnticheatConfig
 		KeepPlayerViolationsMinutes = Math.Clamp(KeepPlayerViolationsMinutes, 5, 1440);
 		BlockEntityOutOfRange ??= new StratumBlockEntityOutOfRangeAnticheatConfig();
 		BlockInteractionOutOfRange ??= new StratumBlockInteractionOutOfRangeAnticheatConfig();
+		EntityInteractionOutOfRange ??= new StratumEntityInteractionOutOfRangeAnticheatConfig();
 		BlockBreakProgress ??= new StratumBlockBreakProgressAnticheatConfig();
 		Movement ??= new StratumMovementAnticheatConfig();
+		Combat ??= new StratumCombatAnticheatConfig();
 		BlockEntityOutOfRange.EnsureSane();
 		BlockInteractionOutOfRange.EnsureSane();
+		EntityInteractionOutOfRange.EnsureSane();
 		BlockBreakProgress.EnsureSane();
 		Movement.EnsureSane();
+		Combat.EnsureSane();
 	}
 }
 
@@ -73,6 +81,27 @@ internal class StratumBlockInteractionOutOfRangeAnticheatConfig : StratumAntiche
 		RangeSlack = Math.Clamp(RangeSlack, 0, 4);
 		KickAfterViolations = Math.Clamp(KickAfterViolations, 2, 100);
 		KickMessage ??= "Disconnected by Stratum block reach protection";
+	}
+}
+
+// Reach on entity interactions (right-click: feed/trade/mount/melee). Same shape as block reach.
+// A slightly larger default slack absorbs the extra jitter of a moving target under lag.
+internal class StratumEntityInteractionOutOfRangeAnticheatConfig : StratumAnticheatRuleConfig
+{
+	public double RangeSlack { get; set; } = 1.0;
+
+	public bool KickConfirmedCheats { get; set; } = true;
+
+	public int KickAfterViolations { get; set; } = 3;
+
+	public string KickMessage { get; set; } = "Disconnected by Stratum entity reach protection";
+
+	public override void EnsureSane()
+	{
+		base.EnsureSane();
+		RangeSlack = Math.Clamp(RangeSlack, 0, 4);
+		KickAfterViolations = Math.Clamp(KickAfterViolations, 2, 100);
+		KickMessage ??= "Disconnected by Stratum entity reach protection";
 	}
 }
 
@@ -187,5 +216,59 @@ internal class StratumMovementAnticheatConfig : StratumAnticheatRuleConfig
 		GroundContactTolerance = Math.Clamp(GroundContactTolerance, 0.005, 0.2);
 		NoclipConsecutiveTicks = Math.Clamp(NoclipConsecutiveTicks, 2, 40);
 		KickMessage ??= "Disconnected by Stratum movement protection";
+	}
+}
+
+internal class StratumCombatAnticheatConfig : StratumAnticheatRuleConfig
+{
+	public StratumCombatAnticheatConfig()
+	{
+		// Aura hits arrive in fast bursts. Alert quickly but keep a little room for a burst of
+		// legitimate melee against a mob pile.
+		AlertAfterViolations = 6;
+		AlertWindowSeconds = 6;
+		RepeatAlertSeconds = 15;
+	}
+
+	// Attacking several distinct entities in a tiny window is physically impossible with a real
+	// client (one target per swing, one crosshair). This is the highest-confidence signal here.
+	public bool DetectMultiTarget { get; set; } = true;
+
+	public int MultiTargetWindowMs { get; set; } = 400;
+
+	public int MultiTargetThreshold { get; set; } = 3;
+
+	// Flags an attack whose target sits outside the player's aim cone. Kept generous so ordinary
+	// aiming plus lag never trips it; the point is to catch hits landed on entities beside or
+	// behind the player, which only an aura does.
+	public bool DetectAimCone { get; set; } = true;
+
+	public double MaxAttackAngleDegrees { get; set; } = 75.0;
+
+	// Skip the cone test when the target is basically touching the player, where the geometry of a
+	// large hitbox makes the angle meaningless.
+	public double MinAngleCheckDistance { get; set; } = 1.5;
+
+	// Combat heuristics start as monitor-only. Turn this on once a server has watched the
+	// /stratum ac combat data and is comfortable the false-positive rate is zero.
+	public bool KickConfirmedCheats { get; set; } = false;
+
+	public int KickAfterViolations { get; set; } = 12;
+
+	public string KickMessage { get; set; } = "Disconnected by Stratum combat protection";
+
+	// When on, a flagged hit is dropped instead of applied. Off by default so v1 never changes the
+	// outcome of any hit; a real client can't trigger these checks anyway.
+	public bool CancelFlaggedHits { get; set; } = false;
+
+	public override void EnsureSane()
+	{
+		base.EnsureSane();
+		MultiTargetWindowMs = Math.Clamp(MultiTargetWindowMs, 50, 5000);
+		MultiTargetThreshold = Math.Clamp(MultiTargetThreshold, 2, 20);
+		MaxAttackAngleDegrees = Math.Clamp(MaxAttackAngleDegrees, 30.0, 180.0);
+		MinAngleCheckDistance = Math.Clamp(MinAngleCheckDistance, 0.0, 8.0);
+		KickAfterViolations = Math.Clamp(KickAfterViolations, 3, 1000);
+		KickMessage ??= "Disconnected by Stratum combat protection";
 	}
 }
