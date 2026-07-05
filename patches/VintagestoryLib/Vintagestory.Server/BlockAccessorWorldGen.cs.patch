@@ -1,69 +1,8 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/BlockAccessorWorldGen.cs b/VintagestoryLib/Vintagestory.Server/BlockAccessorWorldGen.cs
-index 33c394d..60df24a 100644
+index 33c394d..6c3601a 100644
 --- a/VintagestoryLib/Vintagestory.Server/BlockAccessorWorldGen.cs
 +++ b/VintagestoryLib/Vintagestory.Server/BlockAccessorWorldGen.cs
-@@ -54,38 +54,32 @@ public class BlockAccessorWorldGen : BlockAccessorBase, IWorldGenBlockAccessor,
- 			serverMapChunk.ScheduledBlockLightUpdates = new List<Vec4i>();
- 		}
- 		serverMapChunk.ScheduledBlockLightUpdates.Add(new Vec4i(pos, newBlockId));
- 	}
- 
--	public void RunScheduledBlockLightUpdates(int chunkx, int chunkz)
--	{
--		ServerMapChunk serverMapChunk = (ServerMapChunk)GetMapChunk(chunkx, chunkz);
--		if (serverMapChunk == null)
--		{
--			ServerMain.Logger.Worldgen("Mapchunk was null when attempting scheduled blocklight updates at " + chunkx + "," + chunkz);
--			return;
--		}
--		List<Vec4i> scheduledBlockLightUpdates = serverMapChunk.ScheduledBlockLightUpdates;
--		if (scheduledBlockLightUpdates == null || scheduledBlockLightUpdates.Count == 0)
--		{
--			return;
--		}
--		BlockPos blockPos = new BlockPos(0);
--		foreach (Vec4i item in scheduledBlockLightUpdates)
--		{
--			Block block = server.Blocks[item.W];
--			blockPos.SetAndCorrectDimension(item.X, item.Y, item.Z);
--			byte[] lightHsv = block.GetLightHsv(this, blockPos);
--			if (lightHsv[2] > 0)
--			{
--				server.WorldMap.chunkIlluminatorWorldGen.PlaceBlockLight(lightHsv, blockPos.X, blockPos.InternalY, blockPos.Z);
--			}
--		}
--		serverMapChunk.ScheduledBlockLightUpdates = null;
--	}
--
--	public void ScheduleBlockUpdate(BlockPos pos)
-+    public void RunScheduledBlockLightUpdates(int chunkx, int chunkz)
-+    {
-+        ServerMapChunk serverMapChunk = (ServerMapChunk)GetMapChunk(chunkx, chunkz);
-+        if (serverMapChunk == null)
-+        {
-+            ServerMain.Logger.Worldgen("Mapchunk was null when attempting scheduled blocklight updates at " + chunkx + "," + chunkz);
-+            return;
-+        }
-+        // Stratum start:
-+        // We move the processing of light sources inside the chunilluminator method
-+
-+        List<Vec4i> scheduledBlockLightUpdates = serverMapChunk.ScheduledBlockLightUpdates;
-+        if (scheduledBlockLightUpdates == null || scheduledBlockLightUpdates.Count == 0)
-+            return;
-+
-+        server.WorldMap.chunkIlluminatorWorldGen.ProcessScheduledBlockLightUpdates(scheduledBlockLightUpdates);
-+
-+        // Stratum end.
-+        serverMapChunk.ScheduledBlockLightUpdates = null;
-+    } 
-+    
-+    public void ScheduleBlockUpdate(BlockPos pos)
- 	{
- 		ChunkColumnLoadRequest chunkRequestAtPos = chunkdbthread.GetChunkRequestAtPos(pos.X, pos.Z);
- 		if (chunkRequestAtPos?.MapChunk != null)
- 		{
- 			chunkRequestAtPos.MapChunk.ScheduledBlockUpdates.Add(pos.Copy());
-@@ -133,22 +127,25 @@ public class BlockAccessorWorldGen : BlockAccessorBase, IWorldGenBlockAccessor,
+@@ -133,22 +133,25 @@ public class BlockAccessorWorldGen : BlockAccessorBase, IWorldGenBlockAccessor,
  		return chunkdbthread.GetMapRegion(regionX, regionZ);
  	}
  
@@ -92,7 +31,7 @@ index 33c394d..60df24a 100644
  			{
  				serverChunk.Unpack();
  				cachedChunkIndex3d = num;
-@@ -159,11 +156,11 @@ public class BlockAccessorWorldGen : BlockAccessorBase, IWorldGenBlockAccessor,
+@@ -159,11 +162,11 @@ public class BlockAccessorWorldGen : BlockAccessorBase, IWorldGenBlockAccessor,
  		{
  			return serverChunk.Data.GetBlockId(worldmap.ChunkSizedIndex3D(posX & MagicNum.ServerChunkSizeMask, posY & MagicNum.ServerChunkSizeMask, posZ & MagicNum.ServerChunkSizeMask), layer);
  		}
@@ -105,7 +44,7 @@ index 33c394d..60df24a 100644
  		else
  		{
  			ServerMain.Logger.Notification("Tried to get block outside generating chunks! Set RuntimeEnv.DebugOutOfRangeBlockAccess to debug.");
-@@ -220,21 +217,22 @@ public class BlockAccessorWorldGen : BlockAccessorBase, IWorldGenBlockAccessor,
+@@ -220,21 +223,22 @@ public class BlockAccessorWorldGen : BlockAccessorBase, IWorldGenBlockAccessor,
  	}
  
  	protected int SetSolidBlock(ServerChunk chunk, BlockPos pos, Block newBlock, int blockId)
