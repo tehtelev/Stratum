@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 
 namespace Vintagestory.Server;
@@ -72,6 +73,11 @@ internal static class StratumMovementGuard
 		if (groundContact)
 		{
 			state.LastGroundContactMs = now;
+		}
+
+		if (CheckNoFall(server, player, entity, feetCell, state, groundContact, now, out disconnectReason))
+		{
+			return false;
 		}
 
 		bool supported = IsSupported(server, entity, feetCell, config, groundContact);
@@ -157,9 +163,108 @@ internal static class StratumMovementGuard
 			}
 		}
 
+		// step-height + acceleration, both position-derived
+		if (CheckMovementAuthority(server, player, entity, feetCell, state, groundContact, now, out disconnectReason))
+		{
+			return false;
+		}
+		UpdateAuthorityState(state, entity, now, groundContact);
+
 		state.HasLastY = true;
 		state.LastY = entity.Pos.Y;
 		return true;
+	}
+
+	private static bool CheckMovementAuthority(ServerMain server, ServerPlayer player, EntityPlayer entity, BlockPos feetCell, MoveState state, bool groundContact, long now, out string disconnectReason)
+	{
+		disconnectReason = null;
+		StratumMovementAuthorityAnticheatConfig cfg = StratumRuntime.Config.Anticheat.MovementAuthority;
+		if (cfg == null || !StratumRuntime.Config.Anticheat.Enabled || !cfg.Enabled || !state.HasPrevAuth || entity.MountedOn != null)
+		{
+			return false;
+		}
+
+		double dx = entity.Pos.X - state.PrevX;
+		double dy = entity.Pos.Y - state.PrevY;
+		double dz = entity.Pos.Z - state.PrevZ;
+		double horiz = Math.Sqrt(dx * dx + dz * dz);
+		double dt = Math.Max(0.02, (now - state.PrevMs) / 1000.0);
+
+		string reason = null;
+
+		// Step-height, rose more than a legal step between two consecutive on-ground packets while barely moving horizontally (stepped straight up in place, no jump)
+		if (cfg.DetectStepHeight
+			&& groundContact && state.PrevGrounded
+			&& dy > cfg.MaxStepHeightBlocks
+			&& horiz <= cfg.StepMaxHorizontalBlocks
+			&& !FeetClimbableOrLiquid(server, feetCell))
+		{
+			reason = $"step-height: rose {dy:0.##} blocks on ground, no jump";
+		}
+
+		// horizontal speed jumped suddenly to a high value in one packet, a blink that stays under the peak speed cap.
+		if (reason == null && cfg.DetectAcceleration && horiz >= 0.75)
+		{
+			double vH = horiz / dt;
+			double jump = vH - state.PrevHorizVel;
+			if (jump >= cfg.MaxSpeedJumpBlocksPerSecond && vH >= cfg.MinFlaggedSpeed)
+			{
+				reason = $"acceleration: horizontal speed jumped {jump:0.#} to {vH:0.#} b/s";
+			}
+		}
+
+		if (reason == null)
+		{
+			return false;
+		}
+
+		return StratumAnticheatReporter.RecordMovementAuthorityViolation(server, player, entity.Pos.AsBlockPos, reason, out disconnectReason);
+	}
+
+	private static void UpdateAuthorityState(MoveState state, EntityPlayer entity, long now, bool groundContact)
+	{
+		if (state.HasPrevAuth)
+		{
+			double dx = entity.Pos.X - state.PrevX;
+			double dz = entity.Pos.Z - state.PrevZ;
+			double dt = Math.Max(0.02, (now - state.PrevMs) / 1000.0);
+			state.PrevHorizVel = Math.Sqrt(dx * dx + dz * dz) / dt;
+		}
+		else
+		{
+			state.PrevHorizVel = 0;
+		}
+
+		state.PrevX = entity.Pos.X;
+		state.PrevY = entity.Pos.Y;
+		state.PrevZ = entity.Pos.Z;
+		state.PrevMs = now;
+		state.PrevGrounded = groundContact;
+		state.HasPrevAuth = true;
+	}
+
+	private static bool FeetClimbableOrLiquid(ServerMain server, BlockPos feetCell)
+	{
+		var blocks = server.WorldMap.RelaxedBlockAccess;
+		int feetY = feetCell.Y;
+		BlockPos probe = feetCell.Copy();
+		for (int d = -1; d <= 1; d++)
+		{
+			probe.Y = feetY + d;
+			Block b = blocks.GetBlock(probe);
+			if (b != null && b.Climbable)
+			{
+				return true;
+			}
+
+			Block fluid = blocks.GetBlock(probe, 2);
+			if (fluid != null && fluid.IsLiquid())
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private static void ResetAirborne(MoveState state)
@@ -407,6 +512,125 @@ internal static class StratumMovementGuard
 		return false;
 	}
 
+	private static bool CheckNoFall(ServerMain server, ServerPlayer player, EntityPlayer entity, BlockPos feetCell, MoveState state, bool groundContact, long now, out string disconnectReason)
+	{
+		disconnectReason = null;
+
+		StratumNoFallAnticheatConfig config = StratumRuntime.Config.Anticheat.NoFall;
+		if (config == null || !config.Enabled || entity.Properties == null || !entity.Properties.FallDamage)
+		{
+			state.TrackingGround = false;
+			return false;
+		}
+
+		float health = ReadHealth(entity);
+
+		if (!groundContact)
+		{
+			// Airborne, track the fall peak and note anything that would legitimately cushion it.
+			if (state.TrackingGround)
+			{
+				if (entity.Pos.Y > state.FallPeakY)
+				{
+					state.FallPeakY = entity.Pos.Y;
+				}
+
+				if (entity.Controls != null && entity.Controls.Gliding)
+				{
+					state.TouchedGlideSinceGround = true;
+				}
+
+				if (!state.TouchedLiquidSinceGround && FeetInLiquid(server, feetCell))
+				{
+					state.TouchedLiquidSinceGround = true;
+				}
+			}
+
+			return false;
+		}
+
+		// Landed on solid ground, evaluate the fall that just completed, then reset the baseline.
+		bool kick = false;
+		if (state.TrackingGround)
+		{
+			double descent = state.FallPeakY - entity.Pos.Y;
+			double seconds = Math.Max(0.05, (now - state.GroundedMs) / 1000.0);
+			double speed = descent / seconds;
+			bool healthKnown = health >= 0f && state.HealthWhenGrounded >= 0f;
+			bool healthPreserved = healthKnown && health >= state.HealthWhenGrounded - 0.001f;
+
+			if (descent >= config.MinFallBlocks
+				&& speed >= config.MinDescentSpeed
+				&& !state.TouchedGlideSinceGround
+				&& !state.TouchedLiquidSinceGround
+				&& healthPreserved
+				&& !LiquidInColumn(server, entity, feetCell, state.FallPeakY))
+			{
+				kick = StratumAnticheatReporter.RecordNoFallViolation(server, player, feetCell, descent, out disconnectReason);
+			}
+		}
+
+		state.TrackingGround = true;
+		state.FallPeakY = entity.Pos.Y;
+		state.GroundedMs = now;
+		state.HealthWhenGrounded = health;
+		state.TouchedLiquidSinceGround = false;
+		state.TouchedGlideSinceGround = false;
+
+		return kick;
+	}
+
+	private static float ReadHealth(EntityPlayer entity)
+	{
+		ITreeAttribute tree = entity.WatchedAttributes?.GetTreeAttribute("health");
+		return tree?.GetFloat("currenthealth", -1f) ?? -1f;
+	}
+
+	private static bool FeetInLiquid(ServerMain server, BlockPos feetCell)
+	{
+		var blocks = server.WorldMap.RelaxedBlockAccess;
+		Block feet = blocks.GetBlock(feetCell, 2);
+		if (feet != null && feet.IsLiquid())
+		{
+			return true;
+		}
+
+		BlockPos below = feetCell.Copy();
+		below.Y--;
+		Block b = blocks.GetBlock(below, 2);
+		return b != null && b.IsLiquid();
+	}
+
+	// Any liquid in the landing column up to the fall peak means water broke the fall - exempt.
+	private static bool LiquidInColumn(ServerMain server, EntityPlayer entity, BlockPos feetCell, double peakY)
+	{
+		int count = (int)Math.Ceiling(peakY - entity.Pos.Y);
+		if (count <= 0)
+		{
+			return false;
+		}
+
+		if (count > 64)
+		{
+			count = 64;
+		}
+
+		var blocks = server.WorldMap.RelaxedBlockAccess;
+		BlockPos probe = feetCell.Copy();
+		int baseY = feetCell.Y;
+		for (int d = 0; d <= count; d++)
+		{
+			probe.Y = baseY + d;
+			Block b = blocks.GetBlock(probe, 2);
+			if (b != null && b.IsLiquid())
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	private sealed class MoveState
 	{
 		public bool Airborne;
@@ -423,5 +647,22 @@ internal static class StratumMovementGuard
 		public double SafeX;
 		public double SafeY;
 		public double SafeZ;
+
+		// NoFall tracking.
+		public bool TrackingGround;
+		public double FallPeakY;
+		public long GroundedMs;
+		public float HealthWhenGrounded;
+		public bool TouchedLiquidSinceGround;
+		public bool TouchedGlideSinceGround;
+
+		// Movement authority (step-height / acceleration)
+		public bool HasPrevAuth;
+		public double PrevX;
+		public double PrevY;
+		public double PrevZ;
+		public long PrevMs;
+		public double PrevHorizVel;
+		public bool PrevGrounded;
 	}
 }

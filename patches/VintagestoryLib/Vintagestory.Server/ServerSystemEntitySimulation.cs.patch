@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
-index 750557a..d7950fd 100644
+index 750557a..5cb19d7 100644
 --- a/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ServerSystemEntitySimulation.cs
 @@ -1,8 +1,12 @@
@@ -637,7 +637,7 @@ index 750557a..d7950fd 100644
  		}
  		ServerMain.FrameProfiler.Enter("despawning");
  		foreach (KeyValuePair<Entity, EntityDespawnData> item in list)
-@@ -222,27 +680,799 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -222,27 +680,808 @@ public class ServerSystemEntitySimulation : ServerSystem
  			server.DespawnEntity(item.Key, item.Value);
  			ServerMain.FrameProfiler.Mark("despawned-", item.Key.Code.Path);
  		}
@@ -1426,6 +1426,15 @@ index 750557a..d7950fd 100644
 +			ServerMain.Logger.Debug("HandleEntityInteraction received from client " + client.PlayerName + " but no such entity found!");
 +			return;
 +		}
++		// Stratum: unified survival interaction reach (shares StratumReach with block reach).
++		if (!StratumEntityReachGuard.TryAcceptEntityInteract(server, client, entity, out string stratumEntityReachDisconnect))
++		{
++			if (stratumEntityReachDisconnect != null)
++			{
++				server.DisconnectPlayer(client, null, stratumEntityReachDisconnect);
++			}
++			return;
++		}
 +		EntityPos playerPos = player.Entity.Pos;
 +		double pickingRange = player.WorldData.PickingRange + 10f;
 +		double entityDx = entity.Pos.X - playerPos.X;
@@ -1441,7 +1450,7 @@ index 750557a..d7950fd 100644
  		ItemStack itemStack = client.Player.InventoryManager?.ActiveHotbarSlot?.Itemstack;
  		float num = itemStack?.Collectible.GetAttackRange(itemStack) ?? GlobalConstants.DefaultAttackRange;
  		double x = pos.X + client.Entityplayer.LocalEyePos.X;
-@@ -390,11 +1620,20 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -390,11 +1629,20 @@ public class ServerSystemEntitySimulation : ServerSystem
  	{
  		if (deathMessagesCache == null)
  		{
@@ -1463,7 +1472,7 @@ index 750557a..d7950fd 100644
  			return;
  		}
  		int num = server.SaveGameData?.WorldConfiguration.GetString("playerlives", "-1").ToInt(-1) ?? (-1);
-@@ -428,10 +1667,11 @@ public class ServerSystemEntitySimulation : ServerSystem
+@@ -428,10 +1676,11 @@ public class ServerSystemEntitySimulation : ServerSystem
  			else
  			{
  				ServerMain.Logger.Audit(Lang.Get("{0} died. Death message: {1}", item.PlayerName, text));
