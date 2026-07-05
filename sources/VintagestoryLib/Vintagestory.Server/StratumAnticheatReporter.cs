@@ -21,6 +21,7 @@ internal static class StratumAnticheatReporter
 	private const string CombatType = "combat";
 	private const string NoFallType = "no-fall";
 	private const string MultiBreakType = "multi-break";
+	private const string MovementAuthorityType = "movement-authority";
 
 	private static readonly object Lock = new object();
 	private static readonly Dictionary<string, PlayerViolationState> PlayerViolations = new Dictionary<string, PlayerViolationState>(StringComparer.OrdinalIgnoreCase);
@@ -112,6 +113,45 @@ internal static class StratumAnticheatReporter
 			disconnectReason = string.IsNullOrWhiteSpace(config.EntityInteractionOutOfRange.KickMessage)
 				? "Disconnected by Stratum entity reach protection"
 				: config.EntityInteractionOutOfRange.KickMessage;
+			return true;
+		}
+
+		return false;
+	}
+
+	public static bool RecordMovementAuthorityViolation(ServerMain server, ServerPlayer player, BlockPos pos, string reason, out string disconnectReason)
+	{
+		disconnectReason = null;
+		if (server == null || player == null)
+		{
+			return false;
+		}
+
+		StratumRuntime.Config.EnsurePopulated();
+		StratumAnticheatConfig config = StratumRuntime.Config.Anticheat;
+		if (!config.Enabled || !config.MovementAuthority.Enabled)
+		{
+			return false;
+		}
+
+		string detail = string.IsNullOrWhiteSpace(reason) ? "movement authority" : reason;
+		if (pos != null)
+		{
+			detail += " at " + FormatBlockPos(pos);
+		}
+
+		DateTime now = DateTime.UtcNow;
+		ViolationRecordResult result = RecordViolation(player, now, MovementAuthorityType, detail, config, config.MovementAuthority);
+		if (result.ShouldAlert)
+		{
+			SendStaffAlert(server, player, "movement authority", pos, result.RollingCount, result.TotalCount, config.MovementAuthority.AlertWindowSeconds);
+		}
+
+		if (config.MovementAuthority.KickConfirmedCheats && result.RollingCount >= config.MovementAuthority.KickAfterViolations)
+		{
+			disconnectReason = string.IsNullOrWhiteSpace(config.MovementAuthority.KickMessage)
+				? "Disconnected by Stratum movement protection"
+				: config.MovementAuthority.KickMessage;
 			return true;
 		}
 

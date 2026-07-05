@@ -28,6 +28,8 @@ internal class StratumAnticheatConfig
 
 	public StratumMultiBreakAnticheatConfig MultiBreak { get; set; } = new StratumMultiBreakAnticheatConfig();
 
+	public StratumMovementAuthorityAnticheatConfig MovementAuthority { get; set; } = new StratumMovementAuthorityAnticheatConfig();
+
 	public void EnsureSane()
 	{
 		MaxStoredViolationsPerPlayer = Math.Clamp(MaxStoredViolationsPerPlayer, 16, 2048);
@@ -40,6 +42,7 @@ internal class StratumAnticheatConfig
 		Combat ??= new StratumCombatAnticheatConfig();
 		NoFall ??= new StratumNoFallAnticheatConfig();
 		MultiBreak ??= new StratumMultiBreakAnticheatConfig();
+		MovementAuthority ??= new StratumMovementAuthorityAnticheatConfig();
 		BlockEntityOutOfRange.EnsureSane();
 		BlockInteractionOutOfRange.EnsureSane();
 		EntityInteractionOutOfRange.EnsureSane();
@@ -48,6 +51,46 @@ internal class StratumAnticheatConfig
 		Combat.EnsureSane();
 		NoFall.EnsureSane();
 		MultiBreak.EnsureSane();
+		MovementAuthority.EnsureSane();
+	}
+}
+
+internal class StratumMovementAuthorityAnticheatConfig : StratumAnticheatRuleConfig
+{
+	public StratumMovementAuthorityAnticheatConfig()
+	{
+		AlertAfterViolations = 6;
+		AlertWindowSeconds = 10;
+		RepeatAlertSeconds = 15;
+	}
+
+	public bool DetectStepHeight { get; set; } = true;
+
+	public double MaxStepHeightBlocks { get; set; } = 1.3;
+
+	public double StepMaxHorizontalBlocks { get; set; } = 1.5;
+
+	public bool DetectAcceleration { get; set; } = true;
+
+	public double MaxSpeedJumpBlocksPerSecond { get; set; } = 16.0;
+
+	public double MinFlaggedSpeed { get; set; } = 12.0;
+
+	public bool KickConfirmedCheats { get; set; } = false;
+
+	public int KickAfterViolations { get; set; } = 8;
+
+	public string KickMessage { get; set; } = "Disconnected by Stratum movement protection";
+
+	public override void EnsureSane()
+	{
+		base.EnsureSane();
+		MaxStepHeightBlocks = Math.Clamp(MaxStepHeightBlocks, 1.05, 8.0);
+		StepMaxHorizontalBlocks = Math.Clamp(StepMaxHorizontalBlocks, 0.3, 8.0);
+		MaxSpeedJumpBlocksPerSecond = Math.Clamp(MaxSpeedJumpBlocksPerSecond, 4.0, 200.0);
+		MinFlaggedSpeed = Math.Clamp(MinFlaggedSpeed, 4.0, 200.0);
+		KickAfterViolations = Math.Clamp(KickAfterViolations, 3, 200);
+		KickMessage ??= "Disconnected by Stratum movement protection";
 	}
 }
 

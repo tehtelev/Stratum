@@ -163,9 +163,108 @@ internal static class StratumMovementGuard
 			}
 		}
 
+		// step-height + acceleration, both position-derived
+		if (CheckMovementAuthority(server, player, entity, feetCell, state, groundContact, now, out disconnectReason))
+		{
+			return false;
+		}
+		UpdateAuthorityState(state, entity, now, groundContact);
+
 		state.HasLastY = true;
 		state.LastY = entity.Pos.Y;
 		return true;
+	}
+
+	private static bool CheckMovementAuthority(ServerMain server, ServerPlayer player, EntityPlayer entity, BlockPos feetCell, MoveState state, bool groundContact, long now, out string disconnectReason)
+	{
+		disconnectReason = null;
+		StratumMovementAuthorityAnticheatConfig cfg = StratumRuntime.Config.Anticheat.MovementAuthority;
+		if (cfg == null || !StratumRuntime.Config.Anticheat.Enabled || !cfg.Enabled || !state.HasPrevAuth || entity.MountedOn != null)
+		{
+			return false;
+		}
+
+		double dx = entity.Pos.X - state.PrevX;
+		double dy = entity.Pos.Y - state.PrevY;
+		double dz = entity.Pos.Z - state.PrevZ;
+		double horiz = Math.Sqrt(dx * dx + dz * dz);
+		double dt = Math.Max(0.02, (now - state.PrevMs) / 1000.0);
+
+		string reason = null;
+
+		// Step-height, rose more than a legal step between two consecutive on-ground packets while barely moving horizontally (stepped straight up in place, no jump)
+		if (cfg.DetectStepHeight
+			&& groundContact && state.PrevGrounded
+			&& dy > cfg.MaxStepHeightBlocks
+			&& horiz <= cfg.StepMaxHorizontalBlocks
+			&& !FeetClimbableOrLiquid(server, feetCell))
+		{
+			reason = $"step-height: rose {dy:0.##} blocks on ground, no jump";
+		}
+
+		// horizontal speed jumped suddenly to a high value in one packet, a blink that stays under the peak speed cap.
+		if (reason == null && cfg.DetectAcceleration && horiz >= 0.75)
+		{
+			double vH = horiz / dt;
+			double jump = vH - state.PrevHorizVel;
+			if (jump >= cfg.MaxSpeedJumpBlocksPerSecond && vH >= cfg.MinFlaggedSpeed)
+			{
+				reason = $"acceleration: horizontal speed jumped {jump:0.#} to {vH:0.#} b/s";
+			}
+		}
+
+		if (reason == null)
+		{
+			return false;
+		}
+
+		return StratumAnticheatReporter.RecordMovementAuthorityViolation(server, player, entity.Pos.AsBlockPos, reason, out disconnectReason);
+	}
+
+	private static void UpdateAuthorityState(MoveState state, EntityPlayer entity, long now, bool groundContact)
+	{
+		if (state.HasPrevAuth)
+		{
+			double dx = entity.Pos.X - state.PrevX;
+			double dz = entity.Pos.Z - state.PrevZ;
+			double dt = Math.Max(0.02, (now - state.PrevMs) / 1000.0);
+			state.PrevHorizVel = Math.Sqrt(dx * dx + dz * dz) / dt;
+		}
+		else
+		{
+			state.PrevHorizVel = 0;
+		}
+
+		state.PrevX = entity.Pos.X;
+		state.PrevY = entity.Pos.Y;
+		state.PrevZ = entity.Pos.Z;
+		state.PrevMs = now;
+		state.PrevGrounded = groundContact;
+		state.HasPrevAuth = true;
+	}
+
+	private static bool FeetClimbableOrLiquid(ServerMain server, BlockPos feetCell)
+	{
+		var blocks = server.WorldMap.RelaxedBlockAccess;
+		int feetY = feetCell.Y;
+		BlockPos probe = feetCell.Copy();
+		for (int d = -1; d <= 1; d++)
+		{
+			probe.Y = feetY + d;
+			Block b = blocks.GetBlock(probe);
+			if (b != null && b.Climbable)
+			{
+				return true;
+			}
+
+			Block fluid = blocks.GetBlock(probe, 2);
+			if (fluid != null && fluid.IsLiquid())
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private static void ResetAirborne(MoveState state)
@@ -556,5 +655,14 @@ internal static class StratumMovementGuard
 		public float HealthWhenGrounded;
 		public bool TouchedLiquidSinceGround;
 		public bool TouchedGlideSinceGround;
+
+		// Movement authority (step-height / acceleration)
+		public bool HasPrevAuth;
+		public double PrevX;
+		public double PrevY;
+		public double PrevZ;
+		public long PrevMs;
+		public double PrevHorizVel;
+		public bool PrevGrounded;
 	}
 }
