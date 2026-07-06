@@ -1,8 +1,8 @@
 diff --git a/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs b/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
-index e2ca303..90c4218 100644
+index e2ca303..94c479c 100644
 --- a/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
 +++ b/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
-@@ -1,1110 +1,1506 @@
+@@ -1,1110 +1,1530 @@
  using System;
  using System.Collections.Generic;
 +using System.Runtime.CompilerServices;
@@ -1138,6 +1138,11 @@ index e2ca303..90c4218 100644
 +    private const int MAXLIGHTSPREAD = 31; // Maximum light spread distance
 +    private const int VISITED_WIDTH = 63;  // Width of the visited points array to prevent cycles
 +
++    private const int DARKNESS_SPREAD_WIDTH = 63;
++    private const int DARKNESS_SPREAD_HALF = 31;
++    private const int DARKNESS_VISITED_SIZE = DARKNESS_SPREAD_WIDTH * DARKNESS_SPREAD_WIDTH * DARKNESS_SPREAD_WIDTH; // 250047
++    private const int DARKNESS_VISITED_CENTER = 125023;
++
 +    private int mapsizex;
 +    private int mapsizey;
 +    private int mapsizez;
@@ -1222,7 +1227,7 @@ index e2ca303..90c4218 100644
 +        public LightSourcesAtBlock data;   // Reference to color and intensity data
 +
 +        // Top-4 slots: store source indices (src) and their current level (lvl)
-+        public short src0, src1, src2, src3;
++        public int src0, src1, src2, src3;
 +        public byte lvl0, lvl1, lvl2, lvl3;
 +        public byte maxLevel;              // Maximum light level in the cell
 +        public byte trackedCount;          // How many sources are currently being tracked (from 0 to 4)
@@ -1241,16 +1246,15 @@ index e2ca303..90c4218 100644
 +
 +    private struct NearbyLightSourceStruct
 +    {
-+        public Block block;
 +        public int posX, posY, posZ;
 +    }
 +
 +    // Preallocated arrays for storing up to 512 light sources around the calculation point
 +
-+    private NearbyLightSourceStruct[] nearbyLightSourcesArray = new NearbyLightSourceStruct[512];
-+    private byte[] nearbyH = new byte[512]; // Hue
-+    private byte[] nearbyS = new byte[512]; // Saturation
-+    private byte[] nearbyB = new byte[512]; // Brightness/Value
++    private NearbyLightSourceStruct[] nearbyLightSourcesArray;
++    private byte[] nearbyH; // Hue
++    private byte[] nearbyS; // Saturation
++    private byte[] nearbyB; // Brightness/Value
 +    private int nearbyCount;
 +
 +    #endregion
@@ -1276,13 +1280,18 @@ index e2ca303..90c4218 100644
 +        YPlus = chunkSize * chunkSize;
 +        ZPlus = chunkSize;
 +
-+        currentVisited = new int[250047]; // Array for BFS
++        currentVisited = new int[DARKNESS_VISITED_SIZE];
 +        lightGrid = new LightCell[LIGHT_GRID_SIZE];
 +
-+        // Create 32 buckets (for light levels from 0 to 31)
++        int maxSources = 27 * chunkSize * chunkSize * chunkSize;
++        nearbyLightSourcesArray = new NearbyLightSourceStruct[maxSources];
++        nearbyH = new byte[maxSources];
++        nearbyS = new byte[maxSources];
++        nearbyB = new byte[maxSources];
++
 +        buckets = new List<(int, int)>[32];
 +        for (int i = 0; i < 32; i++)
-+            buckets[i] = new List<(int, int)>(2048);
++            buckets[i] = new List<(int, int)>(128);
 +    }
 +
 +    /// <summary> Binds the illuminator to a specific world (map dimensions, base sun light). </summary>
@@ -1429,8 +1438,11 @@ index e2ca303..90c4218 100644
 +        tmpPosDimensionAware.SetDimension(dim);
 +        int num = chunkSize;
 +
-+        if (chunkY != chunks.Length - 1) chunks[chunkY + 1].Unpack();
-+        for (int num2 = chunkY; num2 >= 0; num2--) chunks[num2].Unpack();
++        if (chunkY != chunks.Length - 1)
++            chunks[chunkY + 1].Unpack();
++
++        for (int num2 = chunkY; num2 >= 0; num2--)
++            chunks[num2].Unpack();
 +
 +        int num3 = chunkX * num;
 +        int num4 = chunkZ * num;
@@ -1829,7 +1841,7 @@ index e2ca303..90c4218 100644
 +    /// <summary> Finds the maximum sunlight level among the 6 neighboring blocks. </summary>
 +    private int GetSunLightFromNeighbour(int posX, int posY, int posZ, bool directlyIlluminated)
 +    {
-+        int num = posY / 32768 * 32768;
++        int num = (posY >> 15) << 15;
 +        int num2 = 0;
 +        IWorldChunk unpackedChunkFast;
 +
@@ -1862,7 +1874,7 @@ index e2ca303..90c4218 100644
 +        FastSetOfLongs fastSetOfLongs = new FastSetOfLongs();
 +        if (newAbsorb == oldAbsorb) return fastSetOfLongs;
 +
-+        int num = posY / 32768 * 32768;
++        int num = (posY >> 15) << 15;
 +        QueueOfInt queueOfInt = GetQueueOfInt();
 +
 +        if (posX < 0 || posY < 0 || posZ < 0 || posX >= mapsizex || posY >= num + mapsizey || posZ >= mapsizez)
@@ -2253,7 +2265,7 @@ index e2ca303..90c4218 100644
 +
 +    /// <summary> Getting a reference (ref) to the source slot in the LightCell structure. </summary>
 +    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-+    private static ref short SrcSlot(ref LightCell c, int i)
++    private static ref int SrcSlot(ref LightCell c, int i)
 +    {
 +        switch (i) { case 0: return ref c.src0; case 1: return ref c.src1; case 2: return ref c.src2; default: return ref c.src3; }
 +    }
@@ -2320,7 +2332,7 @@ index e2ca303..90c4218 100644
 +            // Occupy a Top-4 slot
 +            if (FindSlot(ref cell, srcIdx) == -1 && cell.trackedCount < 4)
 +            {
-+                SrcSlot(ref cell, cell.trackedCount) = (short)srcIdx;
++                SrcSlot(ref cell, cell.trackedCount) = srcIdx;
 +                LvlSlot(ref cell, cell.trackedCount) = b;
 +                cell.trackedCount++;
 +            }
@@ -2390,7 +2402,7 @@ index e2ca303..90c4218 100644
 +                    }
 +                    else if (nCell.trackedCount < 4)
 +                    {
-+                        SrcSlot(ref nCell, nCell.trackedCount) = (short)srcIdx;
++                        SrcSlot(ref nCell, nCell.trackedCount) = srcIdx;
 +                        LvlSlot(ref nCell, nCell.trackedCount) = (byte)newLevel;
 +                        nCell.trackedCount++;
 +                        shouldPropagate = true;
@@ -2416,7 +2428,8 @@ index e2ca303..90c4218 100644
 +    /// <summary> BFS spreading of "darkness" when a source is removed. </summary>
 +    private void SpreadDarkness(int rangeNext, int posX, int posY, int posZ, FastSetOfLongs touchedChunks)
 +    {
-+        if (rangeNext <= 0) return;
++        if (rangeNext <= 0)
++            return;
 +
 +        int num = chunkSize;
 +        QueueOfInt queueOfInt = GetQueueOfInt();
@@ -2425,16 +2438,22 @@ index e2ca303..90c4218 100644
 +        bool flag = posX < rangeNext - 1 || posZ < rangeNext - 1 || posX >= mapsizex - rangeNext + 1 || posZ >= mapsizez - rangeNext + 1;
 +
 +        IWorldChunk unpackedChunkFast = chunkProvider.GetUnpackedChunkFast(posX / num, posY / num, posZ / num, notRecentlyAccessed: true);
-+        if (unpackedChunkFast == null) { queueOfIntPool.Push(queueOfInt); return; }
++        if (unpackedChunkFast == null)
++        {
++            queueOfIntPool.Push(queueOfInt);
++            return;
++        }
 +
 +        int index3d = (posY % num * num + posZ % num) * num + posX % num;
 +        unpackedChunkFast.Lighting.SetBlocklight(index3d, 0);
 +        touchedChunks.Add(chunkProvider.ChunkIndex3D(posX / num, posY / num, posZ / num));
 +
 +        int num2 = ++iteration;
-+        posX -= 31; posY -= 31; posZ -= 31;
++        posX -= DARKNESS_SPREAD_HALF;
++        posY -= DARKNESS_SPREAD_HALF;
++        posZ -= DARKNESS_SPREAD_HALF;
 +
-+        int num3 = 125023;
++        int num3 = DARKNESS_VISITED_CENTER;
 +        currentVisited[num3] = num2;
 +
 +        while (queueOfInt.Count > 0)
@@ -2448,7 +2467,7 @@ index e2ca303..90c4218 100644
 +                int num6 = ((num4 >> 8) & 0xFF) + vec3i.Y;
 +                int num7 = ((num4 >> 16) & 0xFF) + vec3i.Z;
 +
-+                num3 = num5 + (num6 * 63 + num7) * 63;
++                num3 = num5 + (num6 * DARKNESS_SPREAD_WIDTH + num7) * DARKNESS_SPREAD_WIDTH;
 +                if (currentVisited[num3] == num2) continue; // Already visited
 +                currentVisited[num3] = num2;
 +
@@ -2570,7 +2589,8 @@ index e2ca303..90c4218 100644
 +                for (int k = -1; k <= 1; k++)
 +                {
 +                    chunk = chunkProvider.GetChunk(num + i, num2 + j, num3 + k);
-+                    if (chunk == null) continue;
++                    if (chunk == null)
++                        continue;
 +
 +                    chunk.Unpack_ReadOnly();
 +
@@ -2591,7 +2611,11 @@ index e2ca303..90c4218 100644
 +                            if (nearbyCount < nearbyLightSourcesArray.Length)
 +                            {
 +                                nearbyLightSourcesArray[nearbyCount] = new NearbyLightSourceStruct
-+                                { block = block, posX = num6, posY = num4, posZ = num5 };
++                                {
++                                    posX = num6,
++                                    posY = num4,
++                                    posZ = num5
++                                };
 +                                nearbyH[nearbyCount] = hsv[0];
 +                                nearbyS[nearbyCount] = hsv[1];
 +                                nearbyB[nearbyCount] = hsv[2];
