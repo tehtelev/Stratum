@@ -1,8 +1,8 @@
 diff --git a/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs b/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
-index e2ca303..94c479c 100644
+index e2ca303..b9d9b3d 100644
 --- a/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
 +++ b/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
-@@ -1,1110 +1,1530 @@
+@@ -1,1110 +1,1520 @@
  using System;
  using System.Collections.Generic;
 +using System.Runtime.CompilerServices;
@@ -1173,21 +1173,9 @@ index e2ca303..94c479c 100644
 +
 +    #region Object Pools (Object pools for GC optimization)
 +
-+    private Stack<LightSourcesAtBlock> lightSourcesPool = new Stack<LightSourcesAtBlock>();
 +    private Stack<BlockPos> blockPosPool = new Stack<BlockPos>();
 +    private Stack<QueueOfInt> queueOfIntPool = new Stack<QueueOfInt>();
 +
-+    /// <summary> Gets a LightSourcesAtBlock object from the pool or creates a new one. </summary>
-+    private LightSourcesAtBlock GetLightSourcesAtBlock()
-+    {
-+        if (lightSourcesPool.Count > 0)
-+        {
-+            var lsab = lightSourcesPool.Pop();
-+            lsab.lightCount = 0; // Reset the source counter
-+            return lsab;
-+        }
-+        return new LightSourcesAtBlock();
-+    }
 +
 +    /// <summary> Gets a BlockPos object from the pool, sets the coordinates, and returns it. </summary>
 +    private BlockPos GetBlockPos(int x, int y, int z, int dim)
@@ -1224,7 +1212,6 @@ index e2ca303..94c479c 100644
 +    private struct LightCell
 +    {
 +        public int generation;             // Iteration ID (allows not to clear the grid every time)
-+        public LightSourcesAtBlock data;   // Reference to color and intensity data
 +
 +        // Top-4 slots: store source indices (src) and their current level (lvl)
 +        public int src0, src1, src2, src3;
@@ -2220,38 +2207,29 @@ index e2ca303..94c479c 100644
 +    /// <summary> Main block light update method: collects sources and launches Multi-Source BFS. </summary>
 +    public void UpdateLightAt(int range, int posX, int posY, int posZ, FastSetOfLongs touchedChunks)
 +    {
-+        iteration++; // Increment the iteration counter to avoid clearing the visited array
++        iteration++;
 +        int num = chunkSize;
 +
-+        LoadNearbyLightSources(posX, posY, posZ, range); // Find all torches/sources in the radius
-+        MultiSourceBFS(posX, posY, posZ, range);          // Launch the light wave
++        LoadNearbyLightSources(posX, posY, posZ, range);
++        MultiSourceBFS(posX, posY, posZ, range);
 +
 +        int baseX = posX - LIGHT_GRID_HALF;
 +        int baseY = posY - LIGHT_GRID_HALF;
 +        int baseZ = posZ - LIGHT_GRID_HALF;
 +
-+        // Apply the calculated colors to the real chunks
 +        for (int i = 0; i < touchedCells.Count; i++)
 +        {
 +            int idx = touchedCells[i];
 +            ref var cell = ref lightGrid[idx];
 +
-+            if (cell.data != null)
-+            {
-+                IndexToCoords(idx, out int lx, out int ly, out int lz);
-+                int wx = lx + baseX; int wy = ly + baseY; int wz = lz + baseZ;
++            IndexToCoords(idx, out int lx, out int ly, out int lz);
++            int wx = lx + baseX; int wy = ly + baseY; int wz = lz + baseZ;
 +
-+                RecalcBlockLightAtPos(wx, wy, wz, cell.data); // Mix colors at the point
-+                touchedChunks.Add(chunkProvider.ChunkIndex3D(wx / num, wy / num, wz / num));
-+
-+                lightSourcesPool.Push(cell.data);
-+                cell.data = null;
-+            }
++            // Передаем cell по ссылке
++            RecalcBlockLightAtPos(wx, wy, wz, ref cell);
++            touchedChunks.Add(chunkProvider.ChunkIndex3D(wx / num, wy / num, wz / num));
 +        }
 +
-+        // Protection against memory leaks in the pool
-+        if (lightSourcesPool.Count > 500)
-+            lightSourcesPool.Clear();
 +    }
 +
 +    /// <summary> Unpacking a 1D grid index back into 3D coordinates (bit masks). </summary>
@@ -2320,14 +2298,13 @@ index e2ca303..94c479c 100644
 +            if (cell.generation != iteration) // If the cell has not been visited in this iteration yet
 +            {
 +                cell.generation = iteration;
-+                cell.data = GetLightSourcesAtBlock();
 +                cell.maxLevel = 0;
 +                cell.trackedCount = 0;
 +                touchedCells.Add(idx);
 +            }
 +
-+            cell.data.AddHsv(h, s, b);
-+            if (b > cell.maxLevel) cell.maxLevel = b;
++            if (b > cell.maxLevel)
++                cell.maxLevel = b;
 +
 +            // Occupy a Top-4 slot
 +            if (FindSlot(ref cell, srcIdx) == -1 && cell.trackedCount < 4)
@@ -2386,7 +2363,6 @@ index e2ca303..94c479c 100644
 +                    if (nCell.generation != iteration)
 +                    {
 +                        nCell.generation = iteration;
-+                        nCell.data = GetLightSourcesAtBlock();
 +                        nCell.maxLevel = 0;
 +                        nCell.trackedCount = 0;
 +                        touchedCells.Add(nIdx);
@@ -2410,16 +2386,17 @@ index e2ca303..94c479c 100644
 +                    else
 +                    {
 +                        // The 5th and subsequent sources pass only if they are brighter than all previous ones (hard limit)
-+                        if (newLevel > nCell.maxLevel) shouldPropagate = true;
++                        if (newLevel > nCell.maxLevel)
++                            shouldPropagate = true;
 +                    }
 +
 +                    if (shouldPropagate)
 +                    {
-+                        nCell.data.AddHsv(h, s, (byte)newLevel);
 +                        buckets[newLevel].Add((nIdx, srcIdx));
 +                    }
 +
-+                    if (newLevel > nCell.maxLevel) nCell.maxLevel = (byte)newLevel;
++                    if (newLevel > nCell.maxLevel)
++                        nCell.maxLevel = (byte)newLevel;
 +                }
 +            }
 +        }
@@ -2494,8 +2471,9 @@ index e2ca303..94c479c 100644
 +        queueOfIntPool.Push(queueOfInt);
 +    }
 +
++
 +    /// <summary> Final color mixing (HSV -> RGB -> HSV) from all sources at a specific point. </summary>
-+    private void RecalcBlockLightAtPos(int posX, int posY, int posZ, LightSourcesAtBlock lsab)
++    private void RecalcBlockLightAtPos(int posX, int posY, int posZ, ref LightCell cell)
 +    {
 +        int num = chunkSize;
 +        IWorldChunk unpackedChunkFast = chunkProvider.GetUnpackedChunkFast(posX / num, posY / num, posZ / num, notRecentlyAccessed: true);
@@ -2505,12 +2483,18 @@ index e2ca303..94c479c 100644
 +
 +        float num2 = 0f;
 +        int num3 = 0;
-+        int lightCount = lsab.lightCount;
++        int lightCount = cell.trackedCount;
++
++        if (lightCount == 0)
++        {
++            unpackedChunkFast.Lighting.SetBlocklight(index3d, 0);
++            return;
++        }
 +
 +        // Find the maximum brightness and the sum of brightnesses for weights
 +        for (int i = 0; i < lightCount; i++)
 +        {
-+            int num4 = lsab.lightHsvs[i * 3 + 2];
++            int num4 = LvlSlot(ref cell, i);
 +            num3 = Math.Max(num3, num4);
 +            num2 += (float)num4;
 +        }
@@ -2522,9 +2506,14 @@ index e2ca303..94c479c 100644
 +        // Mix colors taking into account their contribution (weights)
 +        for (int j = 0; j < lightCount; j++)
 +        {
-+            int num8 = lsab.lightHsvs[j * 3 + 2];
-+            int num9 = ColorUtil.HsvToRgb(lsab.lightHsvs[j * 3] * 4, lsab.lightHsvs[j * 3 + 1] * 32, num8 * 8);
-+            float num10 = (float)num8 / num2; // Source weight
++            int srcIdx = SrcSlot(ref cell, j);
++            int lvl = LvlSlot(ref cell, j);
++
++            byte h = nearbyH[srcIdx];
++            byte s = nearbyS[srcIdx];
++
++            int num9 = ColorUtil.HsvToRgb(h * 4, s * 32, lvl * 8);
++            float num10 = (float)lvl / num2; // Source weight
 +
 +            num5 += (float)(num9 >> 16) * num10;       // R
 +            num6 += (float)((num9 >> 8) & 0xFF) * num10; // G
@@ -2538,6 +2527,7 @@ index e2ca303..94c479c 100644
 +
 +        unpackedChunkFast.Lighting.SetBlocklight(index3d, (num3 << 5) | (num12 << 10) | (num13 << 16));
 +    }
++
 +
 +    /// <summary> Getting a Block object by world coordinates. </summary>
 +    private Block GetBlock(int posX, int posY, int posZ)
