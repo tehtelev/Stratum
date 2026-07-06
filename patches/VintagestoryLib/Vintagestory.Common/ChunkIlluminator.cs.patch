@@ -1,8 +1,8 @@
 diff --git a/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs b/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
-index e2ca303..b9d9b3d 100644
+index e2ca303..44df926 100644
 --- a/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
 +++ b/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
-@@ -1,1110 +1,1520 @@
+@@ -1,1110 +1,1537 @@
  using System;
  using System.Collections.Generic;
 +using System.Runtime.CompilerServices;
@@ -17,7 +17,7 @@ index e2ca303..b9d9b3d 100644
 +// Stratum start:
 +
 +// Improvements:
-+// - Zero-GC: Object pools and struct arrays eliminate micro-stutters from the garbage collector.
++// - Zero-GC: Object pool and struct arrays eliminate micro-stutters from the garbage collector.
 +// - Generational Grid: The iteration counter replaces expensive array clearing (Array.Clear).
 +// - BFS Optimization: Buckets (traversal from bright to dim) and Top-4 tracking save us from the combinatorial explosion of paths when rays intersect.
 +// - Batching: Clustering sources and calculating from their geometric center reduce CPU load by tens of times.
@@ -25,11 +25,11 @@ index e2ca303..b9d9b3d 100644
 +// Limitations:
 +// Hard limit of 128³: Light is simply "clipped" at the boundaries of the invisible cube, which will cause artifacts during large explosions. This exists in vanilla too, so it's not critical.
 +// Color distortion: The Top-4 limit slightly breaks the physics of HSV mixing if >4 multi-colored sources shine on a single point. But do we even need to mix that many colors?
-+// Not thread-safe: Shared arrays and pools require creating a separate instance of the class for each thread. Vanilla is also not thread-safe. With the current approach, parallelization isn't needed anyway.
++// Not thread-safe: Shared arrays and pools require creating a separate instance of the class for each thread. Vanilla is also not thread-safe. 
 +
 +// Tested on the generation of 10200 chunk columns:
 +// - UpdateLightAt method execution time: reduced from 22.2 s to 100 ms
-+// - GC memory allocations: reduced from 8.74 GB to 534 MB
++// - GC memory allocations: reduced from 8.74 GB to 480 MB
 +
 +/// <summary>
 +/// Main lighting calculation class.
@@ -1173,18 +1173,7 @@ index e2ca303..b9d9b3d 100644
 +
 +    #region Object Pools (Object pools for GC optimization)
 +
-+    private Stack<BlockPos> blockPosPool = new Stack<BlockPos>();
 +    private Stack<QueueOfInt> queueOfIntPool = new Stack<QueueOfInt>();
-+
-+
-+    /// <summary> Gets a BlockPos object from the pool, sets the coordinates, and returns it. </summary>
-+    private BlockPos GetBlockPos(int x, int y, int z, int dim)
-+    {
-+        BlockPos bp = blockPosPool.Count > 0 ? blockPosPool.Pop() : new BlockPos(0);
-+        bp.Set(x, y, z);
-+        bp.dimension = dim;
-+        return bp;
-+    }
 +
 +    /// <summary> Gets a custom QueueOfInt queue from the pool and clears it. </summary>
 +    private QueueOfInt GetQueueOfInt()
@@ -1236,7 +1225,7 @@ index e2ca303..b9d9b3d 100644
 +        public int posX, posY, posZ;
 +    }
 +
-+    // Preallocated arrays for storing up to 512 light sources around the calculation point
++    // Preallocated arrays for storing sources around the calculation point
 +
 +    private NearbyLightSourceStruct[] nearbyLightSourcesArray;
 +    private byte[] nearbyH; // Hue
@@ -1245,6 +1234,18 @@ index e2ca303..b9d9b3d 100644
 +    private int nearbyCount;
 +
 +    #endregion
++
++
++    // Lightweight struct for stack positions
++    private struct FastBlockPos
++    {
++        public int X, Y, Z, Dim;
++        public FastBlockPos(int x, int y, int z, int dim)
++        {
++            X = x; Y = y; Z = z; Dim = dim;
++        }
++    }
++
 +
 +    /// <summary> Checks if the coordinates are within the valid world boundaries. </summary>
 +    [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1257,7 +1258,7 @@ index e2ca303..b9d9b3d 100644
 +        return false;
 +    }
 +
-+    /// <summary> Constructor: initialization of pools, grids, and constants for light calculation. </summary>
++    /// <summary> Initialization of pools, grids, and constants for light calculation. </summary>
 +    public ChunkIlluminator(IChunkProvider chunkProvider, IBlockAccessor readBlockAccess, int chunkSize)
 +    {
 +        this.readBlockAccess = readBlockAccess;
@@ -1479,14 +1480,16 @@ index e2ca303..b9d9b3d 100644
 +    public void SunlightFlood(IWorldChunk[] chunks, int chunkX, int chunkY, int chunkZ)
 +    {
 +        int num = chunkSize;
-+        Stack<BlockPos> stack = new Stack<BlockPos>(); // Stack for BFS
++        // Use FastBlockPos stack
++        Stack<FastBlockPos> stack = new Stack<FastBlockPos>();
 +
-+        int num2 = chunkX * num;
-+        int num3 = chunkZ * num;
++        int num2 = chunkX * num;   // base X
++        int num3 = chunkZ * num;   // base Z
 +
 +        IWorldChunk worldChunk;
 +        IChunkLight lighting;
 +
++        // Iterate through chunk columns from top to bottom
 +        for (int num4 = chunkY; num4 >= 0; num4--)
 +        {
 +            worldChunk = chunks[num4];
@@ -1507,20 +1510,25 @@ index e2ca303..b9d9b3d 100644
 +                        num5 -= YPlus;
 +                        tmpPosDimensionAware.Y--;
 +
-+                        int num7 = lighting.GetSunlight(num5) - 1; // Light drops by 1 for each block
++                        int num7 = lighting.GetSunlight(num5) - 1;
 +                        if (num7 <= 0) break;
 +
 +                        int lightAbsorptionAt = worldChunk.GetLightAbsorptionAt(num5, tmpPosDimensionAware, blockTypes);
 +                        num7 -= lightAbsorptionAt;
 +
-+                        // If light can spread further, and neighbors have less - add to stack
 +                        if (num7 > 0 && ((i < num - 1 && lighting.GetSunlight(num5 + XPlus) < num7) ||
 +                                          (j < num - 1 && lighting.GetSunlight(num5 + ZPlus) < num7) ||
 +                                          (i > 0 && lighting.GetSunlight(num5 - XPlus) < num7) ||
 +                                          (j > 0 && lighting.GetSunlight(num5 - ZPlus) < num7)))
 +                        {
-+                            stack.Push(GetBlockPos(num2 + i, num4 * num + num6, num3 + j, tmpPosDimensionAware.dimension));
-+                            if (stack.Count > 50) SpreadSunLightInColumn(stack, chunks); // Periodically unload the stack
++                            stack.Push(new FastBlockPos(
++                                num2 + i,
++                                num4 * num + num6,
++                                num3 + j,
++                                tmpPosDimensionAware.dimension));
++
++                            if (stack.Count > 50)
++                                SpreadSunLightInColumn(stack, chunks);
 +                        }
 +                    }
 +                }
@@ -1534,10 +1542,10 @@ index e2ca303..b9d9b3d 100644
 +    {
 +        tmpPosDimensionAware.SetDimension(dimension);
 +        int num = chunkSize;
-+        byte b = 0; // Flag of modified sides
++        byte b = 0;
 +
-+        Stack<BlockPos> stack = new Stack<BlockPos>();
-+        Stack<BlockPos> stack2 = new Stack<BlockPos>();
++        Stack<FastBlockPos> stack = new Stack<FastBlockPos>();
++        Stack<FastBlockPos> stack2 = new Stack<FastBlockPos>();
 +
 +        int[] array = new int[2];
 +        int[] array2 = new int[3];
@@ -1547,14 +1555,12 @@ index e2ca303..b9d9b3d 100644
 +        int num3 = chunkZ * num;
 +
 +        BlockFacing[] hORIZONTALS = BlockFacing.HORIZONTALS;
-+        // Check 4 horizontal directions (North, South, West, East)
 +        foreach (BlockFacing blockFacing in hORIZONTALS)
 +        {
 +            bool flag = true;
 +            int x = blockFacing.Normali.X;
 +            int z = blockFacing.Normali.Z;
 +
-+            // Load the column of neighboring chunks
 +            for (int j = 0; j < curChunks.Length; j++)
 +            {
 +                array3[j] = chunkProvider.GetChunk(chunkX + x, j + dimension * 1024, chunkZ + z);
@@ -1564,7 +1570,6 @@ index e2ca303..b9d9b3d 100644
 +            }
 +            if (!flag) continue;
 +
-+            // Compare light at the joints
 +            int y = blockFacing.Normali.Y;
 +            array2[0] = (num - 1) * Math.Max(0, x);
 +            array2[1] = (num - 1) * Math.Max(0, y);
@@ -1613,17 +1618,16 @@ index e2ca303..b9d9b3d 100644
 +                        int num13 = num11 - lightAbsorptionAt2;
 +                        int num14 = num12 - lightAbsorptionAt;
 +
-+                        // If light from the neighboring chunk is brighter - update and add to BFS
 +                        if (num14 > num11)
 +                        {
 +                            lighting.SetSunlight(index3d2, num14);
-+                            stack2.Push(GetBlockPos(num2 + num9, num6 * num + array2[1], num3 + num10, dimension));
++                            stack2.Push(new FastBlockPos(num2 + num9, num6 * num + array2[1], num3 + num10, dimension));
 +                            b |= blockFacing.Flag;
 +                        }
 +                        else if (num13 > num12)
 +                        {
 +                            lighting2.SetSunlight(index3d, num13);
-+                            stack.Push(GetBlockPos(num2 + array2[0], num6 * num + array2[1], num3 + array2[2], dimension));
++                            stack.Push(new FastBlockPos(num2 + array2[0], num6 * num + array2[1], num3 + array2[2], dimension));
 +                        }
 +                    }
 +                }
@@ -1748,54 +1752,62 @@ index e2ca303..b9d9b3d 100644
 +    }
 +
 +    /// <summary> BFS propagation of sunlight over a stack of coordinates. </summary>
-+    public void SpreadSunLightInColumn(Stack<BlockPos> stack, IWorldChunk[] chunks)
++    private void SpreadSunLightInColumn(Stack<FastBlockPos> stack, IWorldChunk[] chunks)
 +    {
 +        int num = chunkSize;
 +        IWorldChunk worldChunk;
 +
++        // Process deferred sunlight propagation
 +        while (stack.Count > 0)
 +        {
-+            BlockPos blockPos = stack.Pop();
++            FastBlockPos pos = stack.Pop();
++            int chunkX = pos.X / num;
++            int chunkY = pos.Y / num;
++            int chunkZ = pos.Z / num;
++            int localX = pos.X % num;
++            int localY = pos.Y % num;
++            int localZ = pos.Z % num;
 +
-+            int num2 = blockPos.X / num;
-+            int num3 = blockPos.Y / num;
-+            int num4 = blockPos.Z / num;
-+            int num5 = blockPos.X % num;
-+            int num6 = blockPos.Y % num;
-+            int num7 = blockPos.Z % num;
++            int index3d = (localY * num + localZ) * num + localX;
++            worldChunk = chunks[chunkY];
 +
-+            int index3d = (num6 * num + num7) * num + num5;
-+            worldChunk = chunks[num3];
++            tmpPos.Set(pos.X, pos.Y, pos.Z);
++            tmpPos.dimension = pos.Dim;
++            int lightAbsorptionAt = worldChunk.GetLightAbsorptionAt(index3d, tmpPos, blockTypes);
++            int newLight = worldChunk.Lighting.GetSunlight(index3d) - lightAbsorptionAt - 1;
 +
-+            int lightAbsorptionAt = worldChunk.GetLightAbsorptionAt(index3d, blockPos, blockTypes);
-+            int num8 = worldChunk.Lighting.GetSunlight(index3d) - lightAbsorptionAt - 1;
++            if (newLight <= 0) continue;
 +
-+            if (num8 <= 0) { blockPosPool.Push(blockPos); continue; }
++            int lastChunkY = chunkY;
 +
-+            int num9 = num3;
-+
-+            // Check 6 neighbors
 +            for (int i = 0; i < 6; i++)
 +            {
 +                Vec3i vec3i = BlockFacing.ALLNORMALI[i];
-+                int num10 = blockPos.Y + vec3i.Y;
-+                int num11 = num5 + vec3i.X;
-+                int num12 = num7 + vec3i.Z;
++                int ny = pos.Y + vec3i.Y;
++                int nlx = localX + vec3i.X;
++                int nlz = localZ + vec3i.Z;
 +
-+                if (num11 >= 0 && num10 >= 0 && num12 >= 0 && num11 < num && num10 < mapsizey && num12 < num)
++                if (nlx >= 0 && ny >= 0 && nlz >= 0 && nlx < num && ny < mapsizey && nlz < num)
 +                {
-+                    num3 = num10 / num;
-+                    if (num3 != num9) { worldChunk = chunks[num3]; worldChunk.Unpack(); num9 = num3; }
-+
-+                    index3d = (num10 % num * num + num12) * num + num11;
-+                    if (worldChunk.Lighting.GetSunlight(index3d) < num8)
++                    int nChunkY = ny / num;
++                    if (nChunkY != lastChunkY)
 +                    {
-+                        worldChunk.Lighting.SetSunlight(index3d, num8);
-+                        stack.Push(GetBlockPos(num2 * num + num11, num10, num4 * num + num12, blockPos.dimension));
++                        worldChunk = chunks[nChunkY];
++                        worldChunk.Unpack();
++                        lastChunkY = nChunkY;
++                    }
++
++                    int nIndex3d = (ny % num * num + nlz) * num + nlx;
++                    if (worldChunk.Lighting.GetSunlight(nIndex3d) < newLight)
++                    {
++                        worldChunk.Lighting.SetSunlight(nIndex3d, newLight);
++                        // Calculate absolute coordinates
++                        int absX = chunkX * num + nlx;
++                        int absZ = chunkZ * num + nlz;
++                        stack.Push(new FastBlockPos(absX, ny, absZ, pos.Dim));
 +                    }
 +                }
 +            }
-+            blockPosPool.Push(blockPos); // Return to pool
 +        }
 +    }
 +
@@ -2029,6 +2041,7 @@ index e2ca303..b9d9b3d 100644
 +        tmpPos.SetDimension(centerPos.dimension);
 +        IWorldChunk unpackedChunkFast;
 +
++        // Process positions that need to be cleared of sunlight
 +        while (positionsToClear.Count > 0)
 +        {
 +            int num2 = positionsToClear.Dequeue();
@@ -2150,7 +2163,7 @@ index e2ca303..b9d9b3d 100644
 +                if (block != null && block.BlockId == 0 && GetBlockLight(x, y, z) < num)
 +                {
 +                    SetBlockLightLevel(hue, saturation, num, x, y, z);
-+                    // Launching recursion along perpendicular axes
++                    // Recursion along perpendicular axes (currently omitted/placeholder)
 +                    if (face.Axis == EnumAxis.X) { /* ... Y, Z ... */ }
 +                    else if (face.Axis == EnumAxis.Y) { /* ... X, Z ... */ }
 +                    else if (face.Axis == EnumAxis.Z) { /* ... X, Y ... */ }
@@ -2225,7 +2238,7 @@ index e2ca303..b9d9b3d 100644
 +            IndexToCoords(idx, out int lx, out int ly, out int lz);
 +            int wx = lx + baseX; int wy = ly + baseY; int wz = lz + baseZ;
 +
-+            // Передаем cell по ссылке
++            // Pass cell by reference
 +            RecalcBlockLightAtPos(wx, wy, wz, ref cell);
 +            touchedChunks.Add(chunkProvider.ChunkIndex3D(wx / num, wy / num, wz / num));
 +        }
@@ -2445,12 +2458,14 @@ index e2ca303..b9d9b3d 100644
 +                int num7 = ((num4 >> 16) & 0xFF) + vec3i.Z;
 +
 +                num3 = num5 + (num6 * DARKNESS_SPREAD_WIDTH + num7) * DARKNESS_SPREAD_WIDTH;
-+                if (currentVisited[num3] == num2) continue; // Already visited
++                if (currentVisited[num3] == num2)
++                    continue; // Already visited
 +                currentVisited[num3] = num2;
 +
 +                int num8 = num5 + posX; int num9 = num6 + posY; int num10 = num7 + posZ;
 +
-+                if (num9 < 0 || num9 % 32768 >= mapsizey || (flag && (num8 < 0 || num10 < 0 || num8 >= mapsizex || num10 >= mapsizez))) continue;
++                if (num9 < 0 || num9 % 32768 >= mapsizey || (flag && (num8 < 0 || num10 < 0 || num8 >= mapsizex || num10 >= mapsizez)))
++                    continue;
 +
 +                unpackedChunkFast = chunkProvider.GetUnpackedChunkFast(num8 / num, num9 / num, num10 / num);
 +                if (unpackedChunkFast != null)
@@ -2464,10 +2479,12 @@ index e2ca303..b9d9b3d 100644
 +                    }
 +
 +                    int num11 = (num4 >> 24) - unpackedChunkFast.GetLightAbsorptionAt(index3d, tmpPos.Set(num8, num9, num10), blockTypes) - 1;
-+                    if (num11 > 0) queueOfInt.Enqueue(num5 | (num6 << 8) | (num7 << 16) | (num11 << 24));
++                    if (num11 > 0)
++                        queueOfInt.Enqueue(num5 | (num6 << 8) | (num7 << 16) | (num11 << 24));
 +                }
 +            }
 +        }
++
 +        queueOfIntPool.Push(queueOfInt);
 +    }
 +
