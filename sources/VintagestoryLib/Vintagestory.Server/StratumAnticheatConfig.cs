@@ -144,7 +144,7 @@ internal class StratumEntityInteractionOutOfRangeAnticheatConfig : StratumAntich
 	public bool KickConfirmedCheats { get; set; } = true;
 
 	public int KickAfterViolations { get; set; } = 3;
-d
+
 	public string KickMessage { get; set; } = "Disconnected by Stratum entity reach protection";
 
 	public override void EnsureSane()
