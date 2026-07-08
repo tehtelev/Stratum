@@ -500,7 +500,7 @@ internal class StratumPacketLimitsConfig
 
 internal class StratumPacketBackPressureConfig
 {
-	public bool Enabled { get; set; } = true;
+	public bool Enabled { get; set; } = false;
 
 	public int MaxMillisecondsPerTick { get; set; } = 25;
 
