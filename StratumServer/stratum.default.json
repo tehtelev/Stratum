@@ -19,7 +19,7 @@
     "EntityGuards": false
   },
   "PacketLimits": {
-    "Enabled": true,
+    "Enabled": false,
     "DropViolations": true,
     "LogViolations": false,
     "KickViolations": true,
@@ -39,7 +39,7 @@
     "CustomPacketMaxBytes": 262144
   },
   "BlockBreakGuards": {
-    "Enabled": true,
+    "Enabled": false,
     "RequireServerSelection": false,
     "DropViolations": true,
     "LogViolations": false,
