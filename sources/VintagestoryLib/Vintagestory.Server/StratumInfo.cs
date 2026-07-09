@@ -13,7 +13,7 @@ internal static class StratumInfo
 
 	// Stratum revision on top of BaseGameVersion. Increment for every public release;
 	// reset to 1 when BaseGameVersion changes.
-	public const string StratumRevision = "14";
+	public const string StratumRevision = "15";
 
 	// Optional prerelease label appended after the revision ("rc.1", "dev", "").
 	public const string PreRelease = "";

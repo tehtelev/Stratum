@@ -45,6 +45,8 @@ internal class StratumConfig
 
 	public StratumBackupConfig Backup { get; set; } = new StratumBackupConfig();
 
+	public StratumServerStatsConfig ServerStats { get; set; } = new StratumServerStatsConfig();
+
 	public void EnsurePopulated()
 	{
 		Diagnostics ??= new StratumDiagnosticsConfig();
@@ -65,6 +67,7 @@ internal class StratumConfig
 		PlayerPrivacy ??= new StratumPlayerPrivacyConfig();
 		Nametags ??= new StratumNametagsConfig();
 		Backup ??= new StratumBackupConfig();
+		ServerStats ??= new StratumServerStatsConfig();
 		PacketLimits.EnsureSane();
 		PacketBackPressure.EnsureSane();
 		BlockBreakGuards.EnsureSane();
@@ -80,6 +83,7 @@ internal class StratumConfig
 		PlayerPrivacy.EnsurePopulated();
 		Nametags.EnsurePopulated();
 		Backup.EnsureSane();
+		ServerStats.EnsureSane();
 		UpdateChecker.EnsureSane();
 		MigrateLegacyDefaults();
 	}
@@ -135,16 +139,45 @@ internal class StratumUpdateCheckerConfig
 
 	public bool CheckOnStartup { get; set; } = true;
 
-	public string LatestReleaseUrl { get; set; } = "https://api.github.com/repos/trevorftp/Stratum/releases/latest";
+	public string LatestReleaseUrl { get; set; } = "https://api.github.com/repos/StratumServer/Stratum/releases/latest";
 
 	public int TimeoutSeconds { get; set; } = 5;
 
 	public void EnsureSane()
 	{
 		LatestReleaseUrl = string.IsNullOrWhiteSpace(LatestReleaseUrl)
-			? "https://api.github.com/repos/trevorftp/Stratum/releases/latest"
+			? "https://api.github.com/repos/StratumServer/Stratum/releases/latest"
 			: LatestReleaseUrl.Trim();
 		TimeoutSeconds = Math.Min(30, Math.Max(1, TimeoutSeconds));
+	}
+}
+
+// Anonymous server stats reporting ("phone home"). Opt-out: on by default. Each server posts a
+// tiny JSON blob (a random per-install id, the version, and the current player count) to
+// ReportUrl every IntervalMinutes so the project can show total players and total servers running
+// Stratum. Nothing identifying is sent - no player names, no IPs, no server address or name.
+internal class StratumServerStatsConfig
+{
+	public bool Enabled { get; set; } = true;
+
+	// Central endpoint that receives the report (HTTP POST, application/json). Point this at your
+	// aggregator. Leave empty to keep reporting off even when Enabled is true.
+	public string ReportUrl { get; set; } = "https://my.stratumvs.dev/stratum-stats.php";
+
+	public int IntervalMinutes { get; set; } = 30;
+
+	public int TimeoutSeconds { get; set; } = 10;
+
+	// Random, anonymous, per-install id. Generated once on first run and kept so restarts are not
+	// counted as new servers. Delete it to reset this server's identity.
+	public string ServerId { get; set; } = "";
+
+	public void EnsureSane()
+	{
+		IntervalMinutes = Math.Clamp(IntervalMinutes, 5, 1440);
+		TimeoutSeconds = Math.Clamp(TimeoutSeconds, 1, 60);
+		ReportUrl = string.IsNullOrWhiteSpace(ReportUrl) ? "" : ReportUrl.Trim();
+		ServerId = ServerId?.Trim() ?? "";
 	}
 }
 
@@ -467,7 +500,7 @@ internal class StratumPacketLimitsConfig
 
 internal class StratumPacketBackPressureConfig
 {
-	public bool Enabled { get; set; } = true;
+	public bool Enabled { get; set; } = false;
 
 	public int MaxMillisecondsPerTick { get; set; } = 25;
 
@@ -641,9 +674,15 @@ internal class StratumJoinConfig
 	// Limits how many queued players are admitted in one queue pass. 0 = vanilla behavior.
 	public int MaxQueueAdmissionsPerPass { get; set; } = 2;
 
+	// Limits how many RequestJoin packets (Id 11) are processed per tick. Deferred joins
+	// drain on subsequent ticks. Keeps the main thread responsive during join storms.
+	// 0 = no limit (vanilla behavior).
+	public int MaxJoinsPerTick { get; set; } = 3;
+
 	public void EnsureSane()
 	{
 		MaxQueueAdmissionsPerPass = Math.Max(0, Math.Min(64, MaxQueueAdmissionsPerPass));
+		MaxJoinsPerTick = Math.Max(0, Math.Min(64, MaxJoinsPerTick));
 	}
 }
 
@@ -676,9 +715,24 @@ internal class StratumEntityCollisionsConfig
 	// 0 disables the cap. Paper default is 8; we use 12 to be more permissive of pushing.
 	public int MaxCollisionsPerEntity { get; set; } = 12;
 
+	// Distance gate for RepulseAgents (non-player creatures skip entirely beyond this range).
+	public float DistanceGateBlocks { get; set; } = 24f;
+
+	public float NearBandBlocks { get; set; } = 12f;
+
+	public int FarBandSkipTicks { get; set; } = 4;
+
+	// CollectEntities scan stride. Only run the spatial query every N ticks per entity,
+	// phase-offset by EntityId. Reduces allocations from GetEntitiesAround. 1 = every tick.
+	public int CollectStrideInterval { get; set; } = 3;
+
 	public void EnsureSane()
 	{
 		MaxCollisionsPerEntity = Math.Max(0, Math.Min(256, MaxCollisionsPerEntity));
+		DistanceGateBlocks = Math.Max(0f, DistanceGateBlocks);
+		NearBandBlocks = Math.Max(0f, Math.Min(DistanceGateBlocks, NearBandBlocks));
+		FarBandSkipTicks = Math.Max(1, FarBandSkipTicks);
+		CollectStrideInterval = Math.Max(1, Math.Min(16, CollectStrideInterval));
 	}
 }
 
@@ -750,7 +804,9 @@ internal class StratumRegionTickingConfig
 {
 	// Folia-style regionized entity ticking. Splits LoadedEntities into spatial regions
 	// (region size in chunks) and ticks each region on a worker thread in parallel.
-	// WARNING: not all entity behaviors are thread-safe. Use with caution and validate.
+	// Behaviors that throw repeatedly get runtime-blocked via FallbackAfterExceptions.
+	// Disabled by default: entity behaviors from mods may not be thread-safe. Enable after
+	// validating your mod set under load. Unsafe behaviors self-quarantine to serial.
 	public bool Enabled { get; set; }
 
 	// Region size in chunks (e.g. 8 = 8x8 chunk regions = 256x256 blocks).
@@ -1310,6 +1366,11 @@ internal class StratumBlockTickConfig
 
 	public int MaxMainThreadBlockTicksPerPass { get; set; } = 5000;
 
+	// Spread the random tick pass across N smaller slices instead of one burst. Each slice
+	// runs at BlockTickInterval/SliceCount ms and processes 1/SliceCount of the chunk set.
+	// Same aggregate rate per chunk, removes the periodic sawtooth spike. 1 = vanilla batch.
+	public int RandomTickSliceCount { get; set; } = 8;
+
 	// Self-tuning under load: when the recent average server tick exceeds OverloadTickMs the per-chunk
 	// random-tick budget is scaled down (multiplied by OverloadScale, then floored at OverloadFloor).
 	// Lets crops/fluids/fire tick at full rate when the server has headroom and dial back automatically
@@ -1327,6 +1388,7 @@ internal class StratumBlockTickConfig
 		MaxChunksPerPass = Math.Max(1, MaxChunksPerPass);
 		MaxRandomTicksPerChunk = Math.Max(0, MaxRandomTicksPerChunk);
 		MaxMainThreadBlockTicksPerPass = Math.Max(1, MaxMainThreadBlockTicksPerPass);
+		RandomTickSliceCount = Math.Max(1, Math.Min(16, RandomTickSliceCount));
 		OverloadTickMs = Math.Max(10, Math.Min(1000, OverloadTickMs));
 		OverloadScale = Math.Max(0.05f, Math.Min(1f, OverloadScale));
 		OverloadFloor = Math.Max(0, OverloadFloor);

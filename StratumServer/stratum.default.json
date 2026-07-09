@@ -19,7 +19,7 @@
     "EntityGuards": false
   },
   "PacketLimits": {
-    "Enabled": true,
+    "Enabled": false,
     "DropViolations": true,
     "LogViolations": false,
     "KickViolations": true,
@@ -39,7 +39,7 @@
     "CustomPacketMaxBytes": 262144
   },
   "BlockBreakGuards": {
-    "Enabled": true,
+    "Enabled": false,
     "RequireServerSelection": false,
     "DropViolations": true,
     "LogViolations": false,
@@ -190,6 +190,7 @@
       "Enabled": true,
       "MaxChunksPerPass": 512,
       "MaxRandomTicksPerChunk": 8,
+      "RandomTickSliceCount": 8,
       "MaxMainThreadBlockTicksPerPass": 5000,
       "AdaptiveUnderOverload": true,
       "OverloadTickMs": 45,
@@ -212,7 +213,8 @@
     },
     "EntityCollisions": {
       "Enabled": true,
-      "MaxCollisionsPerEntity": 12
+      "MaxCollisionsPerEntity": 12,
+      "CollectStrideInterval": 3
     },
     "BlockEntityInit": {
       "Enabled": true,
@@ -224,7 +226,8 @@
     },
     "Join": {
       "CacheStartupPackets": true,
-      "MaxQueueAdmissionsPerPass": 2
+      "MaxQueueAdmissionsPerPass": 2,
+      "MaxJoinsPerTick": 3
     }
   },
   "Commands": {

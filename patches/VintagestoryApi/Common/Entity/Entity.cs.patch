@@ -1,0 +1,49 @@
+diff --git a/VintagestoryApi/Common/Entity/Entity.cs b/VintagestoryApi/Common/Entity/Entity.cs
+index aafb4f0..f084632 100644
+--- a/VintagestoryApi/Common/Entity/Entity.cs
++++ b/VintagestoryApi/Common/Entity/Entity.cs
+@@ -1045,27 +1045,43 @@ namespace Vintagestory.API.Common.Entities
+ 
+                 // We include this check in case a mod changed the Behaviors without using .AddBehavior() or .RemoveBehavior()
+                 if (Properties.Server.Behaviors.Count != ServerBehaviorsMainThread.Length + ServerBehaviorsThreadsafe.Length) CacheServerBehaviors();
+ 
+                 var serverBehaviors = ServerBehaviorsMainThread;     // Thread-safe behaviors will be ticked from PhysicsManager
++                // Stratum start: per-behavior timing attribution for player entities
++                bool stratumRecordPlayerBehaviors = StratumEntityBehaviorTimings.Enabled && this is EntityPlayer;
++                // Stratum end
+                 if (World.FrameProfiler.Enabled)
+                 {
+                     var profiler = World.FrameProfiler;
+                     profiler.Enter("behaviors");
+                     for (int i = 0; i < serverBehaviors.Length; i++)
+                     {
+                         EntityBehavior behavior = serverBehaviors[i];
++                        long stratumBehaviorStart = stratumRecordPlayerBehaviors ? StratumEntityBehaviorTimings.GetTimestamp() : 0L; // Stratum: per-behavior timing
+                         behavior.OnGameTick(dt);
++                        if (stratumBehaviorStart != 0L) StratumEntityBehaviorTimings.Record("players", behavior.PropertyName(), stratumBehaviorStart); // Stratum: per-behavior timing
+                         profiler.Mark(behavior.ProfilerName);
+                     }
+                     profiler.Leave();
+                 }
+                 else
+                 {
+                     for (int i = 0; i < serverBehaviors.Length; i++)
+                     {
+-                        serverBehaviors[i].OnGameTick(dt);
++                        // Stratum start: per-behavior timing attribution for player entities
++                        if (stratumRecordPlayerBehaviors)
++                        {
++                            long stratumBehaviorStart = StratumEntityBehaviorTimings.GetTimestamp();
++                            serverBehaviors[i].OnGameTick(dt);
++                            StratumEntityBehaviorTimings.Record("players", serverBehaviors[i].PropertyName(), stratumBehaviorStart);
++                        }
++                        else
++                        {
++                            serverBehaviors[i].OnGameTick(dt);
++                        }
++                        // Stratum end
+                     }
+                 }
+ 
+                 if (InLava) Ignite();
+ 

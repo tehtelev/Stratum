@@ -33,14 +33,13 @@ internal static class StratumBlockReachGuard
 			return true;
 		}
 
-		double maxRange = Math.Max(0, player.WorldData.PickingRange) + Math.Max(0, config.RangeSlack);
-		double distanceSq = DistanceSqToBlock(player, selection.Position);
-		if (distanceSq <= maxRange * maxRange)
+		double maxRange = StratumReach.MaxReach(player, config.RangeSlack);
+		double distance = StratumReach.BlockDistance(player, selection.Position);
+		if (distance <= maxRange)
 		{
 			return true;
 		}
 
-		double distance = Math.Sqrt(distanceSq);
 		ServerMain.Logger.Audit(
 			"{0} tried to {1} a block out of survival reach {2:0.##}/{3:0.##} at {4}",
 			player.PlayerName,
@@ -57,25 +56,6 @@ internal static class StratumBlockReachGuard
 
 		disconnectReason = null;
 		return false;
-	}
-
-	private static double DistanceSqToBlock(ServerPlayer player, BlockPos pos)
-	{
-		FastVec3d eyes = player.Entity.Pos.XYZFast.Add(player.Entity.LocalEyePos);
-		double nearestX = Clamp(eyes.X, pos.X, pos.X + 1);
-		double nearestY = Clamp(eyes.Y, pos.InternalY, pos.InternalY + 1);
-		double nearestZ = Clamp(eyes.Z, pos.Z, pos.Z + 1);
-		double dx = eyes.X - nearestX;
-		double dy = eyes.Y - nearestY;
-		double dz = eyes.Z - nearestZ;
-		return dx * dx + dy * dy + dz * dz;
-	}
-
-	private static double Clamp(double value, double min, double max)
-	{
-		if (value < min) return min;
-		if (value > max) return max;
-		return value;
 	}
 
 	private static string ActionName(int mode)
