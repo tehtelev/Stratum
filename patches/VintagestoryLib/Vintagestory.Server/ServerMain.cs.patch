@@ -143,15 +143,15 @@ index 1017be9..2930a77 100644
 +			{
 +				return stratumCachedAllPlayers;
 +			}
- 
--	public IPlayer[] AllPlayers => PlayersByUid.Values.ToArray();
++
 +			ServerPlayer[] result = new ServerPlayer[PlayersByUid.Count];
 +			int idx = 0;
 +			foreach (ServerPlayer player in PlayersByUid.Values)
 +			{
 +				result[idx++] = player;
 +			}
-+
+ 
+-	public IPlayer[] AllPlayers => PlayersByUid.Values.ToArray();
 +			stratumCachedAllPlayers = result;
 +			stratumAllPlayersCacheTick = tick;
 +			return result;
@@ -1360,10 +1360,106 @@ index 1017be9..2930a77 100644
 +
  	private Packet_Server CreatePacketIdentification(bool controlServerPrivilege)
  	{
+ 		if (packetBenchmark.ContainsKey(packetId))
+ 		{
+ 			packetBenchmark[packetId]++;
+@@ -4694,15 +5203,40 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+ 	}
+ 
+ 	private void SendWorldMetaData(IServerPlayer player)
+ 	{
+ 		if (!worldMetaDataPacketAlreadySentToSinglePlayer || !Clients.TryGetValue(player.ClientId, out var value) || value == null || !value.IsSinglePlayerClient)
++		{
++			SendStratumCachedWorldMetaData(player);
++		}
++	}
++
++	private void SendStratumCachedWorldMetaData(IServerPlayer player)
++	{
++		if (!StratumRuntime.Config.Performance.Join.CacheStartupPackets || ConfigNeedsSaving)
+ 		{
+ 			SendPacket(player, WorldMetaDataPacket());
++			return;
++		}
++
++		string cacheKey = GetStratumWorldMetaDataCacheKey();
++		lock (stratumJoinPacketCacheLock)
++		{
++			if (stratumWorldMetaDataPacket.Length == 0 || stratumWorldMetaDataCacheKey != cacheKey)
++			{
++				stratumWorldMetaDataPacket.Serialize(WorldMetaDataPacket());
++				stratumWorldMetaDataCacheKey = cacheKey;
++			}
++			SendPacket(player.ClientId, stratumWorldMetaDataPacket);
+ 		}
+ 	}
+ 
++	private string GetStratumWorldMetaDataCacheKey()
++	{
++		return string.Concat(SaveGameData.SavegameIdentifier, "|", seaLevel, "|", sunBrightness, "|", blockLightLevels.Length, "|", sunLightLevels.Length);
++	}
++
+ 	internal Packet_Server WorldMetaDataPacket()
+ 	{
+ 		float[] array = blockLightLevels;
+ 		Packet_WorldMetaData packet_WorldMetaData = new Packet_WorldMetaData();
+ 		int[] array2 = new int[array.Length];
+@@ -4755,14 +5289,53 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+ 		{
+ 			((DummyUdpNetServer)UdpSockets[0]).Client.Player = player;
+ 		}
+ 		else
+ 		{
+-			SendPacket(player, CreatePacketIdentification(player.HasPrivilege("controlserver")));
++			SendStratumCachedServerIdentification(player);
+ 		}
+ 	}
+ 
++	private void SendStratumCachedServerIdentification(ServerPlayer player)
++	{
++		bool controlServerPrivilege = player.HasPrivilege("controlserver");
++		if (!StratumRuntime.Config.Performance.Join.CacheStartupPackets || ConfigNeedsSaving)
++		{
++			SendPacket(player, CreatePacketIdentification(controlServerPrivilege));
++			return;
++		}
++
++		int cacheIndex = controlServerPrivilege ? 1 : 0;
++		string cacheKey = GetStratumIdentificationCacheKey(controlServerPrivilege);
++		lock (stratumJoinPacketCacheLock)
++		{
++			BoxedPacket packet = stratumIdentificationPackets[cacheIndex];
++			if (packet.Length == 0 || stratumIdentificationCacheKeys[cacheIndex] != cacheKey)
++			{
++				packet.Serialize(CreatePacketIdentification(controlServerPrivilege));
++				stratumIdentificationCacheKeys[cacheIndex] = cacheKey;
++			}
++			SendPacket(player.ClientId, packet);
++		}
++	}
++
++	private string GetStratumIdentificationCacheKey(bool controlServerPrivilege)
++	{
++		StratumClientModPolicyConfig clientModPolicy = StratumRuntime.Config.ClientModPolicy;
++		return string.Concat(
++			controlServerPrivilege ? "1" : "0", "|",
++			requiresRemaps ? "1" : "0", "|",
++			Config.ServerName, "|",
++			Config.DisableAutoRemap ? "1" : "0", "|",
++			string.Join(",", Config.ModIdWhiteList ?? Array.Empty<string>()), "|",
++			string.Join(",", Config.ModIdBlackList ?? Array.Empty<string>()), "|",
++			clientModPolicy.Enabled ? "1" : "0", "|",
++			clientModPolicy.StrictWhitelist ? "1" : "0", "|",
++			clientModPolicy.IncludeServerUniversalMods ? "1" : "0", "|",
++			string.Join(",", clientModPolicy.AllowModIds ?? new List<string>()));
++	}
++
+ 	private Packet_Server CreatePacketIdentification(bool controlServerPrivilege)
+ 	{
  		List<Packet_ModId> list = (from mod in api.ModLoader.Mods
  			where mod.Info.Side.IsUniversal()
  			select new Packet_ModId
-@@ -4791,15 +5388,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4791,15 +5364,20 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  			RequireRemapping = ((controlServerPrivilege && requiresRemaps) ? 1 : 0)
  		};
  		Logger.Notification((Config.DisableAutoRemap ? ("Sending server identification with remap " + requiresRemaps) : "Sending server identification") + ". Server control privilege is " + controlServerPrivilege);
@@ -1386,19 +1482,7 @@ index 1017be9..2930a77 100644
  		}
  		return new Packet_Server
  		{
-@@ -4808,10 +5410,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
- 		};
- 	}
- 
- 	public void BroadcastPlayerData(IServerPlayer owningPlayer, bool sendInventory = true, bool sendPrivileges = false)
- 	{
-+		((ServerWorldPlayerData)owningPlayer.WorldData).stratumOtherPlayersPacketDirty = true; // Stratum: invalidate cache before rebuild
- 		Packet_Server packet = ((ServerWorldPlayerData)owningPlayer.WorldData).ToPacket(owningPlayer, sendInventory, sendPrivileges);
- 		Packet_Server packet2 = ((ServerWorldPlayerData)owningPlayer.WorldData).ToPacketForOtherPlayers(owningPlayer);
- 		SendPacket(owningPlayer, packet);
- 		BroadcastPacket(packet2, owningPlayer);
- 	}
-@@ -4843,12 +5446,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -4843,12 +5421,12 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  				array[num] = item.Id;
  				array2[num] = (int)(1000f * item.Player.Ping);
  				num++;

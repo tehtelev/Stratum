@@ -4,7 +4,7 @@ namespace Vintagestory.Server;
 
 internal class StratumAnticheatConfig
 {
-	public bool Enabled { get; set; } = true;
+	public bool Enabled { get; set; } = false;
 
 	public bool StaffAlerts { get; set; } = true;
 
