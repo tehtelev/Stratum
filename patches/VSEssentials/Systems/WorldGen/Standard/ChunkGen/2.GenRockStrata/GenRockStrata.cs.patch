@@ -1,0 +1,52 @@
+diff --git a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/2.GenRockStrata/GenRockStrata.cs b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/2.GenRockStrata/GenRockStrata.cs
+index cb9eefa..dd7efe6 100644
+--- a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/2.GenRockStrata/GenRockStrata.cs
++++ b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/2.GenRockStrata/GenRockStrata.cs
+@@ -136,10 +136,11 @@ namespace Vintagestory.ServerMods
+ 
+         // Cheap ugly code for better performance :<
+         #region
+         float[] rockGroupMaxThickness = new float[4];
+         int[] rockGroupCurrentThickness = new int[4];
++        float[] indicesBuf; // Stratum: reused buffer
+ 
+         IMapChunk mapChunk;
+         ushort[] heightMap;
+         int rdx;
+         int rdz;
+@@ -192,19 +193,31 @@ namespace Vintagestory.ServerMods
+             int rockBlockId = this.rockBlockId;
+ 
+             rockGroupMaxThickness[0] = rockGroupMaxThickness[1] = rockGroupMaxThickness[2] = rockGroupMaxThickness[3] = 0;
+             rockGroupCurrentThickness[0] = rockGroupCurrentThickness[1] = rockGroupCurrentThickness[2] = rockGroupCurrentThickness[3] = 0;
+ 
+-            float[] indices = new float[provinces.Variants.Length];
++            // Stratum start:
++            // use a buffer to reduce allocations
++            // Just in case, check the dimensions
++            //
++            // Tested on the generation of 10200 chunk columns:
++            // - method execution time: reduced from 16152 ms to 14678 ms;
++            // - GC memory allocations: reduced from 646 MB to 90 MB.
++            
++            if (indicesBuf == null || indicesBuf.Length != provinces.Variants.Length)
++                indicesBuf = new float[provinces.Variants.Length];
++
+             map.WeightsAt(
+                 chunkInRegionX + lx * lerpMapInv,
+                 chunkInRegionZ + lz * lerpMapInv,
+-                indices
++                indicesBuf
+             );
+-            for (int i = 0; i < indices.Length; i++)
++
++            for (int i = 0; i < indicesBuf.Length; i++)
+             {
+-                float w = indices[i];
++                float w = indicesBuf[i];
++                // Stratum end
+                 if (w == 0) continue;
+ 
+                 GeologicProvinceRockStrata[] localstrata = provinces.Variants[i].RockStrataIndexed;
+ 
+                 rockGroupMaxThickness[0] += localstrata[0].ScaledMaxThickness * w;

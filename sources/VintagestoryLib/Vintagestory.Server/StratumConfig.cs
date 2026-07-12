@@ -620,6 +620,8 @@ internal class StratumPerformanceConfig
 
 	public StratumJoinConfig Join { get; set; } = new StratumJoinConfig();
 
+	public StratumAdaptiveRadiusConfig AdaptiveRadius { get; set; } = new StratumAdaptiveRadiusConfig();
+
 	public void EnsurePopulated()
 	{
 		ChunkSending ??= new StratumChunkSendingConfig();
@@ -643,6 +645,7 @@ internal class StratumPerformanceConfig
 		BlockEntityInit ??= new StratumBlockEntityInitConfig();
 		TimerResolution ??= new StratumTimerResolutionConfig();
 		Join ??= new StratumJoinConfig();
+		AdaptiveRadius ??= new StratumAdaptiveRadiusConfig();
 		ChunkSending.EnsureSane();
 		ChunkGeneration.EnsureSane();
 		ChunkRequestManagement.EnsureSane();
@@ -664,6 +667,7 @@ internal class StratumPerformanceConfig
 		BlockEntityInit.EnsureSane();
 		TimerResolution.EnsureSane();
 		Join.EnsureSane();
+		AdaptiveRadius.EnsureSane();
 	}
 }
 
@@ -683,6 +687,34 @@ internal class StratumJoinConfig
 	{
 		MaxQueueAdmissionsPerPass = Math.Max(0, Math.Min(64, MaxQueueAdmissionsPerPass));
 		MaxJoinsPerTick = Math.Max(0, Math.Min(64, MaxJoinsPerTick));
+	}
+}
+
+internal class StratumAdaptiveRadiusConfig
+{
+	public bool Enabled { get; set; } = false;
+
+	public double SmoothingAlpha { get; set; } = 0.15;
+
+	public double DecreaseMsptThreshold { get; set; } = 45.0;
+
+	public double IncreaseMsptThreshold { get; set; } = 35.0;
+
+	// Instant radius drop when a single tick exceeds this value (ms).
+	public double OverloadDropThresholdMs { get; set; } = 500.0;
+
+	public int FloorChunks { get; set; } = 4;
+
+	public float AdjustmentIntervalSeconds { get; set; } = 2.0f;
+
+	public void EnsureSane()
+	{
+		SmoothingAlpha = Math.Max(0.01, Math.Min(0.5, SmoothingAlpha));
+		DecreaseMsptThreshold = Math.Max(1.0, DecreaseMsptThreshold);
+		IncreaseMsptThreshold = Math.Max(1.0, IncreaseMsptThreshold);
+		OverloadDropThresholdMs = Math.Max(50.0, OverloadDropThresholdMs);
+		FloorChunks = Math.Max(1, FloorChunks);
+		AdjustmentIntervalSeconds = Math.Max(1.0f, AdjustmentIntervalSeconds);
 	}
 }
 
@@ -1079,6 +1111,11 @@ internal class StratumPhysicsConfig
 	// Stride for entities beyond MidActivationRadiusBlocks but still tracked (IsTracked > 0).
 	public int FarBandTickStride { get; set; } = 3;
 
+	// Max entities to dequeue from the toAdd queue per tick. Prevents spikes when multiple
+	// chunks load simultaneously and dump 50-100 new physics tickables in one frame.
+	// Deferred entities stay in the queue and drain on subsequent ticks. 0 = no limit.
+	public int MaxActivationsPerTick { get; set; } = 50;
+
 	public void EnsureSane()
 	{
 		MaxCatchUpTicksPerServerTick = Math.Min(12, Math.Max(1, MaxCatchUpTicksPerServerTick));
@@ -1091,6 +1128,7 @@ internal class StratumPhysicsConfig
 		FarTrackedTickStride = Math.Min(8, Math.Max(1, FarTrackedTickStride));
 		UntrackedBehaviorTickStride = Math.Min(16, Math.Max(1, UntrackedBehaviorTickStride));
 		FarBandTickStride = Math.Min(16, Math.Max(1, FarBandTickStride));
+		MaxActivationsPerTick = Math.Max(0, MaxActivationsPerTick);
 		NearActivationRadiusBlocks = Math.Max(0f, NearActivationRadiusBlocks);
 		MidActivationRadiusBlocks = Math.Max(NearActivationRadiusBlocks, MidActivationRadiusBlocks);
 	}
