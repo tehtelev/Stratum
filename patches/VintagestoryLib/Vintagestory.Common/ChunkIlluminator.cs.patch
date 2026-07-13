@@ -1,8 +1,8 @@
 diff --git a/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs b/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
-index e2ca303..44df926 100644
+index e2ca303..ac0de58 100644
 --- a/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
 +++ b/VintagestoryLib/Vintagestory.Common/ChunkIlluminator.cs
-@@ -1,1110 +1,1537 @@
+@@ -1,1110 +1,1525 @@
  using System;
  using System.Collections.Generic;
 +using System.Runtime.CompilerServices;
@@ -2110,16 +2110,7 @@ index e2ca303..44df926 100644
 +        return fastSetOfLongs;
 +    }
 +
-+    /// <summary> Placing block light without color mixing  </summary>
-+    public void PlaceNonBlendingBlockLight(byte[] lightHsv, int posX, int posY, int posZ)
-+    {
-+        SetBlockLightLevel(lightHsv[0], lightHsv[1], lightHsv[2], posX, posY, posZ);
-+        BlockFacing[] aLLFACES = BlockFacing.ALLFACES;
-+        foreach (BlockFacing face in aLLFACES)
-+        {
-+            NonBlendingLightAxis(lightHsv[0], lightHsv[1], lightHsv[2], posX, posY, posZ, face);
-+        }
-+    }
++
 +
 +    /// <summary> Direct writing of block light data (HSV) into the chunk array. </summary>
 +    private void SetBlockLightLevel(byte hue, byte saturation, int value, int posX, int posY, int posZ)
@@ -2147,34 +2138,7 @@ index e2ca303..44df926 100644
 +        return 0;
 +    }
 +
-+    /// <summary> Recursive propagation of light without color mixing along the axes. </summary>
-+    private void NonBlendingLightAxis(byte hue, byte saturation, int lightLevel, int x, int y, int z, BlockFacing face)
-+    {
-+        int num = lightLevel - 1;
-+        while (num > 0)
-+        {
-+            x += face.Normali.X;
-+            y += face.Normali.Y;
-+            z += face.Normali.Z;
-+
-+            if (y >= 0 && y <= mapsizey)
-+            {
-+                Block block = GetBlock(x, y, z);
-+                if (block != null && block.BlockId == 0 && GetBlockLight(x, y, z) < num)
-+                {
-+                    SetBlockLightLevel(hue, saturation, num, x, y, z);
-+                    // Recursion along perpendicular axes (currently omitted/placeholder)
-+                    if (face.Axis == EnumAxis.X) { /* ... Y, Z ... */ }
-+                    else if (face.Axis == EnumAxis.Y) { /* ... X, Z ... */ }
-+                    else if (face.Axis == EnumAxis.Z) { /* ... X, Y ... */ }
-+                    num--;
-+                    continue;
-+                }
-+                break;
-+            }
-+            break;
-+        }
-+    }
++    
 +
 +    /// <summary> Removing a block light source with subsequent "darkness" spreading and recalculation. </summary>
 +    public FastSetOfLongs RemoveBlockLight(byte[] oldLightHsv, int posX, int posY, int posZ)
@@ -2398,9 +2362,33 @@ index e2ca303..44df926 100644
 +                    }
 +                    else
 +                    {
-+                        // The 5th and subsequent sources pass only if they are brighter than all previous ones (hard limit)
-+                        if (newLevel > nCell.maxLevel)
++                        // We are looking for the dimmest source among the monitored ones (Top-4)
++                        int minLvl = 255;
++                        int minSlot = -1;
++                        for (int i = 0; i < 4; i++)
++                        {
++                            int currentLvl = LvlSlot(ref nCell, i);
++                            if (currentLvl < minLvl)
++                            {
++                                minLvl = currentLvl;
++                                minSlot = i;
++                            }
++                        }
++
++                        // If the new source is brighter than the dimmest one, we push it out
++                        if (newLevel > minLvl)
++                        {
++                            SrcSlot(ref nCell, minSlot) = srcIdx;
++                            LvlSlot(ref nCell, minSlot) = (byte)newLevel;
 +                            shouldPropagate = true;
++                        }
++                        // If it doesn't make it into the Top 4, but is brighter than the overall maximum,
++                        // we still allow it to spread further (via transit)
++                        else if (newLevel > nCell.maxLevel)
++                        {
++                            shouldPropagate = true;
++                        }
++
 +                    }
 +
 +                    if (shouldPropagate)
