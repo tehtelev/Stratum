@@ -1,7 +1,20 @@
 diff --git a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/2.GenRockStrata/GenRockStrata.cs b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/2.GenRockStrata/GenRockStrata.cs
-index cb9eefa..dd7efe6 100644
+index cb9eefa..2918c45 100644
 --- a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/2.GenRockStrata/GenRockStrata.cs
 +++ b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/2.GenRockStrata/GenRockStrata.cs
+@@ -46,11 +46,11 @@ namespace Vintagestory.ServerMods
+         public override void StartServerSide(ICoreServerAPI api)
+         {
+             this.api = api;
+ 
+             api.Event.InitWorldGenerator(initWorldGen, "standard");
+-            api.Event.ChunkColumnGeneration(GenChunkColumn, EnumWorldGenPass.Terrain, "standard");
++            api.Event.ChunkColumnGeneration(GenChunkColumn, EnumWorldGenPass.Terrain2, "standard");// Stratum: we use our generation sub-stage
+ 
+             api.Event.MapRegionGeneration(OnMapRegionGen, "standard");
+         }
+ 
+ 
 @@ -136,10 +136,11 @@ namespace Vintagestory.ServerMods
  
          // Cheap ugly code for better performance :<

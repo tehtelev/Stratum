@@ -1,5 +1,5 @@
 diff --git a/VintagestoryLib/Vintagestory.Server/ChunkServerThread.cs b/VintagestoryLib/Vintagestory.Server/ChunkServerThread.cs
-index ee7d12d..07e051a 100644
+index ee7d12d..f8b2024 100644
 --- a/VintagestoryLib/Vintagestory.Server/ChunkServerThread.cs
 +++ b/VintagestoryLib/Vintagestory.Server/ChunkServerThread.cs
 @@ -12,10 +12,12 @@ namespace Vintagestory.Server;
@@ -15,6 +15,23 @@ index ee7d12d..07e051a 100644
  	internal IndexedFifoQueue<ChunkColumnLoadRequest> peekingChunkColumns;
  
  	internal Dictionary<long, ServerMapRegion> peekingMapRegions = new Dictionary<long, ServerMapRegion>(8);
+@@ -39,13 +41,13 @@ public class ChunkServerThread : ServerThread, IChunkProvider
+ 	public ILogger Logger => ServerMain.Logger;
+ 
+ 	public ChunkServerThread(ServerMain server, string threadname, CancellationToken cancellationToken)
+ 		: base(server, threadname, cancellationToken)
+ 	{
+-		int val = 5;
+-		additionalWorldGenThreadsCount = Math.Min(val, MagicNum.MaxWorldgenThreads - 1);
+-		if (server.ReducedServerThreads)
++		int val = (int)EnumWorldGenPass.Done - 1; // Stratum:  Getting rid of the magic number
++        additionalWorldGenThreadsCount = Math.Min(val, MagicNum.MaxWorldgenThreads); // Stratum: We take as many streams as are actually needed for each generation stage.
++        if (server.ReducedServerThreads)
+ 		{
+ 			additionalWorldGenThreadsCount = 0;
+ 		}
+ 		if (additionalWorldGenThreadsCount < 0)
+ 		{
 @@ -101,15 +103,21 @@ public class ChunkServerThread : ServerThread, IChunkProvider
  		return peekingChunkColumns.GetByIndex(index);
  	}
