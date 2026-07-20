@@ -9,7 +9,7 @@ Builds a clean working tree by laying down:
 Then applies every patch in patches/ on top.
 
 .PARAMETER Version
-Vintage Story server version to download when -ServerZip is not provided. Defaults to 1.22.3.
+Vintage Story server version to download when -ServerZip is not provided. Defaults to 1.22.4.
 
 .PARAMETER ServerZip
 Path to an already-downloaded official server archive. If omitted, the script resolves
@@ -20,13 +20,13 @@ Force re-extract, re-decompile, and re-clone even if cached output already exist
 
 .EXAMPLE
 .\scripts\bootstrap.ps1
-.\scripts\bootstrap.ps1 -Version 1.22.3
+.\scripts\bootstrap.ps1 -Version 1.22.4
 .\scripts\bootstrap.ps1 -Refresh
 #>
 
 [CmdletBinding()]
 param(
-    [string]$Version = '1.22.3',
+    [string]$Version = '1.22.4',
     [string]$ServerZip,
     [switch]$Refresh
 )
@@ -210,7 +210,17 @@ try {
         if (-not (Test-Path $out) -or $Refresh) {
             Write-Host "Decompiling $dll into $out"
             New-Item -ItemType Directory -Force -Path $out | Out-Null
-            ilspycmd $dllPath.FullName --project -o $out | Out-Null
+            $prevEAP = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = 'Continue'
+                $decompileOutput = & ilspycmd $dllPath.FullName --project -o $out 2>&1
+                $decompileExitCode = $LASTEXITCODE
+            } finally {
+                $ErrorActionPreference = $prevEAP
+            }
+            if ($decompileExitCode -ne 0) {
+                throw "ilspycmd failed to decompile $dll (exit $decompileExitCode):`n$($decompileOutput -join "`n")"
+            }
         }
 
         # ilspycmd writes <LangVersion>15.0</LangVersion>, which the .NET 10 SDK

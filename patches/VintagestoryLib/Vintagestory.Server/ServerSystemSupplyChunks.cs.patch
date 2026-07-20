@@ -857,7 +857,7 @@ index d6e727a..3396d28 100644
 -				return value;
 -			}
 -		}
--		bool updateEarlierVersion = GameVersion.IsLowerVersionThan(server.SaveGameData.CreatedGameVersion, "1.22.3");
+-		bool updateEarlierVersion = GameVersion.IsLowerVersionThan(server.SaveGameData.CreatedGameVersion, "1.22.4");
 -		orCreateMapRegionEnsureNeighbours = GetOrCreateMapRegionEnsureNeighbours(chunkX, chunkZ, chunkRequest.chunkGenParams, updateEarlierVersion);
 -		value = CreateMapChunk(chunkX, chunkZ, orCreateMapRegionEnsureNeighbours);
 -		server.loadedMapChunks[key] = value;
@@ -1170,7 +1170,7 @@ index d6e727a..3396d28 100644
 -					long num3 = server.WorldMap.MapRegionIndex2D(regionX, regionZ);
 -					if (!dictionary.TryGetValue(num3, out var value))
 -					{
--						bool updateEarlierVersion = GameVersion.IsLowerVersionThan(server.SaveGameData.CreatedGameVersion, "1.22.3");
+-						bool updateEarlierVersion = GameVersion.IsLowerVersionThan(server.SaveGameData.CreatedGameVersion, "1.22.4");
 -						value = (dictionary[num3] = GetOrCreateMapRegionNoStore(regionX, regionZ, num3, chunkGenParams, updateEarlierVersion));
 -						chunkthread.peekingMapRegions.TryAdd(num3, value);
 -					}
@@ -2625,7 +2625,7 @@ index d6e727a..3396d28 100644
 +                return value;
 +            }
 +        }
-+        bool updateEarlierVersion = GameVersion.IsLowerVersionThan(server.SaveGameData.CreatedGameVersion, "1.22.3");
++        bool updateEarlierVersion = GameVersion.IsLowerVersionThan(server.SaveGameData.CreatedGameVersion, "1.22.4");
 +        orCreateMapRegionEnsureNeighbours = GetOrCreateMapRegionEnsureNeighbours(chunkX, chunkZ, chunkRequest.chunkGenParams, updateEarlierVersion);
 +        value = CreateMapChunk(chunkX, chunkZ, orCreateMapRegionEnsureNeighbours);
 +        server.loadedMapChunks[key] = value;
@@ -2985,7 +2985,7 @@ index d6e727a..3396d28 100644
 +                    long num3 = server.WorldMap.MapRegionIndex2D(regionX, regionZ);
 +                    if (!dictionary.TryGetValue(num3, out var value))
 +                    {
-+                        bool updateEarlierVersion = GameVersion.IsLowerVersionThan(server.SaveGameData.CreatedGameVersion, "1.22.3");
++                        bool updateEarlierVersion = GameVersion.IsLowerVersionThan(server.SaveGameData.CreatedGameVersion, "1.22.4");
 +                        value = (dictionary[num3] = GetOrCreateMapRegionNoStore(regionX, regionZ, num3, chunkGenParams, updateEarlierVersion));
 +                        chunkthread.peekingMapRegions.TryAdd(num3, value);
 +                    }
