@@ -1010,7 +1010,7 @@ internal class StratumPregenConfig
 
 	public bool PauseWhenPlayersOnline { get; set; } = true;
 
-	public double PauseBelowTps { get; set; } = 20.0;
+	public double PauseBelowTps { get; set; } = 15.0;
 
 	public int ProgressLogIntervalSeconds { get; set; } = 60;
 
@@ -1025,6 +1025,34 @@ internal class StratumPregenConfig
 		MaxAreaColumns = Math.Min(100000000, Math.Max(1, MaxAreaColumns));
 		PauseBelowTps = Math.Min(20, Math.Max(0, PauseBelowTps));
 		ProgressLogIntervalSeconds = Math.Min(3600, Math.Max(0, ProgressLogIntervalSeconds));
+
+		// Automatic protection against deadlocks and throttling
+		int sysQueueLimit = MagicNum.RequestChunkColumnsQueueSize;
+
+		// MaxPendingColumnQueue <= 1/4 of RequestChunkColumnsQueueSize
+		int maxPendingAllowed = Math.Max(64, sysQueueLimit / 4);
+		if (MaxPendingColumnQueue > maxPendingAllowed)
+		{
+			StratumRuntime.LogWarning($"MaxPendingColumnQueue ({MaxPendingColumnQueue}) was automatically clamped to {maxPendingAllowed} (1/4 of engine RequestChunkColumnsQueueSize: {sysQueueLimit}).");
+			MaxPendingColumnQueue = maxPendingAllowed;
+		}
+
+		// MaxWorkerColumnQueue <= 1/2 of RequestChunkColumnsQueueSize
+		int maxWorkerAllowed = Math.Max(128, sysQueueLimit / 2);
+		if (MaxWorkerColumnQueue > maxWorkerAllowed)
+		{
+			StratumRuntime.LogWarning($"MaxWorkerColumnQueue ({MaxWorkerColumnQueue}) was automatically clamped to {maxWorkerAllowed} (1/2 of engine RequestChunkColumnsQueueSize: {sysQueueLimit}).");
+			MaxWorkerColumnQueue = maxWorkerAllowed;
+		}
+
+		// MaxColumnsPerSecond must not exceed MaxPendingColumnQueue
+		// If the insertion rate is higher than the buffer size,
+		// the queue will instantly overflow, causing constant pauses
+		if (MaxColumnsPerSecond > MaxPendingColumnQueue)
+		{
+			StratumRuntime.LogWarning($"MaxColumnsPerSecond ({MaxColumnsPerSecond}) was automatically clamped to MaxPendingColumnQueue ({MaxPendingColumnQueue}) to prevent instant queue pressure thrashing.");
+			MaxColumnsPerSecond = MaxPendingColumnQueue;
+		}
 	}
 }
 
@@ -1447,9 +1475,10 @@ internal class StratumChunkIoConfig
 // still consumed via the standard requeue/dispose flow, this only changes which request the
 // chunk thread picks up *first* on each tick — useful when many players are spreading load
 // across the world simultaneously and FIFO would otherwise round-robin them slowly.
+// sampling now correctly takes into account the entire queue via bounded max-heap, and not just its head
 internal class StratumChunkPriorityConfig
 {
-	public bool Enabled { get; set; } = false;
+	public bool Enabled { get; set; } = true;
 
 	// Cap on requests pulled into the sort window each chunk-thread iteration. Keeps the sort
 	// cost bounded regardless of queue size.
