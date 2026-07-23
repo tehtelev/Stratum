@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -994,13 +994,13 @@ internal class StratumPregenConfig
 {
 	public bool Enabled { get; set; } = true;
 
-	public int MaxColumnsPerSecond { get; set; } = 32;
+	public int MaxColumnsPerSecond { get; set; } = 500;
 
 	public int MaxScansPerSecond { get; set; } = 4096;
 
-	public int MaxPendingColumnQueue { get; set; } = 256;
+	public int MaxPendingColumnQueue { get; set; } = 500;
 
-	public int MaxWorkerColumnQueue { get; set; } = 512;
+	public int MaxWorkerColumnQueue { get; set; } = 1000;
 
 	public int MaxLoadedChunkColumns { get; set; } = 4096;
 
