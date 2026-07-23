@@ -191,25 +191,23 @@ index 1103a72..6bc1ee9 100644
  		if (Config.RepairMode)
  		{
  			SendMessage(player, GlobalConstants.GeneralChatGroup, "Server is in repair mode, you are now in spectator mode. If you are not already there, fly to the area that crashes and let the chunks load, then exit the game and run in normal mode.", EnumChatType.Notification);
-@@ -575,10 +669,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -575,10 +669,10 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		});
  	}
  
  	public void broadCastModeChange(IServerPlayer player)
  	{
-+		((ServerWorldPlayerData)player.WorldData).stratumOtherPlayersPacketDirty = true; // Stratum: invalidate cached player packet
  		BroadcastPacket(new Packet_Server
  		{
  			Id = 46,
  			ModeChange = new Packet_PlayerMode
  			{
-@@ -703,10 +798,11 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
+@@ -703,10 +798,10 @@ public sealed class ServerMain : GameMain, IServerWorldAccessor, IWorldAccessor,
  		worldData.FreeMove = (worldData.FreeMove && flag4) || worldData.GameMode == EnumGameMode.Spectator;
  		worldData.NoClip &= flag4;
  		worldData.RenderMetaBlocks = requestModeChange.RenderMetaBlocks > 0;
  		clientByUID.Entityplayer.Controls.IsFlying = worldData.FreeMove || clientByUID.Entityplayer.Controls.Gliding;
  		clientByUID.Entityplayer.Controls.MovespeedMultiplier = worldData.MoveSpeedMultiplier;
-+		worldData.stratumOtherPlayersPacketDirty = true; // Stratum: invalidate cached player packet
  		BroadcastPacket(new Packet_Server
  		{
  			Id = 46,
