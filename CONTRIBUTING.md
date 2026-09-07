@@ -61,17 +61,22 @@ You need the .NET 10 SDK. Linux and macOS contributors use `scripts/bootstrap.sh
 ```bash
 # Linux / macOS
 scripts/bootstrap.sh
-dotnet build VintageStory.slnx -c Release
+dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true
 
-# Or use make (runs bootstrap if needed):
+# Or use make (runs bootstrap if needed, and sets the flag for you):
 make build
 ```
 
 ```powershell
 # Windows
 .\scripts\bootstrap.ps1
-dotnet build VintageStory.slnx -c Release
+dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true
 ```
+
+`-p:EmbedPatchedFiles=true` is what embeds your compiled working tree into
+`StratumServer`. Build without it and the launcher has nothing to overlay, so
+the server boots the downloaded vanilla assemblies unpatched, with no error and
+no warning until this change. `make build` passes it.
 
 `bootstrap.ps1` downloads the matching vanilla server zip, decompiles the assemblies into the working tree, applies every patch, then copies `sources/` on top. After that you have a normal C# solution to edit.
 
@@ -148,7 +153,7 @@ Rules of thumb:
 
 Compilation is not enough. Before opening a PR:
 
-1. `dotnet build VintageStory.slnx -c Release` is green with zero warnings on files you touched.
+1. `dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true` (or `make build`) is green with zero warnings on files you touched.
 2. Run the smoke test: `make smoke` (or `bash scripts/smoke-test.sh` / `.\scripts\smoke-test.ps1`). It builds, boots the server, waits for RunGame, checks for fatal errors, and (bash only, set `SMOKE_TEST_PROBE=0` to skip) pipes a small set of console commands into the running server to cover command registration and argument handling end to end.
 3. If your change touches a hot path (entity ticking, chunk IO, packet handling), get a before/after measurement. Server timings, frame profiler output, or a sampling profiler are all fine. "Feels faster" is not.
 

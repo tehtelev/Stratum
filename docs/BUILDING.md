@@ -16,7 +16,7 @@ Windows:
 git clone https://github.com/StratumServer/Stratum.git
 cd Stratum
 .\scripts\bootstrap.ps1
-dotnet build VintageStory.slnx -c Release
+dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true
 ```
 
 Linux and macOS:
@@ -26,6 +26,11 @@ git clone https://github.com/StratumServer/Stratum.git
 cd Stratum
 make build
 ```
+
+`-p:EmbedPatchedFiles=true` embeds this working tree's compiled DLLs into
+`StratumServer` so the launcher overlays them onto the downloaded base game.
+Without it the server boots on the unpatched vanilla assemblies with no error.
+`make build` and `scripts/pack-release.ps1` pass it for you.
 
 Bootstrap does this:
 
