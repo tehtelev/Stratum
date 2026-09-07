@@ -47,6 +47,7 @@ probe_commands=(
   "/kitedit list extra"
   "/kitedit create starter_kit 1 2"
   "/kit"
+  "/stratum chat"
 )
 probe_expect=(
   "No kits exist yet."
@@ -57,6 +58,7 @@ probe_expect=(
   "/kitedit list takes no arguments."
   ""
   "Only a connected player can use /kit."
+  "[Moderator][XYZ Villager]"
 )
 
 # Data path handling.
@@ -68,6 +70,31 @@ else
   data_path="$(mktemp -d)"
 fi
 mkdir -p "$data_path"
+
+# Role-prefix regression seed (StratumServer/Stratum#274). Written before the server starts
+# so the boot config load runs the prefix-list converter for real: "suvisitor" carries two
+# prefixes as an array, deliberately in the wrong file order so the probe below proves
+# Priority reorders them rather than the file order being echoed back, and "admin" stays a
+# bare single object so the pre-#274 shape is covered too. GamePaths.Config resolves to the
+# data path root, not a Config subfolder.
+cat >"$data_path/stratum.json" <<'JSON'
+{
+  "ConfigVersion": 3,
+  "Appearance": {
+    "RolePrefixes": {
+      "Enabled": true,
+      "Format": "[{tag}]",
+      "Roles": {
+        "suvisitor": [
+          { "Enabled": true, "Tag": "XYZ Villager", "Color": "#4cc9f0", "Bold": true, "Priority": 10 },
+          { "Enabled": true, "Tag": "Moderator", "Color": "#ff5f57", "Bold": true, "Priority": 100 }
+        ],
+        "admin": { "Enabled": true, "Tag": "Admin", "Color": "#ff5f57", "Bold": true, "Priority": 100 }
+      }
+    }
+  }
+}
+JSON
 
 cleanup() {
   exec 3>&- 2>/dev/null || true
@@ -200,6 +227,18 @@ if [[ "${SMOKE_TEST_PROBE:-1}" == "1" ]] \
 
   if log_contains "Incomplete command"; then
     probe_failures+="    command registration incomplete: \"Incomplete command\" appeared in the log"$'\n'
+  fi
+
+  # #274: the boot rewrite of stratum.json must not reshape the seeded file. Two prefixes
+  # stay an array, one stays a bare object. This guards against a future change to the
+  # converter that drops the single-object write-back.
+  if [[ -f "$data_path/stratum.json" ]]; then
+    if ! grep -q '"suvisitor": \[' "$data_path/stratum.json"; then
+      probe_failures+="    stratum.json rewrite reshaped the two-prefix role away from an array"$'\n'
+    fi
+    if ! grep -q '"admin": {' "$data_path/stratum.json"; then
+      probe_failures+="    stratum.json rewrite reshaped the single-prefix role into an array"$'\n'
+    fi
   fi
 fi
 
