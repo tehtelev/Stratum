@@ -231,15 +231,17 @@ if [[ "${SMOKE_TEST_PROBE:-1}" == "1" ]] \
     probe_failures+="    command registration incomplete: \"Incomplete command\" appeared in the log"$'\n'
   fi
 
-  # #274: the boot rewrite of stratum.json must not reshape the seeded file. Two prefixes
-  # stay an array, one stays a bare object. This guards against a future change to the
-  # converter that drops the single-object write-back.
-  if [[ -f "$data_path/stratum.json" ]]; then
-    if ! grep -q '"suvisitor": \[' "$data_path/stratum.json"; then
-      probe_failures+="    stratum.json rewrite reshaped the two-prefix role away from an array"$'\n'
-    fi
-    if ! grep -q '"admin": {' "$data_path/stratum.json"; then
-      probe_failures+="    stratum.json rewrite reshaped the single-prefix role into an array"$'\n'
+  if [[ "$own_data" == "1" ]]; then
+    # #274: the boot rewrite of stratum.json must not reshape the seeded file. Two prefixes
+    # stay an array, one stays a bare object. This guards against a future change to the
+    # converter that drops the single-object write-back.
+    if [[ -f "$data_path/stratum.json" ]]; then
+      if ! grep -q '"suvisitor": \[' "$data_path/stratum.json"; then
+        probe_failures+="    stratum.json rewrite reshaped the two-prefix role away from an array"$'\n'
+      fi
+      if ! grep -q '"admin": {' "$data_path/stratum.json"; then
+        probe_failures+="    stratum.json rewrite reshaped the single-prefix role into an array"$'\n'
+      fi
     fi
   fi
 fi
