@@ -47,7 +47,6 @@ probe_commands=(
   "/kitedit list extra"
   "/kitedit create starter_kit 1 2"
   "/kit"
-  "/stratum chat"
 )
 probe_expect=(
   "No kits exist yet."
@@ -58,7 +57,6 @@ probe_expect=(
   "/kitedit list takes no arguments."
   ""
   "Only a connected player can use /kit."
-  "[Moderator][XYZ Villager]"
 )
 
 # Data path handling.
@@ -76,8 +74,11 @@ mkdir -p "$data_path"
 # prefixes as an array, deliberately in the wrong file order so the probe below proves
 # Priority reorders them rather than the file order being echoed back, and "admin" stays a
 # bare single object so the pre-#274 shape is covered too. GamePaths.Config resolves to the
-# data path root, not a Config subfolder.
-cat >"$data_path/stratum.json" <<'JSON'
+# data path root, not a Config subfolder. Never replace a caller-supplied data path.
+if [[ "$own_data" == "1" ]]; then
+  probe_commands+=("/stratum chat")
+  probe_expect+=("[Moderator][XYZ Villager]")
+  cat >"$data_path/stratum.json" <<'JSON'
 {
   "ConfigVersion": 3,
   "Appearance": {
@@ -95,6 +96,7 @@ cat >"$data_path/stratum.json" <<'JSON'
   }
 }
 JSON
+fi
 
 cleanup() {
   exec 3>&- 2>/dev/null || true
