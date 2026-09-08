@@ -57,7 +57,12 @@ internal static class Program
 			{
 				string stamp = StratumInfo.Version;
 				int written = PatchedFileOverlay.Apply(AppContext.BaseDirectory, refresh ? stamp + ":refresh:" + Guid.NewGuid().ToString("N") : stamp);
-				if (written > 0)
+				if (written < 0)
+				{
+					Console.Error.WriteLine("Stratum: WARNING this build carries no embedded patched files, so the server is about to run the downloaded vanilla assemblies unpatched.");
+					Console.Error.WriteLine("Stratum: build with 'make build', or 'dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true'.");
+				}
+				else if (written > 0)
 				{
 					Console.WriteLine($"Stratum: applied patched files ({written} file(s))");
 				}

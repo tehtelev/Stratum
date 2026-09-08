@@ -538,4 +538,4 @@ if [[ "${failed_patch_count:-0}" -gt 0 ]]; then
   echo "Bootstrap FAILED: $failed_patch_count patch(es) did not apply. The working tree is incomplete." >&2
   exit 1
 fi
-echo "Bootstrap complete. Run: dotnet build VintageStory.slnx -c Release"
+echo "Bootstrap complete. Run: dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true"

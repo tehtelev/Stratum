@@ -115,11 +115,11 @@ mkfifo "$console_fifo"
 exec 3<>"$console_fifo"
 
 log_file="$data_path/smoke-test.log"
-# Run from the server's own directory, not repo_root: Mono.Cecil's default assembly
-# resolver searches the process's current directory, and modinfo scanning at boot
-# fails to resolve VintagestoryAPI (silently dropping every mod, "game" included)
-# when launched from anywhere else.
-(cd "$server_dir" && exec "$server_bin" --dataPath "$data_path" --port "$port" <"$console_fifo" >"$log_file" 2>&1) &
+# Launched from repo_root, not the server's own directory: the Mono.Cecil resolver
+# in ModAssemblyLoader must find VintagestoryAPI.dll for the boot modinfo scan
+# regardless of the working directory (StratumServer/Stratum#276), and running the
+# smoke test from a neutral directory is what keeps that covered.
+"$server_bin" --dataPath "$data_path" --port "$port" <"$console_fifo" >"$log_file" 2>&1 &
 server_pid=$!
 
 last_line_count=0

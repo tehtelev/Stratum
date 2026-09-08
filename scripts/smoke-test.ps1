@@ -33,22 +33,33 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
+# Prefer StratumServer.exe, Stratum's own launcher, which applies VanillaBootstrap and
+# PatchedFileOverlay. A VintagestoryServer.exe in the same directory is the vanilla
+# archive's own entry point, copied in as a side effect of the first overlay; preferring
+# it would silently boot-test unpatched vanilla code (mirrors scripts/smoke-test.sh).
 $serverDir = Join-Path $repoRoot 'StratumServer\bin\Release\net10.0'
-$serverBin = Join-Path $serverDir 'VintagestoryServer.exe'
-if (-not (Test-Path $serverBin)) {
-    $serverBin = Join-Path $serverDir 'StratumServer.exe'
+function Resolve-ServerBin {
+    $stratum = Join-Path $serverDir 'StratumServer.exe'
+    if (Test-Path $stratum) { return $stratum }
+    $vanilla = Join-Path $serverDir 'VintagestoryServer.exe'
+    if (Test-Path $vanilla) { return $vanilla }
+    return $null
 }
+$serverBin = Resolve-ServerBin
 
 Push-Location $repoRoot
 try {
-    # Build if binary is missing.
-    if (-not (Test-Path $serverBin)) {
+    # Build if binary is missing. -p:EmbedPatchedFiles=true is required so StratumServer
+    # carries this working tree's patched DLLs; without it PatchedFileOverlay has nothing
+    # to overlay and the server silently runs the downloaded vanilla assemblies.
+    if (-not $serverBin) {
         Write-Host "Building Release..."
-        dotnet build VintageStory.slnx -c Release --verbosity quiet
+        dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true --verbosity quiet
+        $serverBin = Resolve-ServerBin
     }
 
-    if (-not (Test-Path $serverBin)) {
-        Write-Error "Server binary not found: $serverBin"
+    if (-not $serverBin) {
+        Write-Error "Server binary not found in $serverDir"
         exit 1
     }
 
@@ -137,13 +148,16 @@ try {
         }
     }
 
-    # Read final log.
+    # Read final logs. The patched resolver reports failures on stderr on Windows.
+    $errorLog = Join-Path $DataPath 'smoke-test-err.log'
     $finalLog = if (Test-Path $logFile) { Get-Content $logFile -Raw -ErrorAction SilentlyContinue } else { '' }
+    $finalError = if (Test-Path $errorLog) { Get-Content $errorLog -Raw -ErrorAction SilentlyContinue } else { '' }
+    $diagnosticLog = $finalLog + "`n" + $finalError
 
     if (-not $reachedRunGame -and $finalLog -match 'Entering runphase RunGame') {
         $reachedRunGame = $true
     }
-    if ($finalLog -match 'Fatal|Unhandled exception') {
+    if ($diagnosticLog -match 'Fatal|Unhandled exception|Failed to resolve assembly') {
         $hasFatal = $true
     }
 
@@ -160,6 +174,7 @@ try {
         Write-Error "  Fatal errors found in log."
     }
     Write-Error "  Log: $logFile"
+    Write-Error "  Error log: $errorLog"
     exit 1
 
 } finally {
