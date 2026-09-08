@@ -456,9 +456,40 @@ internal class CmdStratum
 		output.Append(StratumCommandText.Row("URL links", chat.LinkifyUrls ? "true" : "false"));
 		output.Append(StratumCommandText.Row("Prefix format", rolePrefixes.Format));
 
-		foreach (KeyValuePair<string, StratumRolePrefixConfig> entry in rolePrefixes.Roles.OrderBy(entry => entry.Key))
+		foreach (KeyValuePair<string, StratumRolePrefixList> entry in rolePrefixes.Roles.OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase))
 		{
-			output.Append(StratumCommandText.Bullet(entry.Key, rolePrefixes.Format.Replace("{tag}", entry.Value.Tag) + " " + entry.Value.Color + (entry.Value.Enabled ? "" : " disabled")));
+			StringBuilder stack = new StringBuilder();
+			StringBuilder detail = new StringBuilder();
+			if (entry.Value?.Prefixes != null)
+			{
+				foreach (StratumRolePrefixConfig prefix in entry.Value.Prefixes.OrderByDescending(prefix => prefix.Priority))
+				{
+					if (prefix == null)
+					{
+						continue;
+					}
+
+					// The stack shows what a player actually sees, so a disabled tag is listed in
+					// the detail but left out of the render.
+					if (prefix.Enabled)
+					{
+						stack.Append(rolePrefixes.Format.Replace("{tag}", prefix.Tag));
+					}
+
+					if (detail.Length > 0)
+					{
+						detail.Append(", ");
+					}
+
+					detail.Append(prefix.Tag).Append(" p").Append(prefix.Priority).Append(' ').Append(prefix.Color);
+					if (!prefix.Enabled)
+					{
+						detail.Append(" disabled");
+					}
+				}
+			}
+
+			output.Append(StratumCommandText.Bullet(entry.Key, (stack.Length == 0 ? "none" : stack.ToString()) + "  " + detail));
 		}
 
 		return TextCommandResult.Success(output.ToString());

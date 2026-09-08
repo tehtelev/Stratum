@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Server;
@@ -59,11 +60,11 @@ internal sealed class StratumNametags
 		if (player?.Role == null) return false;
 
 		StratumConfig root = StratumRuntime.Config;
-		StratumRolePrefixConfig prefix = FindRolePrefix(root?.Appearance?.RolePrefixes?.Roles, player.Role.Code);
+		List<StratumRolePrefixConfig> prefixes = root?.Appearance?.RolePrefixes?.ResolveFor(player.Role.Code);
 
 		if (cfg.ApplyRolePrefix)
 		{
-			ApplyNametagPrefix(player, prefix, cfg.PrefixFormat);
+			ApplyNametagPrefix(player, prefixes, cfg.PrefixFormat);
 		}
 
 		RemoveInjectedEntitlement(player);
@@ -82,7 +83,7 @@ internal sealed class StratumNametags
 		injectedByUid.Remove(player.PlayerUID);
 	}
 
-	private void ApplyNametagPrefix(IServerPlayer player, StratumRolePrefixConfig prefix, string format)
+	private void ApplyNametagPrefix(IServerPlayer player, List<StratumRolePrefixConfig> prefixes, string format)
 	{
 		EntityPlayer entity = player.Entity;
 		if (entity == null) return;
@@ -90,19 +91,20 @@ internal sealed class StratumNametags
 		string baseName = player.PlayerName;
 		if (string.IsNullOrEmpty(baseName)) return;
 
-		string desired;
-		if (prefix != null && prefix.Enabled && !string.IsNullOrWhiteSpace(prefix.Tag))
+		string fmt = string.IsNullOrEmpty(format) ? "[{tag}] " : format;
+		StringBuilder prefixText = new StringBuilder();
+		if (prefixes != null)
 		{
-			string fmt = string.IsNullOrEmpty(format) ? "[{tag}] " : format;
-			string prefixText = fmt.Replace("{tag}", prefix.Tag);
-			desired = prefixText + baseName;
+			foreach (StratumRolePrefixConfig prefix in prefixes)
+			{
+				if (string.IsNullOrWhiteSpace(prefix.Tag)) continue;
+				prefixText.Append(fmt.Replace("{tag}", prefix.Tag));
+			}
 		}
-		else
-		{
-			// New role has no prefix \u2014 strip back to the bare player name so a demoted
-			// admin loses their "[Admin] " badge instead of keeping it stuck.
-			desired = baseName;
-		}
+
+		// Nothing left for the new role, so strip back to the bare player name and a demoted
+		// admin loses their "[Admin] " badge instead of keeping it stuck.
+		string desired = prefixText.Length == 0 ? baseName : prefixText + baseName;
 
 		string current = entity.WatchedAttributes.GetTreeAttribute("nametag")?.GetString("name");
 		if (string.Equals(current, desired, StringComparison.Ordinal)) return;
@@ -151,13 +153,4 @@ internal sealed class StratumNametags
 		StratumRuntime.LogInfo("nametag: injected entitlement '" + entCode + "' for " + player.PlayerName + " (role " + player.Role.Code + ")");
 	}
 
-	private static StratumRolePrefixConfig FindRolePrefix(Dictionary<string, StratumRolePrefixConfig> prefixes, string roleCode)
-	{
-		if (prefixes == null || string.IsNullOrWhiteSpace(roleCode)) return null;
-		return prefixes
-			.Where(kv => kv.Value != null && kv.Value.Enabled && string.Equals(kv.Key, roleCode, StringComparison.OrdinalIgnoreCase))
-			.OrderByDescending(kv => kv.Value.Priority)
-			.Select(kv => kv.Value)
-			.FirstOrDefault();
-	}
 }
