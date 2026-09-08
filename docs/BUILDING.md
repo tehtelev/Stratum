@@ -30,7 +30,9 @@ make build
 `-p:EmbedPatchedFiles=true` embeds this working tree's compiled DLLs into
 `StratumServer` so the launcher overlays them onto the downloaded base game.
 Without it the server boots on the unpatched vanilla assemblies with no error.
-`make build` and `scripts/pack-release.ps1` pass it for you.
+`make build` and `scripts/pack-release.ps1` pass it for you. `make build` uses
+two passes: the first creates the sibling project outputs that `StratumServer`
+embeds, and the second runs with `-p:EmbedPatchedFiles=true`.
 
 Bootstrap does this:
 

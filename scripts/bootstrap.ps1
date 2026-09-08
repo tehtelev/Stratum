@@ -366,7 +366,7 @@ try {
         Write-Host "Bootstrap FAILED: $($failed.Count) patch(es) did not apply. The working tree is incomplete." -ForegroundColor Red
         exit 1
     }
-    Write-Host "Bootstrap complete. Run: dotnet build VintageStory.slnx -c Release" -ForegroundColor Green
+    Write-Host "Bootstrap complete. Run: dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true" -ForegroundColor Green
 } finally {
     Pop-Location
 }

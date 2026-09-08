@@ -34,6 +34,8 @@ bootstrap: ## Download, decompile, and apply patches
 
 build: ## Build Release (runs bootstrap if working tree is missing)
 	@if [ ! -f VintagestoryApi/VintagestoryAPI.csproj ]; then $(MAKE) bootstrap; fi
+# The first pass intentionally omits EmbedPatchedFiles because the sibling outputs
+# it embeds do not exist until this pass completes.
 	dotnet build VintageStory.slnx -c $(CONFIGURATION)
 # Second pass, only if embedding is on: StratumServer's EmbeddedResource list
 # points at sibling projects' bin output by raw path, not a ProjectReference,

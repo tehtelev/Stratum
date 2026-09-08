@@ -76,7 +76,8 @@ dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true
 `-p:EmbedPatchedFiles=true` is what embeds your compiled working tree into
 `StratumServer`. Build without it and the launcher has nothing to overlay, so
 the server boots the downloaded vanilla assemblies unpatched, with no error and
-no warning until this change. `make build` passes it.
+no warning until this change. `make build` runs an unembedded pass first to
+produce the sibling outputs, then runs the embedded pass.
 
 `bootstrap.ps1` downloads the matching vanilla server zip, decompiles the assemblies into the working tree, applies every patch, then copies `sources/` on top. After that you have a normal C# solution to edit.
 

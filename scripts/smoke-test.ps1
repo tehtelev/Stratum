@@ -148,13 +148,16 @@ try {
         }
     }
 
-    # Read final log.
+    # Read final logs. The patched resolver reports failures on stderr on Windows.
+    $errorLog = Join-Path $DataPath 'smoke-test-err.log'
     $finalLog = if (Test-Path $logFile) { Get-Content $logFile -Raw -ErrorAction SilentlyContinue } else { '' }
+    $finalError = if (Test-Path $errorLog) { Get-Content $errorLog -Raw -ErrorAction SilentlyContinue } else { '' }
+    $diagnosticLog = $finalLog + "`n" + $finalError
 
     if (-not $reachedRunGame -and $finalLog -match 'Entering runphase RunGame') {
         $reachedRunGame = $true
     }
-    if ($finalLog -match 'Fatal|Unhandled exception') {
+    if ($diagnosticLog -match 'Fatal|Unhandled exception|Failed to resolve assembly') {
         $hasFatal = $true
     }
 
@@ -171,6 +174,7 @@ try {
         Write-Error "  Fatal errors found in log."
     }
     Write-Error "  Log: $logFile"
+    Write-Error "  Error log: $errorLog"
     exit 1
 
 } finally {

@@ -121,7 +121,7 @@ make smoke        # build + boot-test the server
 git clone https://github.com/StratumServer/Stratum.git
 cd Stratum
 .\scripts\bootstrap.ps1
-dotnet build VintageStory.slnx -c Release
+dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true
 .\scripts\smoke-test.ps1    # boot-test the server
 ```
 
