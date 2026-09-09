@@ -20,7 +20,7 @@ namespace StratumScenarios;
 /// </summary>
 public class ChunkPersistenceScenarios : AtlasScenarioBase
 {
-	private const string ModdataKey = "stratumparity:probe";
+	private const string ModdataKey = "stratum:probe";
 
 	[AtlasScenario(TimeoutMs = 120_000)]
 	public async Task ModifiedColumn_Should_SurviveUnloadReload_When_SavedBeforeUnload()

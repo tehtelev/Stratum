@@ -1,7 +1,7 @@
 {
   "type": "code",
-  "modid": "stratumparityprobe",
-  "name": "StratumParity Random Tick Probe",
+  "modid": "stratumprobe",
+  "name": "Stratum Random Tick Probe",
   "description": "Test-only block that turns into granite on every server random tick, so random tick coverage becomes countable world state.",
   "authors": [ "Pixnop" ],
   "version": "1.0.0",

@@ -19,5 +19,5 @@ public sealed class TickCounterBehavior : EntityBehavior
 
 	public override void OnGameTick(float deltaTime) => Ticks++;
 
-	public override string PropertyName() => "stratumparity:tickcounter";
+	public override string PropertyName() => "stratum:tickcounter";
 }

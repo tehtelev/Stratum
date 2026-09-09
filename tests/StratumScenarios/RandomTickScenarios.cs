@@ -154,7 +154,7 @@ public class RandomTickScenarios : AtlasScenarioBase
 				for (int y = 0; y < PlatformLayers; y++)
 				{
 					BlockPos pos = corner.AddCopy(x, y, z);
-					world.SetBlock("stratumparityprobe:probe", pos);
+					world.SetBlock("stratumprobe:probe", pos);
 					positions.Add(pos);
 				}
 			}
