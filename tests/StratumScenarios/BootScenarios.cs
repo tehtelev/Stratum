@@ -8,8 +8,10 @@ namespace StratumScenarios;
 /// <summary>
 /// Fundamentals: the server boots this repo's patched lib, the clock advances, a block
 /// write reads back, a joined player survives ticking, and an unknown command still
-/// reports the vanilla error code. Nothing here is Stratum-specific behavior, which is
-/// the point: a fork that breaks one of these breaks every server running it.
+/// reports the vanilla error code. Most of that is not Stratum-specific behavior, which
+/// is the point: a fork that breaks one of these breaks every server running it. The
+/// last two scenarios are the exception, and they only check registration: the fork's
+/// own command groups have to be reachable at all.
 /// </summary>
 public class BootScenarios : AtlasScenarioBase
 {
@@ -61,7 +63,7 @@ public class BootScenarios : AtlasScenarioBase
 	[AtlasScenario]
 	public async Task UnknownCommand_Should_ReportErrorCode_When_Executed()
 	{
-		// The rest of the console command surface is covered far better by
+		// Argument handling and command output are covered far better by
 		// scripts/smoke-test.sh, which pipes commands into a real server and checks the
 		// log. This one stays because the error code is a hard-coded contract that the
 		// fork's command access layer sits in front of.
@@ -69,5 +71,36 @@ public class BootScenarios : AtlasScenarioBase
 
 		Assert.False(result.Ok);
 		Assert.Equal("nosuchcommand", result.Raw.ErrorCode);
+	}
+
+	[AtlasScenario]
+	public async Task TimeAdd_Should_AdvanceCalendar_When_Executed()
+	{
+		double before = World.Calendar.TotalHours;
+		CommandResult result = await World.ExecuteCommand("/time add 2");
+
+		Assert.True(result.Ok, $"/time add failed: {result.Message}");
+		await World.Until(() => World.Calendar.TotalHours > before, timeoutTicks: 100);
+	}
+
+	[AtlasScenario]
+	public async Task StratumCommand_Should_BeRegistered_When_Executed()
+	{
+		CommandResult result = await World.ExecuteCommand("/stratum");
+
+		Assert.NotEqual("nosuchcommand", result.Raw.ErrorCode);
+	}
+
+	[AtlasScenario]
+	public async Task HomeCommands_Should_BeRegistered_When_Executed()
+	{
+		// Registration is the contract under test, not successful execution: the console
+		// caller has no world position, so /sethome may legitimately error for a
+		// different reason than "no such command". smoke-test.sh probes /kit and
+		// /friendlyfire but nothing in the homes and tpa group, so a registration
+		// regression there would otherwise pass everything the repo runs.
+		CommandResult result = await World.ExecuteCommand("/sethome");
+
+		Assert.NotEqual("nosuchcommand", result.Raw.ErrorCode);
 	}
 }

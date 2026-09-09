@@ -1,12 +1,13 @@
 # StratumScenarios
 
-Fourteen end-to-end scenarios that boot a real server in-process (through the
+Seventeen end-to-end scenarios that boot a real server in-process (through the
 [Atlas](https://github.com/Pixnop/Atlas) test harness) and assert documented fork
 behavior: chunk persistence across save/unload/reload, the simulation distance throttles
 for entities, random ticks and block tick listeners, and the fact that each
 `stratum-performance.json` toggle really restores vanilla behavior. `BootScenarios` also
-guards against the worst false green available here, a build made without
-`-p:EmbedPatchedFiles=true` that boots the downloaded vanilla lib instead of this repo's.
+checks that the fork's own command groups are registered, and guards against the worst
+false green available here, a build made without `-p:EmbedPatchedFiles=true` that boots
+the downloaded vanilla lib instead of this repo's.
 
 Run it with `make scenarios`. That builds, materializes the install with one
 `--stratum-prepare-only` launch, and runs `dotnet test` with `VINTAGE_STORY` pointing at
