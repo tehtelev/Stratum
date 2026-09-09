@@ -24,7 +24,9 @@ ifneq ($(VERSION),1.22.7)
   BOOTSTRAP_ARGS += --version $(VERSION)
 endif
 
-.PHONY: bootstrap build smoke clean refresh help
+.PHONY: bootstrap build smoke scenarios clean refresh help
+
+SERVER_DIR := StratumServer/bin/$(CONFIGURATION)/net10.0
 
 help: ## Show available targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sort | awk -F ':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -49,6 +51,14 @@ endif
 
 smoke: build ## Build and boot-test the server
 	bash scripts/smoke-test.sh
+
+scenarios: build ## Build and run the Atlas scenario suite in tests/StratumScenarios
+# The launcher materializes the vanilla install and the patched overlay into its own
+# output directory, which is not configurable (AppContext.BaseDirectory), so that is
+# what VINTAGE_STORY has to point at. --stratum-prepare-only stops right after the
+# overlay, without booting a world; --dataPath keeps the throwaway save out of the tree.
+	dotnet $(SERVER_DIR)/StratumServer.dll --stratum-prepare-only --stratum-no-banner --dataPath "$$(mktemp -d)"
+	VINTAGE_STORY="$(CURDIR)/$(SERVER_DIR)" dotnet test tests/StratumScenarios -c $(CONFIGURATION)
 
 clean: ## Remove intermediate build files (use refresh for full reset)
 	find . -type d -name obj -not -path './.baseline/*' -not -path './.vanilla/*' | xargs -r rm -rf

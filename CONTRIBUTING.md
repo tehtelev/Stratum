@@ -156,7 +156,11 @@ Compilation is not enough. Before opening a PR:
 
 1. `dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true` (or `make build`) is green with zero warnings on files you touched.
 2. Run the smoke test: `make smoke` (or `bash scripts/smoke-test.sh` / `.\scripts\smoke-test.ps1`). It builds, boots the server, waits for RunGame, checks for fatal errors, and (bash only, set `SMOKE_TEST_PROBE=0` to skip) pipes a small set of console commands into the running server to cover command registration and argument handling end to end.
-3. If your change touches a hot path (entity ticking, chunk IO, packet handling), get a before/after measurement. Server timings, frame profiler output, or a sampling profiler are all fine. "Feels faster" is not.
+3. If your change touches chunk IO, entity ticking, or the simulation distance limits, run
+   `make scenarios`. It runs the scenario suite in `tests/StratumScenarios` against a prepared
+   install, one in-process server per test class. That project sits outside `VintageStory.slnx`
+   and nothing else builds it, so a normal build never pays for it. See its README.
+4. If your change touches a hot path (entity ticking, chunk IO, packet handling), get a before/after measurement. Server timings, frame profiler output, or a sampling profiler are all fine. "Feels faster" is not.
 
 ## Commits
 
