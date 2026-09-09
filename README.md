@@ -101,7 +101,7 @@ Anything else is forwarded to the server, such as `--port` or `--dataPath`.
 
 ## Commands
 
-Stratum adds a set of in-game commands on top of vanilla.
+Stratum adds a set of in-game commands on top of vanilla. The full list of pages is in [docs/README.md](docs/README.md).
 
 - [docs/commands/kits.md](docs/commands/kits.md): `/kit` and `/kitedit`.
 - [docs/role-prefixes.md](docs/role-prefixes.md): stacking role name prefixes.
