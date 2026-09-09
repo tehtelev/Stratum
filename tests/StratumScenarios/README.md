@@ -11,8 +11,11 @@ the downloaded vanilla lib instead of this repo's.
 
 Run it with `make scenarios`. That builds, materializes the install with one
 `--stratum-prepare-only` launch, and runs `dotnet test` with `VINTAGE_STORY` pointing at
-it. Around one minute of scenario time plus one server boot per test class, so a few
-minutes in total. It pulls one NuGet package, `Pixnop.Atlas.XUnit`.
+it. About a minute and a half, the eight server boots included. It pulls four NuGet
+packages: xunit, its Visual Studio runner, Microsoft.NET.Test.Sdk, and
+`Pixnop.Atlas.XUnit`, which must be 0.13.1 or newer: older Atlas releases open the
+synthetic join with the identification packet, which Stratum's first-packet gate drops,
+so every scenario that joins a player times out.
 
 The project is outside `VintageStory.slnx` on purpose: it needs a prepared install, and
 a normal build must not depend on one. Nothing runs it automatically.

@@ -11,8 +11,8 @@ namespace StratumScenarios;
 /// (Performance.SimulationDistance.LimitRandomTicks, enabled by default, radius 96
 /// blocks). The staged probe mod supplies a block that turns to granite on every random
 /// tick it receives, so coverage becomes countable world state: a platform of probe
-/// blocks near the player converts steadily, and a platform 200 blocks out must stay
-/// untouched.
+/// blocks near the player converts steadily, and a platform four chunks out (128
+/// blocks, past the clamped radius) must stay untouched.
 ///
 /// The effective conversion rate stacks many engine factors (random sampling, per-chunk
 /// caps, the fork's per-pass chunk cap with rotation and slice striding, and a

@@ -56,8 +56,9 @@ scenarios: build ## Build and run the Atlas scenario suite in tests/StratumScena
 # The launcher materializes the vanilla install and the patched overlay into its own
 # output directory, which is not configurable (AppContext.BaseDirectory), so that is
 # what VINTAGE_STORY has to point at. --stratum-prepare-only stops right after the
-# overlay, without booting a world; --dataPath keeps the throwaway save out of the tree.
-	dotnet $(SERVER_DIR)/StratumServer.dll --stratum-prepare-only --stratum-no-banner --dataPath "$$(mktemp -d)"
+# overlay, before any world is created, and exits non-zero if the build carried no
+# patched files to overlay, which is the case that would leave a stale lib in place.
+	dotnet $(SERVER_DIR)/StratumServer.dll --stratum-prepare-only --stratum-no-banner
 	VINTAGE_STORY="$(CURDIR)/$(SERVER_DIR)" dotnet test tests/StratumScenarios -c $(CONFIGURATION)
 
 clean: ## Remove intermediate build files (use refresh for full reset)
