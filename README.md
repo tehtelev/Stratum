@@ -150,4 +150,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md#versioning-and-releases) for the full sche
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE) for the Stratum source code, patches, scripts and documentation. It grants no rights to Vintage Story, see [NOTICE.md](NOTICE.md).
