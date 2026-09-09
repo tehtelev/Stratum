@@ -61,6 +61,14 @@ internal static class Program
 				{
 					Console.Error.WriteLine("Stratum: WARNING this build carries no embedded patched files, so the server is about to run the downloaded vanilla assemblies unpatched.");
 					Console.Error.WriteLine("Stratum: build with 'make build', or 'dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true'.");
+					if (prepareOnly)
+					{
+						// Preparing is the whole job of this mode, and it wrote nothing. The
+						// install is left holding whatever an earlier build put there, which
+						// on a repeat run is a stale patched lib that looks prepared, so
+						// callers must not treat this as a success.
+						return 1;
+					}
 				}
 				else if (written > 0)
 				{
