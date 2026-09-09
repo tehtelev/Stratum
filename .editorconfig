@@ -1,0 +1,47 @@
+# Editor defaults for the tracked tree. Mirrors CONTRIBUTING.md: tabs in Stratum
+# C#, match the surrounding style when editing vanilla, LF everywhere except
+# PowerShell (see .gitattributes).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Stratum-owned C#: tabs, file-scoped namespaces (enforced by review, not here).
+[{sources,StratumServer,tests}/**.cs]
+indent_style = tab
+
+# Decompiled VintagestoryLib is emitted with tabs by ilspycmd.
+[VintagestoryLib/**.cs]
+indent_style = tab
+
+# The Anego forks (API, Essentials, Survival) use four spaces. Keep them as they are.
+[{VintagestoryApi,VSEssentials,VSSurvivalMod}/**.cs]
+indent_style = space
+indent_size = 4
+
+# Unified diffs must keep their trailing whitespace and context lines byte for byte.
+[*.patch]
+trim_trailing_whitespace = false
+insert_final_newline = false
+
+[*.{csproj,props,targets,slnx,json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.sh]
+indent_style = space
+indent_size = 2
+
+[*.ps1]
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+
+[Makefile]
+indent_style = tab
