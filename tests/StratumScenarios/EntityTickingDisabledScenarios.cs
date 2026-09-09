@@ -39,7 +39,7 @@ public class EntityTickingDisabledScenarios : AtlasScenarioBase
 			$"near probe not exact: {nearDelta} ticks vs {simDelta} sim ticks");
 		Assert.True(
 			farDelta == simDelta,
-			$"far probe throttled despite EntityTicking.Enabled=false: "
+			"far probe throttled despite EntityTicking.Enabled=false: "
 			+ $"{farDelta} ticks vs {simDelta} sim ticks");
 	}
 }

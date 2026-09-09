@@ -2,6 +2,7 @@ using Atlas.Api;
 using Atlas.XUnit;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
+using Vintagestory.API.Server;
 using Xunit;
 
 namespace StratumScenarios;
@@ -87,7 +88,7 @@ public class EntityTickingScenarios : AtlasScenarioBase
 		world.Api.WorldManager.LoadChunkColumnPriority(
 			farPos.X / 32,
 			farPos.Z / 32,
-			new Vintagestory.API.Server.ChunkLoadOptions { KeepLoaded = true });
+			new ChunkLoadOptions { KeepLoaded = true });
 		await world.Until(
 			() => world.Api.World.BlockAccessor.GetChunkAtBlockPos(farPos) != null,
 			timeoutTicks: 600);

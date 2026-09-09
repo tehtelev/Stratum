@@ -32,7 +32,7 @@ public class BlockTickListenerDisabledScenarios : AtlasScenarioBase
 		double ratio = (double)farDelta / nearDelta;
 		Assert.True(
 			ratio > 0.8,
-			$"far listener limited despite LimitBlockGameTickListeners=false: "
+			"far listener limited despite LimitBlockGameTickListeners=false: "
 			+ $"far={farDelta} near={nearDelta} ratio={ratio:F2}");
 	}
 }

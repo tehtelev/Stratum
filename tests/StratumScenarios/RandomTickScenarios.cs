@@ -1,6 +1,7 @@
 using Atlas.Api;
 using Atlas.XUnit;
 using Vintagestory.API.MathTools;
+using Vintagestory.API.Server;
 using Xunit;
 
 namespace StratumScenarios;
@@ -29,8 +30,8 @@ public class RandomTickScenarios : AtlasScenarioBase
 	// throttled sampling produces a first conversion well within the ceiling. The floor
 	// is deliberately "more than zero": rate-based floors proved flaky on slow CI
 	// runners because the engine's stacked rate factors can slow sampling several-fold.
-	internal const int ConversionFloor = 0;
-	internal const int ConvergenceTimeoutTicks = 2400;
+	private const int ConversionFloor = 0;
+	private const int ConvergenceTimeoutTicks = 2400;
 	private const int PlatformEdge = 16;
 	private const int PlatformLayers = 4;
 
@@ -115,7 +116,7 @@ public class RandomTickScenarios : AtlasScenarioBase
 		world.Api.WorldManager.LoadChunkColumnPriority(
 			farChunkX,
 			anchorChunkZ,
-			new Vintagestory.API.Server.ChunkLoadOptions { KeepLoaded = true });
+			new ChunkLoadOptions { KeepLoaded = true });
 		await world.Until(
 			() => world.Api.World.BlockAccessor.GetChunkAtBlockPos(farCorner) != null,
 			timeoutTicks: 600);
@@ -123,7 +124,7 @@ public class RandomTickScenarios : AtlasScenarioBase
 		return (PlacePlatform(world, nearCorner), PlacePlatform(world, farCorner));
 	}
 
-	internal static int CountConverted(IWorldSession world, List<BlockPos> platform)
+	private static int CountConverted(IWorldSession world, List<BlockPos> platform)
 	{
 		int converted = 0;
 		foreach (BlockPos pos in platform)
@@ -137,7 +138,7 @@ public class RandomTickScenarios : AtlasScenarioBase
 		return converted;
 	}
 
-	internal static void AssertColumnStillLoaded(IWorldSession world, BlockPos pos)
+	private static void AssertColumnStillLoaded(IWorldSession world, BlockPos pos)
 	{
 		Assert.True(
 			world.Api.World.BlockAccessor.GetChunkAtBlockPos(pos) != null,

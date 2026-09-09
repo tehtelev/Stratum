@@ -22,10 +22,13 @@ public class BootScenarios : AtlasScenarioBase
 		// -p:EmbedPatchedFiles=true, the launcher has nothing to overlay and the server
 		// runs the downloaded vanilla VintagestoryLib.dll: every scenario below would
 		// pass while testing vanilla. StratumRuntime exists only in this repo's lib.
+		// The type probe is what forces the load, so read the location after it or the
+		// message can say "<not loaded>" about an assembly that resolves fine.
+		bool patched = Type.GetType("Vintagestory.Server.StratumRuntime, VintagestoryLib") != null;
 		string loaded = AppDomain.CurrentDomain.GetAssemblies()
 			.FirstOrDefault(a => a.GetName().Name == "VintagestoryLib")?.Location ?? "<not loaded>";
 		Assert.True(
-			Type.GetType("Vintagestory.Server.StratumRuntime, VintagestoryLib") != null,
+			patched,
 			"the loaded VintagestoryLib.dll carries no Vintagestory.Server.StratumRuntime, so it is not "
 			+ "this repo's build. Rebuild with -p:EmbedPatchedFiles=true and rerun "
 			+ $"--stratum-prepare-only before testing. Loaded from: {loaded}");

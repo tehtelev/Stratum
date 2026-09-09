@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>$(FrameworkVersion)</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
@@ -14,7 +14,7 @@
       to test yet.
     -->
     <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">$(VINTAGE_STORY)</VintageStoryPath>
-    <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">$(MSBuildThisFileDirectory)../../StratumServer/bin/$(Configuration)/net10.0</VintageStoryPath>
+    <VintageStoryPath Condition="'$(VintageStoryPath)' == ''">$(MSBuildThisFileDirectory)../../StratumServer/bin/$(Configuration)/$(FrameworkVersion)</VintageStoryPath>
   </PropertyGroup>
 
   <ItemGroup>
