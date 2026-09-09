@@ -1,30 +1,187 @@
 diff --git a/VSSurvivalMod/Systems/WorldGen/Standard/ChunkGen/6.GenStructures/Story/GenStoryStructures.cs b/VSSurvivalMod/Systems/WorldGen/Standard/ChunkGen/6.GenStructures/Story/GenStoryStructures.cs
-index 998a40c..c1b14c0 100644
+index 998a40c..3f0b92f 100644
 --- a/VSSurvivalMod/Systems/WorldGen/Standard/ChunkGen/6.GenStructures/Story/GenStoryStructures.cs
 +++ b/VSSurvivalMod/Systems/WorldGen/Standard/ChunkGen/6.GenStructures/Story/GenStoryStructures.cs
-@@ -729,14 +729,23 @@ namespace Vintagestory.GameContent
-                     else
+@@ -675,10 +675,65 @@ namespace Vintagestory.GameContent
+         private void OnWorldGenBlockAccessor(IChunkProviderThread chunkProvider)
+         {
+             worldgenBlockAccessor = chunkProvider.GetBlockAccessor(false);
+         }
+ 
++        // Stratum start:
++        /// <summary>
++        /// Clamp the structure's Y coordinates to ensure it fits within the world's valid height range
++        /// </summary>
++        private void ClampStructureY(ref Cuboidi strucloc, ref BlockPos startPos, int sizeY, int maxY)
++        {
++            // Maximum and minimum VALID block coordinates in the world
++            int maxValidY = maxY - 1;
++            int minValidY = 1; // Above bedrock (mantle at Y=0)
++
++            // Calculate the actual block coordinates of the structure
++            int blockMinY = strucloc.Y1;
++            int blockMaxY = strucloc.Y1 + sizeY - 1; // Last block coordinate
++
++            // 1. Protection against spawning below bedrock
++            if (blockMinY < minValidY)
++            {
++                blockMinY = minValidY;
++            }
++
++            // 2. If the structure is physically taller than the world
++            if (sizeY > maxY)
++            {
++                // Hard-clamp the structure to the world height
++                blockMinY = minValidY;
++                blockMaxY = maxValidY;
++            }
++            // 3. If the top boundary exceeds the world, shift the structure down
++            else if (blockMaxY > maxValidY)
++            {
++                int excess = blockMaxY - maxValidY;
++                blockMinY -= excess;
++                blockMaxY = maxValidY;
++            }
++
++            // Update strucloc
++            // In your code Y2 = Y1 + SizeY (exclusive upper bound)
++            strucloc.Y1 = blockMinY;
++
++            // If the structure was clipped (sizeY > maxY), Y2 should be maxY
++            if (sizeY > maxY)
++            {
++                strucloc.Y2 = maxY;
++            }
++            else
++            {
++                strucloc.Y2 = blockMinY + sizeY;
++            }
++
++            // Synchronize startPos with the final lower bound
++            startPos.Y = strucloc.Y1;
++        }
++        // Startum end
++
++
+         private void OnChunkColumnGen(IChunkColumnGenerateRequest request)
+         {
+             if (!genStoryStructures) return;
+ 
+             var chunks = request.Chunks;
+@@ -695,57 +750,65 @@ namespace Vintagestory.GameContent
+                 if (!strucInst.DidGenerate)
+                 {
+                     strucInst.DidGenerate = true;
+                     StoryStructureInstancesDirty = true;
+                 }
+-                var startPos = new BlockPos(strucloc.X1, strucloc.Y1, strucloc.Z1, 0);
+ 
++                // Stratum start:
++                var startPos = new BlockPos(strucloc.X1, strucloc.Y1, strucloc.Z1, 0);
+                 var structure = scfg.Structures.First(s => s.Code == strucCode);
+ 
++                int sizeY = structure.schematicData.SizeY;
++                int offsetY = structure.schematicData.OffsetY;
++                int maxY = worldgenBlockAccessor.MapSizeY; // Use world height from the accessor
++                bool isDirty = false;
++
++                // 1. Calculate base coordinates depending on placement type
+                 if (structure.UseWorldgenHeight)
+                 {
+-                    int h;
+-                    if (strucInst.WorldgenHeight >= 0)
+-                    {
+-                        h = strucInst.WorldgenHeight;
+-                    }
+-                    else
++                    if (strucInst.WorldgenHeight < 0)
                      {
-                         h = chunks[0].MapChunk.WorldGenTerrainHeightMap[(startPos.Z % chunksize) * chunksize + (startPos.X % chunksize)];
+-                        h = chunks[0].MapChunk.WorldGenTerrainHeightMap[(startPos.Z % chunksize) * chunksize + (startPos.X % chunksize)];
++                        int h = chunks[0].MapChunk.WorldGenTerrainHeightMap[(startPos.Z % chunksize) * chunksize + (startPos.X % chunksize)];
                          strucInst.WorldgenHeight = h;
-                         strucloc.Y1 = h - structure.schematicData.SizeY + structure.schematicData.OffsetY;
+-                        strucloc.Y1 = h + structure.schematicData.OffsetY;
 -                        strucloc.Y2 = strucloc.Y1 + structure.schematicData.SizeY;
-+                        // Stratum start:
-+                        // Protection against structure spawning under the mantle.
-+                        // Any negative coordinate will result in a chunk data error.
-+                        if (strucloc.Y1 <= 0)
-+                        {
-+                            strucloc.Y1 = 1;
-+                        }
-+                        strucloc.Y2 = strucloc.Y1 + structure.schematicData.SizeY; 
-                         StoryStructureInstancesDirty = true;
+-                        StoryStructureInstancesDirty = true;
++                        strucloc.Y1 = h + offsetY;
++                        strucloc.Y2 = strucloc.Y1 + sizeY;
++                        isDirty = true;
+                     }
+-
+-                    startPos.Y = h + structure.schematicData.OffsetY;
+                 }
+-                else if(structure.Placement == EnumStructurePlacement.SurfaceRuin)
++                else if (structure.Placement == EnumStructurePlacement.SurfaceRuin)
+                 {
+-                    int h;
+-                    if (strucInst.WorldgenHeight >= 0)
++                    if (strucInst.WorldgenHeight < 0)
+                     {
+-                        h = strucInst.WorldgenHeight;
+-                    }
+-                    else
+-                    {
+-                        h = chunks[0].MapChunk.WorldGenTerrainHeightMap[(startPos.Z % chunksize) * chunksize + (startPos.X % chunksize)];
++                        int h = chunks[0].MapChunk.WorldGenTerrainHeightMap[(startPos.Z % chunksize) * chunksize + (startPos.X % chunksize)];
+                         strucInst.WorldgenHeight = h;
+-                        strucloc.Y1 = h - structure.schematicData.SizeY + structure.schematicData.OffsetY;
+-                        strucloc.Y2 = strucloc.Y1 + structure.schematicData.SizeY;
+-                        StoryStructureInstancesDirty = true;
++                        strucloc.Y1 = h - sizeY + offsetY;
++                        strucloc.Y2 = strucloc.Y1 + sizeY;
++                        isDirty = true;
                      }
 -                    startPos.Y = h - structure.schematicData.SizeY + structure.schematicData.OffsetY;
-+
-+                    startPos.Y = strucloc.Y1;
-+                    // Stratum end
                  }
-                 else if(structure.Placement == EnumStructurePlacement.Surface)
+-                else if(structure.Placement == EnumStructurePlacement.Surface)
++                else if (structure.Placement == EnumStructurePlacement.Surface)
                  {
-                     strucloc.Y1 = api.World.SeaLevel + structure.schematicData.OffsetY;
-                     strucloc.Y2 = strucloc.Y1 + structure.schematicData.SizeY;
+-                    strucloc.Y1 = api.World.SeaLevel + structure.schematicData.OffsetY;
+-                    strucloc.Y2 = strucloc.Y1 + structure.schematicData.SizeY;
+-                    StoryStructureInstancesDirty = true;
++                    strucloc.Y1 = api.World.SeaLevel + offsetY;
++                    strucloc.Y2 = strucloc.Y1 + sizeY;
++                    isDirty = true;
++                }
++                // For other types (e.g., Underground) coordinates are already set in strucloc at initialization
+ 
++                // 2. Apply hard clipping and boundary protection
++                if (isDirty)
++                {
++                    ClampStructureY(ref strucloc, ref startPos, sizeY, maxY);
++                    StoryStructureInstancesDirty = true;
++                }
++                else
++                {
++                    // IMPORTANT: If the structure was already generated before (WorldgenHeight >= 0),
++                    // we simply take the saved (and already clipped) Y coordinate.
++                    // This fixes a bug where upon reloading the chunk the structure would 'fly' out of the world bounds.
+                     startPos.Y = strucloc.Y1;
+                 }
++                // Stratum end
+ 
+                 Block rockBlock = null;
+                 if (structure.resolvedRockTypeRemaps != null)
+                 {
+                     if (string.IsNullOrEmpty(strucInst.RockBlockCode))
+@@ -809,18 +872,19 @@ namespace Vintagestory.GameContent
+                 {
+                     if (structure.Placement is EnumStructurePlacement.Surface or EnumStructurePlacement.SurfaceRuin)
+                     {
+                         UpdateHeightmap(request, worldgenBlockAccessor);
+                     }
+-                    if(structure.GenerateGrass)
++                    if (structure.GenerateGrass)
+                         GenerateGrass(api, request, grassRand, genBlockLayers);
+                 }
+                 string code = structure.Code + ":" + structure.Schematics[0];
+ 
+                 var region = chunks[0].MapChunk.MapRegion;
+ 
+-                if (region.GeneratedStructures.FirstOrDefault(struc => struc.Code.Equals(code)) == null) {
++                if (region.GeneratedStructures.FirstOrDefault(struc => struc.Code.Equals(code)) == null)
++                {
+                     region.AddGeneratedStructure(new GeneratedStructure() { Code = code, Group = structure.Group, Location = strucloc.Clone() });
+                 }
+ 
+                 if (blocksPlaced > 0 && structure.BuildProtected)
+                 {
