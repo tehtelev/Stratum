@@ -17,7 +17,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 
 $configuration = if ($env:CONFIGURATION) { $env:CONFIGURATION } else { 'Release' }
 $framework = 'net10.0'
-$match = Select-String -Path (Join-Path $repoRoot 'Directory.Build.props') -Pattern '<FrameworkVersion>([^<]+)</FrameworkVersion>' | Select-Object -First 1
+$match = Select-String -LiteralPath (Join-Path $repoRoot 'Directory.Build.props') -Pattern '<FrameworkVersion>([^<]+)</FrameworkVersion>' | Select-Object -First 1
 if ($match) { $framework = $match.Matches[0].Groups[1].Value }
 # The launcher materializes the vanilla install and the patched overlay into its own
 # output directory, which is not configurable (AppContext.BaseDirectory), so that is
@@ -25,12 +25,12 @@ if ($match) { $framework = $match.Matches[0].Groups[1].Value }
 $serverDir = Join-Path $repoRoot "StratumServer\bin\$configuration\$framework"
 
 $previousVintageStory = $env:VINTAGE_STORY
-Push-Location $repoRoot
+Push-Location -LiteralPath $repoRoot
 try {
     # Build if the launcher is missing. Two passes, like the Makefile's build target: the
     # embed pass points at sibling projects' bin output by raw path, so on a tree where
     # those outputs do not exist yet it can race the projects that produce them.
-    if (-not (Test-Path (Join-Path $serverDir 'StratumServer.dll'))) {
+    if (-not (Test-Path -LiteralPath (Join-Path $serverDir 'StratumServer.dll'))) {
         Write-Host "Building $configuration..."
         dotnet build VintageStory.slnx -c $configuration --verbosity quiet
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
