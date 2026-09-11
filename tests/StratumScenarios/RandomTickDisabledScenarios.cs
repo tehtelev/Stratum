@@ -8,8 +8,9 @@ namespace StratumScenarios;
 /// Same probe as <see cref="RandomTickScenarios"/>, but the seeded
 /// stratum-performance.json turns SimulationDistance.LimitRandomTicks off before boot.
 /// Far chunks must then random-tick again, which is what proves the toggle restores
-/// vanilla behavior. As with every config fixture here, stratum.json must be seeded too
-/// or the performance file is never read.
+/// vanilla behavior. As with every config fixture here, stratum.json is seeded at the
+/// current config version so the boot loads the sidecar without running a migration
+/// (see <see cref="EntityTickingDisabledScenarios"/>).
 /// </summary>
 [AtlasWorld(Mods = new[] { "mods/randomtickprobe" })]
 [AtlasDataFiles("fixtures/stratum-randomticks-off", TargetPath = "")]

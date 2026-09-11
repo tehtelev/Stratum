@@ -11,9 +11,11 @@ namespace StratumScenarios;
 /// entity-simulation tick. That is what proves the config toggle genuinely restores
 /// vanilla behavior instead of merely widening the bands.
 ///
-/// The fixture must also seed a stratum.json: StratumRuntime.LoadOrCreateConfig only
-/// reads stratum-performance.json when stratum.json already exists, otherwise it writes
-/// defaults over everything.
+/// The fixture also seeds a stratum.json at the current config version.
+/// StratumRuntime.LoadOrCreateConfig reads stratum-performance.json on its own, but a data
+/// dir holding only that sidecar counts as a version 2 install and runs the config
+/// migration on every boot. Keep the seeded ConfigVersion equal to
+/// StratumConfigMigration.CurrentVersion so the boot is a plain load.
 /// </summary>
 [AtlasDataFiles("fixtures/stratum-entityticking-off", TargetPath = "")]
 public class EntityTickingDisabledScenarios : AtlasScenarioBase

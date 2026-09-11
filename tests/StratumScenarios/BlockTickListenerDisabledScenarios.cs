@@ -8,7 +8,8 @@ namespace StratumScenarios;
 /// stratum-performance.json turns SimulationDistance.LimitBlockGameTickListeners off
 /// before boot. Far listeners must then fire at full rate again, which is what proves
 /// the toggle actually restores vanilla behavior. As with every config fixture here,
-/// stratum.json must be seeded too or the performance file is never read.
+/// stratum.json is seeded at the current config version so the boot loads the sidecar
+/// without running a migration (see <see cref="EntityTickingDisabledScenarios"/>).
 /// </summary>
 [AtlasDataFiles("fixtures/stratum-blockticks-off", TargetPath = "")]
 public class BlockTickListenerDisabledScenarios : AtlasScenarioBase
