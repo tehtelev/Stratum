@@ -51,7 +51,7 @@ smoke: build ## Build and boot-test the server
 	bash scripts/smoke-test.sh
 
 scenarios: build ## Build and run the Atlas scenario suite in tests/StratumScenarios
-	bash scripts/scenarios.sh
+	CONFIGURATION=$(CONFIGURATION) bash scripts/scenarios.sh
 
 clean: ## Remove intermediate build files (use refresh for full reset)
 	find . -type d -name obj -not -path './.baseline/*' -not -path './.vanilla/*' | xargs -r rm -rf
