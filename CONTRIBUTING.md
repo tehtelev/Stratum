@@ -9,7 +9,7 @@ Stratum is a patch set over the vanilla Vintage Story server. The repo does not 
 - `patches/` is unified diffs against the decompiled vanilla baseline.
 - `sources/` is files that exist only in Stratum. No vanilla equivalent.
 - `StratumServer/` is the launcher and the first-run vanilla downloader.
-- `scripts/` holds bootstrap, extract-patches, and smoke-test scripts (`.sh` for Linux/macOS, `.ps1` for Windows).
+- `scripts/` holds bootstrap, extract-patches, smoke-test, and scenarios scripts (`.sh` for Linux/macOS, `.ps1` for Windows).
 - `tests/` holds the Atlas scenario suite. Outside the solution, run with `make scenarios`.
 - `VintageStory.slnx` is the solution. It only opens after `bootstrap.ps1` has run.
 
@@ -158,7 +158,7 @@ Compilation is not enough. Before opening a PR:
 1. `dotnet build VintageStory.slnx -c Release -p:EmbedPatchedFiles=true` (or `make build`) is green with zero warnings on files you touched.
 2. Run the smoke test: `make smoke` (or `bash scripts/smoke-test.sh` / `.\scripts\smoke-test.ps1`). It builds, boots the server, waits for RunGame, checks for fatal errors, and (bash only, set `SMOKE_TEST_PROBE=0` to skip) pipes a small set of console commands into the running server to cover command registration and argument handling end to end.
 3. If your change touches chunk IO, entity ticking, or the simulation distance limits, run
-   `make scenarios` (Git Bash or WSL on Windows, there is no `.ps1` for it). It runs the
+   `make scenarios` (or `bash scripts/scenarios.sh` / `.\scripts\scenarios.ps1`). It runs the
    scenario suite in `tests/StratumScenarios` against a prepared install, one in-process
    server per test class. That project sits outside `VintageStory.slnx` and nothing else
    builds it, so a normal build never pays for it. See its README.

@@ -9,9 +9,10 @@ checks that the fork's own command groups are registered, and guards against the
 false green available here, a build made without `-p:EmbedPatchedFiles=true` that boots
 the downloaded vanilla lib instead of this repo's.
 
-Run it with `make scenarios`. That builds, materializes the install with one
-`--stratum-prepare-only` launch, and runs `dotnet test` with `VINTAGE_STORY` pointing at
-it. About a minute and a half, the eight server boots included. It pulls four NuGet
+Run it with `make scenarios`, `bash scripts/scenarios.sh` or `.\scripts\scenarios.ps1`.
+That builds if needed, materializes the install with one `--stratum-prepare-only` launch,
+and runs `dotnet test` with `VINTAGE_STORY` pointing at it. Extra arguments go to
+`dotnet test`, so `bash scripts/scenarios.sh --filter BootScenarios` runs a single class. About a minute and a half, the eight server boots included. It pulls four NuGet
 packages: xunit, its Visual Studio runner, Microsoft.NET.Test.Sdk, and
 `Pixnop.Atlas.XUnit`, which must be 0.13.1 or newer: older Atlas releases open the
 synthetic join with the identification packet, which Stratum's first-packet gate drops,
