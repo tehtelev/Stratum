@@ -109,14 +109,19 @@ public class ChunkPersistenceScenarios : AtlasScenarioBase
 	/// <summary>
 	/// Writes a deterministic pattern of blocks inside the anchor's chunk column, salted
 	/// per cycle so repeated cycles add distinct positions, then waits until every write
-	/// reads back: a column that is still loading swallows writes silently.
+	/// reads back: a column that is still loading swallows writes silently. The pattern
+	/// starts from a corner padded 8 blocks into the column rather than from the anchor
+	/// itself, so its 8 by 16 footprint stays inside the column SaveUnloadReload unloads
+	/// wherever the spawn happens to sit within its chunk.
 	/// </summary>
 	private async Task<List<BlockPos>> WritePatternConfirmed(BlockPos anchor, int saltForCycle)
 	{
+		BlockPos corner = new BlockPos(
+			(anchor.X / 32 * 32) + 8, anchor.Y, (anchor.Z / 32 * 32) + 8, 0);
 		var positions = new List<BlockPos>();
 		for (int i = 0; i < 8; i++)
 		{
-			positions.Add(anchor.AddCopy(i, 2 + saltForCycle, (i * 3) % 16));
+			positions.Add(corner.AddCopy(i, 2 + saltForCycle, (i * 3) % 16));
 		}
 
 		foreach (BlockPos pos in positions)
