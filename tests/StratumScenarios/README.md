@@ -10,12 +10,15 @@ false green available here, a build made without `-p:EmbedPatchedFiles=true` tha
 the downloaded vanilla lib instead of this repo's.
 
 Run it with `make scenarios`, `bash scripts/scenarios.sh` or `.\scripts\scenarios.ps1`.
-That builds if needed, materializes the install with one `--stratum-prepare-only` launch,
-and runs `dotnet test` with `VINTAGE_STORY` pointing at it. Extra arguments go to
-`dotnet test`, so `bash scripts/scenarios.sh --filter BootScenarios` runs a single class. The test phase alone takes between a minute and a half and two and a half minutes
-depending on the machine, the eight server boots included, on top of the builds and the
-prepare launch. It pulls four NuGet
-packages: xunit, its Visual Studio runner, Microsoft.NET.Test.Sdk, and
+`make scenarios` always builds first. The scripts alone build only if the launcher is
+missing, so run `make build` first after a change or they test the previous build. Then
+they materialize the install with one `--stratum-prepare-only` launch and run
+`dotnet test` with `VINTAGE_STORY` pointing at it, in the configuration named by
+`CONFIGURATION` (Release by default). Extra arguments go to `dotnet test`, so
+`bash scripts/scenarios.sh --filter BootScenarios` runs a single class. The test phase
+alone takes between a minute and a half and two and a half minutes depending on the
+machine, the eight server boots included, on top of the builds and the prepare launch.
+It pulls four NuGet packages: xunit, its Visual Studio runner, Microsoft.NET.Test.Sdk, and
 `Pixnop.Atlas.XUnit`, which must be 0.13.1 or newer: older Atlas releases open the
 synthetic join with the identification packet, which Stratum's first-packet gate drops,
 so every scenario that joins a player times out.
