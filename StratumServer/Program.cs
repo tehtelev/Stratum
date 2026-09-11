@@ -32,6 +32,11 @@ internal static class Program
 		bool refresh = HasOption(args, "--stratum-refresh");
 		bool skipBootstrap = HasOption(args, "--stratum-skip-bootstrap");
 		bool prepareOnly = HasOption(args, "--stratum-prepare-only");
+		if (prepareOnly && skipBootstrap)
+		{
+			Console.Error.WriteLine("Stratum: --stratum-prepare-only cannot be combined with --stratum-skip-bootstrap, which skips the preparation it asks for.");
+			return 2;
+		}
 		string[] serverArgs = RemoveOption(args, "--stratum-no-banner", "--stratum-refresh", "--stratum-skip-bootstrap", "--stratum-prepare-only");
 		bool printBanner = !HasOption(args, "--stratum-no-banner");
 		serverArgs = AddDefaultDataPath(serverArgs, out string defaultDataPathAdded);

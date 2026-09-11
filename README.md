@@ -94,7 +94,7 @@ changes.
 | `--stratum-help`           | Print launcher options and exit           |
 | `--stratum-refresh`        | Download and prepare the base server again |
 | `--stratum-skip-bootstrap` | Skip first-run prepare work                |
-| `--stratum-prepare-only`   | Prepare the install, then exit             |
+| `--stratum-prepare-only`   | Prepare the install, then exit. Exits non-zero if the build embeds no patched files; refused with `--stratum-skip-bootstrap` |
 | `--stratum-no-banner`      | Suppress the startup banner               |
 
 Anything else is forwarded to the server, such as `--port` or `--dataPath`.
