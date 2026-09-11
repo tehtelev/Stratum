@@ -87,23 +87,23 @@ public class BootScenarios : AtlasScenarioBase
 	}
 
 	[AtlasScenario]
-	public async Task StratumCommand_Should_BeRegistered_When_Executed()
+	public void StratumCommand_Should_BeRegistered_When_ServerStarts()
 	{
-		CommandResult result = await World.ExecuteCommand("/stratum");
-
-		Assert.NotEqual("nosuchcommand", result.Raw.ErrorCode);
+		Assert.True(
+			World.Api.ChatCommands.Get("stratum") != null,
+			"/stratum is not registered with the server's chat command API");
 	}
 
 	[AtlasScenario]
-	public async Task HomeCommands_Should_BeRegistered_When_Executed()
+	public void HomeCommands_Should_BeRegistered_When_ServerStarts()
 	{
-		// Registration is the contract under test, not successful execution: the console
-		// caller has no world position, so /sethome may legitimately error for a
-		// different reason than "no such command". smoke-test.sh probes /kit and
-		// /friendlyfire but nothing in the homes and tpa group, so a registration
-		// regression there would otherwise pass everything the repo runs.
-		CommandResult result = await World.ExecuteCommand("/sethome");
-
-		Assert.NotEqual("nosuchcommand", result.Raw.ErrorCode);
+		// Registration is the contract under test, so ask the command API directly rather
+		// than executing: the console caller has no world position and /sethome would
+		// error anyway. smoke-test.sh probes /kit and /friendlyfire but nothing in the
+		// homes and tpa group, so a registration regression there would otherwise pass
+		// everything the repo runs.
+		Assert.True(
+			World.Api.ChatCommands.Get("sethome") != null,
+			"/sethome is not registered with the server's chat command API");
 	}
 }
