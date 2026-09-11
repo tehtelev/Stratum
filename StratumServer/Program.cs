@@ -311,6 +311,8 @@ internal static class Program
 		Console.WriteLine("  --stratum-refresh          Re-download and re-extract vanilla assets");
 		Console.WriteLine("  --stratum-skip-bootstrap   Skip the first-run vanilla asset bootstrap");
 		Console.WriteLine("  --stratum-prepare-only     Download/extract/patch the install, then exit");
+		Console.WriteLine("                             (non-zero if nothing is patched; refused with");
+		Console.WriteLine("                             --stratum-skip-bootstrap)");
 		Console.WriteLine();
 		Console.WriteLine("If --dataPath is omitted, Stratum uses the local Data folder next to StratumServer.exe.");
 		Console.WriteLine("All other arguments are passed through to the Stratum server core.");
