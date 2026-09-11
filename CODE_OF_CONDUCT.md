@@ -3,7 +3,7 @@
 Stratum follows the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/), version 2.1. The short version:
 
 - Be respectful in issues, pull requests, reviews and on Discord. Disagree with the code, not with the person.
-- Reviews are blunt about defects and neutral about people. A rejected change is not a judgement of its author.
+- Reviews are blunt about defects and neutral about people. A rejected change is not a judgment of its author.
 - No harassment, discrimination, personal attacks, or publishing of someone's private information.
 - Assume good faith from contributors who are new to the decompile-and-patch workflow; point them at [CONTRIBUTING.md](CONTRIBUTING.md) instead of at the door.
 
@@ -13,6 +13,6 @@ Report a problem to any maintainer by direct message on [Discord](https://discor
 
 ## Enforcement
 
-Maintainers may edit or remove comments, commits, issues and pull requests that break this code, and may temporarily or permanently exclude a contributor from the project for behaviour they judge inappropriate, threatening, offensive, or harmful.
+Maintainers may edit or remove comments, commits, issues and pull requests that break this code, and may temporarily or permanently exclude a contributor from the project for behavior they judge inappropriate, threatening, offensive, or harmful.
 
 The full text of the Contributor Covenant 2.1, including the enforcement ladder, applies where this page is silent.

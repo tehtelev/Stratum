@@ -7,6 +7,7 @@ Pages in this folder, by audience.
 - [BUILDING.md](BUILDING.md): bootstrap, build, embed the patched files, smoke test.
 - [../CONTRIBUTING.md](../CONTRIBUTING.md): repository workflow, patch markers, style, pull request checklist.
 - [../SECURITY.md](../SECURITY.md): how to report a security bug.
+- [../CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md): how contributors treat each other, and how to report a problem.
 
 ## Running a server
 
