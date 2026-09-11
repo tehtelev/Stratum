@@ -54,7 +54,10 @@ internal static class Program
 			catch (Exception exception)
 			{
 				Console.Error.WriteLine($"Stratum: vanilla asset bootstrap failed: {exception.Message}");
-				Console.Error.WriteLine("Pass --stratum-skip-bootstrap to launch anyway if the assets are already in place.");
+				if (!prepareOnly)
+				{
+					Console.Error.WriteLine("Pass --stratum-skip-bootstrap to launch anyway if the assets are already in place.");
+				}
 				return 1;
 			}
 
