@@ -8,7 +8,7 @@ namespace StratumScenarios;
 /// Entity.OnGameTick drives behavior ticks, so when the distance-band throttling skips an
 /// entity's tick, this counter freezes with it.
 /// </summary>
-public sealed class TickCounterBehavior : EntityBehavior
+internal sealed class TickCounterBehavior : EntityBehavior
 {
 	public int Ticks;
 
