@@ -1,5 +1,5 @@
 diff --git a/VSSurvivalMod/Systems/WorldGen/Standard/ChunkGen/6.GenStructures/Story/GenStoryStructures.cs b/VSSurvivalMod/Systems/WorldGen/Standard/ChunkGen/6.GenStructures/Story/GenStoryStructures.cs
-index 998a40c..c75bea5 100644
+index 998a40c..987d1d7 100644
 --- a/VSSurvivalMod/Systems/WorldGen/Standard/ChunkGen/6.GenStructures/Story/GenStoryStructures.cs
 +++ b/VSSurvivalMod/Systems/WorldGen/Standard/ChunkGen/6.GenStructures/Story/GenStoryStructures.cs
 @@ -134,10 +134,13 @@ namespace Vintagestory.GameContent
@@ -29,7 +29,7 @@ index 998a40c..c75bea5 100644
 +        private void ClampStructureY(ref Cuboidi strucloc, ref BlockPos startPos, int sizeY, int maxY)
 +        {
 +            int maxValidY = maxY - 1;
-+            int minValidY = 1;
++            int minValidY = 1; // we don't want to spawn story structures at y=0 because that is the mantle blocks
 +
 +            int blockMinY = strucloc.Y1;
 +            int blockMaxY = strucloc.Y1 + sizeY - 1;
@@ -52,7 +52,7 @@ index 998a40c..c75bea5 100644
 +
 +            startPos.Y = strucloc.Y1;
 +        }
-+        // Startum end
++        // Stratum end
 +
 +
          private void OnChunkColumnGen(IChunkColumnGenerateRequest request)
