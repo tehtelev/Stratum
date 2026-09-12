@@ -1,5 +1,5 @@
 diff --git a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/1.GenTerra/GenTerra.cs b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/1.GenTerra/GenTerra.cs
-index 5f759f1..fac1da0 100644
+index 5f759f1..7e16575 100644
 --- a/VSEssentials/Systems/WorldGen/Standard/ChunkGen/1.GenTerra/GenTerra.cs
 +++ b/VSEssentials/Systems/WorldGen/Standard/ChunkGen/1.GenTerra/GenTerra.cs
 @@ -1,7 +1,8 @@
@@ -473,7 +473,7 @@ index 5f759f1..fac1da0 100644
                      }
  
                      // Often we don't need to calculate the noise.
-@@ -564,20 +711,480 @@ namespace Vintagestory.ServerMods
+@@ -564,20 +711,497 @@ namespace Vintagestory.ServerMods
  
              chunks[0].MapChunk.YMax = ymax;
          }
@@ -498,6 +498,9 @@ index 5f759f1..fac1da0 100644
 +            public ColumnResult[] ColumnResults;
 +            public bool[] LayerFullySolid;     // We can't use BitArrays for these because code which writes to them is heavily multi-threaded; but anyhow they are only mapSizeY x 4 bytes
 +            public bool[] LayerFullyEmpty;
++
++            // Stratum-fast: выделенный bool[] для solidity, ТОЛЬКО stratumGenerate.
++            public bool[][] ColumnSolidFast;
 +        }
 +
 +        ConcurrentBag<ColumnBuffers> columnBufferPool;
@@ -523,9 +526,14 @@ index 5f759f1..fac1da0 100644
 +                TaperMap = new WeightedTaper[chunksize * chunksize],
 +                ColumnResults = new ColumnResult[chunksize * chunksize],
 +                LayerFullySolid = new bool[mapsizeY],
-+                LayerFullyEmpty = new bool[mapsizeY]
++                LayerFullyEmpty = new bool[mapsizeY],
++                ColumnSolidFast = new bool[chunksize * chunksize][]   // Stratum-fast
 +            };
-+            for (int i = 0; i < buf.ColumnResults.Length; i++) buf.ColumnResults[i].ColumnBlockSolidities = new BitArray(mapsizeY);
++            for (int i = 0; i < buf.ColumnResults.Length; i++)
++                buf.ColumnResults[i].ColumnBlockSolidities = new BitArray(mapsizeY); // generate() всё ещё BitArray
++
++            for (int i = 0; i < buf.ColumnSolidFast.Length; i++)   // Stratum-fast
++                buf.ColumnSolidFast[i] = new bool[mapsizeY];
 +            return buf;
 +        }
 +
@@ -562,6 +570,10 @@ index 5f759f1..fac1da0 100644
 +        //      exactly once per worker, eliminating allocations inside the hot body.
 +        private void stratumGenerate(IServerChunk[] chunks, int chunkX, int chunkZ, bool requiresChunkBorderSmoothing)
 +        {
++            IMapChunk mapchunk = chunks[0].MapChunk;
++            const int chunksize = GlobalConstants.ChunkSize;
++
++
 +            ColumnBuffers buf;
 +            if (stratumColumnBufferFrames?.Count > 0 && stratumColumnBufferFrames.Peek().StratumOwner == this)
 +            {
@@ -570,17 +582,21 @@ index 5f759f1..fac1da0 100644
 +            else
 +            {
 +                // Stratum: reverse patches and reflection can call the vanilla method outside the registered handler.
-+                buf = new ColumnBuffers
++                var fb = new ColumnBuffers
 +                {
 +                    TaperMap = this.taperMap,
 +                    ColumnResults = this.columnResults,
 +                    LayerFullySolid = this.layerFullySolid,
-+                    LayerFullyEmpty = this.layerFullyEmpty
++                    LayerFullyEmpty = this.layerFullyEmpty,
++                    ColumnSolidFast = new bool[chunksize * chunksize][]   // Stratum-fast
 +                };
++
++                for (int i = 0; i < fb.ColumnSolidFast.Length; i++)
++                    fb.ColumnSolidFast[i] = new bool[api.WorldManager.MapSizeY];
++                buf = fb;
 +            }
 +
-+            IMapChunk mapchunk = chunks[0].MapChunk;
-+            const int chunksize = GlobalConstants.ChunkSize;
++
 +
 +            int upheavalMapUpLeft = 0;
 +            int upheavalMapUpRight = 0;
@@ -688,8 +704,8 @@ index 5f759f1..fac1da0 100644
 +                    float lxChunkBlockDelta = lX * chunkBlockDelta;
 +                    float lzChunkBlockDelta = lZ * chunkBlockDelta;
 +
-+                    BitArray columnBlockSolidities = columnResults[chunkIndex2d].ColumnBlockSolidities;
-+                    columnBlockSolidities.SetAll(false);
++                    bool[] columnBlockSolidities = buf.ColumnSolidFast[chunkIndex2d];   // Stratum-fast
++                    Array.Fill(columnBlockSolidities, false);
 +
 +                    double[] lerpedAmps = data.LerpedAmplitudes;
 +                    double[] lerpedTh = data.LerpedThresholds;
@@ -865,8 +881,9 @@ index 5f759f1..fac1da0 100644
 +                    ColumnResult columnResult = columnResults[mapIndex];
 +                    int waterID = columnResult.WaterBlockID;
 +                    surfaceWaterId = waterID;
++                    bool[] solid = buf.ColumnSolidFast[mapIndex];     // Stratum-fast
 +
-+                    if (yBase < seaLevel && waterID != gcfg.saltWaterBlockId && !columnResult.ColumnBlockSolidities[seaLevel - 1])     // Should surface water be lake ice? Relevant only for fresh water and only if this particular XZ column has a non-solid block at sea-level
++                    if (yBase < seaLevel && waterID != gcfg.saltWaterBlockId && !solid[seaLevel - 1])     // Should surface water be lake ice? Relevant only for fresh water and only if this particular XZ column has a non-solid block at sea-level
 +                    {
 +                        int temp = (GameMath.BiLerpRgbColor(lX * chunkBlockDelta, lZ * chunkBlockDelta, climateUpLeft, climateUpRight, climateBotLeft, climateBotRight) >> 16) & 0xFF;
 +                        float distort = (float)distort2dx.Noise(chunkX * chunksize + lX, worldZ) / 20f;
@@ -882,7 +899,7 @@ index 5f759f1..fac1da0 100644
 +                    {
 +                        int lY = posY % chunksize;
 +
-+                        if (columnResult.ColumnBlockSolidities[posY])  // if isSolid
++                        if (solid[posY])  // if isSolid
 +                        {
 +                            terrainheightmap[mapIndex] = (ushort)posY;
 +                            rainheightmap[mapIndex] = (ushort)posY;
@@ -960,7 +977,7 @@ index 5f759f1..fac1da0 100644
          }
  
  
-@@ -692,6 +1299,109 @@ namespace Vintagestory.ServerMods
+@@ -692,6 +1316,109 @@ namespace Vintagestory.ServerMods
          {
              public double X, Z;
              public static VectorXZ operator *(VectorXZ a, double b) => new VectorXZ { X = a.X * b, Z = a.Z * b };
